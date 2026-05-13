@@ -1,0 +1,25 @@
+[package]
+name = "shared"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[dependencies]
+sqlx = { version = "0.8.6", features = ["runtime-tokio", "macros", "postgres", "uuid", "chrono", "migrate", "bigdecimal"] }
+anyhow.workspace = true
+serde.workspace = true
+chrono = { version = "0.4", features = ["serde", "clock"] }
+lexicon_types_crate.workspace = true
+jacquard-common.workspace = true
+log.workspace = true
+apalis.workspace = true
+apalis-cron.workspace = true
+serde_json.workspace = true
+
+reqwest.workspace = true
+async-compression.workspace = true
+futures.workspace = true
+tokio-util.workspace = true
+rust-s3.workspace = true
+jacquard-api.workspace = true
+jacquard.workspace = true

@@ -1,0 +1,400 @@
+{%- import "partials/cow-header.askama.html" as cow -%}
+{% extends "layout.askama.html" %}
+
+{% block meta %}
+    <meta property="og:description" content="PDS MOOver backups"/>
+    <meta property="og:image" content="/halloween_moover.webp">
+{% endblock %}
+
+{% block content %}
+    <script>
+        document.addEventListener('alpine:init', () => {
+
+            window.Alpine.data('backups', () => ({
+                handle: '',
+                password: '',
+                twoFactorCode: '',
+                showTwoFactorCodeInput: false,
+                error: null,
+                showStatusMessage: false,
+                //The landing page to pick to login with password or oauth
+                showLandingButtons: true,
+                //Password login
+                showLoginScreen: false,
+                showRepoNotFoundScreen: false,
+                addRecoveryKey: true,
+                // Rotation key flow state
+                newlyCreatedRotationKey: null, // { publicKey, privateKey }
+                showRotationKeyScreen: false,
+                // PLC token manual entry for rotation key
+                plcTokenInput: null,
+                repoStatus: null,
+                updateStatusHandler(status) {
+                    console.log("Status update:", status);
+                    const el1 = document.getElementById("status-message");
+                    if (el1) el1.innerText = status;
+                    const el2 = document.getElementById("status-message-2");
+                    if (el2) el2.innerText = status;
+                },
+                async requestPlcToken() {
+                    this.error = null;
+                    try {
+                        this.showStatusMessage = true;
+                        this.updateStatusHandler('Requesting PLC token…');
+                        await window.BackupService.requestAPlcToken();
+                        this.updateStatusHandler('PLC token emailed. Check your inbox and paste the token below.');
+                    } catch (e) {
+                        console.error(e);
+                        this.error = e?.message || 'Failed to request PLC token';
+                    } finally {
+                        this.showStatusMessage = false;
+                    }
+                },
+                handleShowLogin() {
+                    this.showLandingButtons = false;
+                    this.showLoginScreen = true;
+                },
+                async handleOAuthSignup() {
+                    // TODO: Replace this URL with your actual OAuth signup endpoint for backups
+                    // If you have an environment-specific route, consider injecting it or making it configurable
+                    window.location.href = '/oauth/backups';
+                },
+                async handleLoginSubmit() {
+                    this.error = null;
+                    this.showStatusMessage = false;
+                    this.showLandingButtons = false;
+                    this.error = null;
+                    this.showStatusMessage = false;
+
+                    try {
+                        if (this.showTwoFactorCodeInput && !this.twoFactorCode) {
+                            this.error = 'Please enter the 2FA that was sent to your email.';
+                            return;
+                        }
+
+                        this.showStatusMessage = true;
+                        const result = await window.BackupService.loginAndStatus(
+                            this.handle,
+                            this.password,
+                            this.updateStatusHandler,
+                            this.twoFactorCode
+                        );
+                        if (result === null) {
+                            // Repo not found: offer signup flow
+                            this.showRepoNotFoundScreen = true;
+                            this.showLoginScreen = false;
+                            this.showStatusMessage = false;
+                        } else {
+                            this.repoStatus = result;
+                            this.showLoginScreen = false;
+                            this.showStatusMessage = false;
+                        }
+                    } catch (error) {
+                        this.showStatusMessage = false;
+                        console.error(error.error, error.message);
+                        if (error.error === 'AuthFactorTokenRequired') {
+                            this.showTwoFactorCodeInput = true;
+                            this.error = 'Two-factor code required. Check your email and enter the code.';
+                        } else {
+                            this.error = error.message || 'An unexpected error occurred.';
+                        }
+                    }
+                },
+                async handleSignUpSubmit() {
+                    this.error = null;
+                    this.showStatusMessage = true;
+                    try {
+
+                        if (this.addRecoveryKey) {
+                            window.handle = this.handle;
+                            if (!this.plcTokenInput) {
+                                this.error = 'Please paste your PLC token. Use the "Email me a PLC token" button to request one.';
+                                this.showStatusMessage = false;
+                                return;
+                            }
+                            // Create a new rotation key and add it using BackupService
+                            this.updateStatusHandler('Creating new rotation key…');
+                            const created = await window.PlcOps.createANewSecp256k1();
+                            this.newlyCreatedRotationKey = created;
+                            this.updateStatusHandler('Adding new rotation key to your DID…');
+                            await window.BackupService.addANewRotationKey(this.plcTokenInput, created.publicKey);
+                            this.updateStatusHandler('Rotation key added. Please save the private key now.');
+                            this.showRotationKeyScreen = true;
+                            this.showRepoNotFoundScreen = false;
+                            this.showLoginScreen = false;
+                            this.showStatusMessage = false;
+                        }
+                        // If they cannot add a key it should error before signing them up
+                        await window.BackupService.signUp(this.updateStatusHandler);
+                        this.updateStatusHandler('Signed up for backups successfully.');
+
+                        this.repoStatus = await window.BackupService.getUsersRepoStatus(this.updateStatusHandler);
+                        this.showLoginScreen = false;
+                        this.showStatusMessage = false;
+                        this.showRepoNotFoundScreen = false
+                    } catch (error) {
+                        console.error(error.error, error.message);
+                        this.error = error.message || 'Failed to sign up for backups.';
+                        this.showStatusMessage = false;
+                    }
+                },
+                async proceedToRepoStatus() {
+                    try {
+                        this.showStatusMessage = true;
+                        this.updateStatusHandler('Fetching repository status…');
+                        this.repoStatus = await window.BackupService.getUsersRepoStatus(this.updateStatusHandler);
+                        this.showRotationKeyScreen = false;
+                        this.showRepoNotFoundScreen = false;
+                        this.showLoginScreen = false;
+                    } catch (e) {
+                        console.error(e);
+                        this.error = e?.message || 'Failed to load repository status';
+                    } finally {
+                        this.showStatusMessage = false;
+                    }
+                },
+                async handleRunBackupNow() {
+                    this.error = null;
+                    this.showStatusMessage = true;
+                    try {
+                        await window.BackupService.runBackupNow(this.updateStatusHandler);
+                        this.repoStatus = await window.BackupService.getUsersRepoStatus(this.updateStatusHandler);
+                        this.updateStatusHandler('Backup request sent. Status refreshed.');
+                        this.showStatusMessage = false;
+                    } catch (error) {
+                        console.error(error.error, error.message);
+                        this.error = error.message || 'Failed to request backup.';
+                    }
+                },
+                async handleRemoveRepo() {
+                  if (confirm('Deleting your backups removes all your data and unregisters you for automatic backups. Your rotation key created here will stay valid, but you will not be able to restore your data from PDS MOOver.')) {
+                      try {
+                          await window.BackupService.removeRepo(this.updateStatusHandler);
+                          this.repoStatus = await window.BackupService.getUsersRepoStatus(this.updateStatusHandler);
+                      } catch (e) {
+                          this.error = e.message || 'Failed to delete backup repository'; } }
+                },
+                async refreshStatus(){
+                      try{
+                           this.repoStatus = await window.BackupService.getUsersRepoStatus(this.updateStatusHandler)
+                           console.log(this.repoStatus.createdAt)
+                      }catch(e){
+                          this.error = e.message || 'Failed to refresh status'
+                      }
+                      finally{
+                          this.showStatusMessage = false
+                      }
+                },
+                //These should be in their own file since they're not the only ones. just eh. weird vite setup and i dont got it in me rn
+                formatDate(value) {
+                    if (!value) return '—';
+                    try {
+                      const d = new Date(value);
+                      return d.toLocaleString();
+                    } catch (err) {
+                      console.error(err);
+                      return String(value);
+                    }
+                },
+                formatBytes(bytes) {
+                    if (bytes == null) return '—';
+                    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+                    let i = 0;
+                    let v = Number(bytes);
+                    while (v >= 1024 && i < units.length - 1) {
+                      v /= 1024;
+                      i++;
+                    }
+                    return v.toFixed(1) + ' ' + units[i];
+                  }
+
+            }))
+        })
+    </script>
+
+<div class="container" x-data="backups">
+
+
+    {% call cow::cow_header("Backups") %}
+
+
+    <!-- Landing choice: two buttons -->
+    <div x-show="showLoginScreen">
+        <!-- Informational section before sign-in -->
+        <div class="section" style="text-align: left;">
+             <p>
+                  PDS MOOver can provide worry-free backups of your AT Protocol account.
+                   This is a free service for individual accounts
+                   and stores the backups on PDS MOOver's servers.
+                   Just like your <a target="_blank" rel="noopener noreferrer" href="https://blueskyweb.zendesk.com/hc/en-us/articles/15835264007693-Data-Privacy">AT Proto data</a>,
+                   this is also public.
+                <span x-show="showLoginScreen">On login,
+                   you will be asked if you'd like to add a rotation key to your account.
+                                                                                     A rotation key is a recovery key
+                                                                                     that allows you to restore your account if your PDS ever goes down.
+                                                                                     If you're already signed up for backups, then you can log in here to manage them.</span>
+
+              </p>
+        </div>
+
+       <div x-show="showLandingButtons" class="actions" style="display: flex; gap: 1rem; flex-wrap: wrap;">
+            <button type="button" @click="handleShowLogin()">Sign in to add a recovery key</button>
+            <button type="button" @click="await handleOAuthSignup()">Sign in for backups with OAuth</button>
+        </div>
+
+        <!-- Sign in with password section -->
+        <form id="backup-signup-form" @submit.prevent="await handleLoginSubmit()">
+
+            <div class="section">
+                <h2>Sign in to your account</h2>
+                <div class="form-group">
+                    <label for="handle">Handle</label>
+                    <input type="text" id="handle" name="handle" placeholder="alice.bsky.social" x-model="handle" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Real Password</label>
+                    <input type="password" id="password" name="password" x-model="password" required>
+                <p> If you are signing up and adding a rotation key you have to use your account's real password. If you are just managing your backups or have your own rotation key you can use an app password</p>
+
+                </div>
+
+                <div x-show="showTwoFactorCodeInput" class="form-group">
+                    <label for="two-factor-code">Two-factor code (email)</label>
+                    <input type="text" id="two-factor-code" name="two-factor-code" x-model="twoFactorCode">
+                    <div class="error-message">Enter the 2FA code from your email.</div>
+                </div>
+            </div>
+
+            <div x-show="error" x-text="error" class="error-message"></div>
+            <div x-show="showStatusMessage" id="status-message" class="status-message"></div>
+            <div>
+                <button type="submit">Login for backups</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Repo not found prompt -->
+    <div class="section" x-show="showRepoNotFoundScreen">
+        <h2>No backup repository found</h2>
+        <p style="text-align: left;">
+            Sign up now to backup your AT Protocol account. PDS MOOver automatically backups your posts, likes, media, and all account data every 24 hours. This is stored on our servers in something called an <a target="_blank" rel="noopener noreferrer"  href="https://en.wikipedia.org/wiki/Object_storage">object store.</a> Just like your <a target="_blank" rel="noopener noreferrer"  href="https://blueskyweb.zendesk.com/hc/en-us/articles/15835264007693-Data-Privacy">AT Proto data</a>, this data is public.</p>
+        <div class="info" >
+            <h3>Critical: Save your rotation key</h3>
+            <p style="text-align: left;">
+            A rotation key is your account recovery key. If you've migrated to a selfhosted or thirdparty PDS, this key is the <span class="bold">ONLY</span> way to recover your account if your PDS goes down. Without it, a failed or rogue PDS means permanent account loss. Generate one and store it safely.
+            </p>
+        </div>
+        <div class="form-group">
+            <label style="display: inline-flex; align-items: center; gap: 0.5rem; white-space: nowrap;">
+                <input type="checkbox" x-model="addRecoveryKey" style="margin: 0;">
+                <span>Create a rotation key (recommended)</span>
+            </label>
+        </div>
+        <div x-show="addRecoveryKey" class="form-group">
+                <p>
+                    To add a new rotation key, you must authorize a PLC operation. Click the button to email yourself a PLC token, then paste it below.
+                    <span class="bold">NOTE: Adding a new key will remove all current rotation keys except for the one created and the one from your PDS</span>
+                </p>
+
+            <div class="actions" style="margin-bottom: 0.5rem;">
+                <button type="button" @click="await requestPlcToken()">Email me a PLC token</button>
+            </div>
+            <div class="form-group">
+                <label for="plc-token">PLC token</label>
+                <input type="text" id="plc-token" name="plc-token" x-model="plcTokenInput" placeholder="Paste PLC token from email" autocomplete="one-time-code">
+            </div>
+        </div>
+        <div x-show="!addRecoveryKey" class="form-group">
+            <div class="status-message" style="text-align: left;">
+                 <p>
+                       <span class="bold">Note:</span> a recovery key is <span class="bold">required</span> to restore your account. If you're not sure what this means, then it is important to check the above box and save the rotation key file given.
+                  </p>
+           </div>
+       </div>
+        <div x-show="error" x-text="error" class="error-message"></div>
+        <div x-show="showStatusMessage" id="status-message-2" class="status-message"></div>
+        <div>
+            <button type="button" @click="await handleSignUpSubmit()">Sign up for backups</button>
+        </div>
+    </div>
+
+    <!-- Rotation key display screen (after signup when addRecoveryKey is selected) -->
+    <template x-if="showRotationKeyScreen">
+        <div class="section">
+            <div x-data="{newlyCreatedRotationKey: newlyCreatedRotationKey}">
+                {% include "partials/rotation_key_display.askama.html" %}
+            </div>
+            <div class="form-group">
+                <button type="button" @click="await proceedToRepoStatus()">Next</button>
+            </div>
+        </div>
+    </template>
+
+    <!-- Repo status view for signed-up users -->
+    <div class="section" x-show="!showLandingButtons && !showLoginScreen && !showRepoNotFoundScreen && !showRotationKeyScreen">
+        <div class="section-header">
+            <h2 style="margin: 0;">Backup repository status</h2>
+            <button type="button" class="icon-button" title="Refresh status" aria-label="Refresh status" @click="refreshStatus">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M17.65 6.35A7.95 7.95 0 0012 4a8 8 0 108 8h-2a6 6 0 11-6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"></path>
+                </svg>
+            </button>
+        </div>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">DID</div>
+                <div class="stat-value stat-value--small" x-text="repoStatus?.did || '—'"></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Created</div>
+                <div class="stat-value stat-value--small" x-text="formatDate(repoStatus.createdAt)"></div>
+            </div>
+            <template x-if="repoStatus?.lastBackup != null">
+                <div class="stat-card">
+                    <div class="stat-label">Last backup</div>
+                    <div class="stat-value stat-value--small" x-text="formatDate(repoStatus?.lastBackup)"></div>
+                </div>
+            </template>
+            <template x-if="repoStatus?.rev != null">
+                <div class="stat-card">
+                    <div class="stat-label">Current rev</div>
+                    <div class="stat-value stat-value--small" x-text="repoStatus?.rev"></div>
+                </div>
+            </template>
+            <template x-if="repoStatus?.blobCount != null">
+                <div class="stat-card">
+                    <div class="stat-label">Total blobs</div>
+                    <div class="stat-value" x-text="repoStatus?.blobCount.toLocaleString()"></div>
+                </div>
+            </template>
+            <template x-if="repoStatus?.estimatedBackupSize != null">
+                <div class="stat-card">
+                    <div class="stat-label">Estimated size</div>
+                    <div class="stat-value" x-text="formatBytes(repoStatus?.estimatedBackupSize)"></div>
+                </div>
+            </template>
+            <template x-if="repoStatus?.missingBlobCount != null">
+                <div class="stat-card">
+                    <div class="stat-label">Missing blobs</div>
+                    <div class="stat-value" x-text="repoStatus?.missingBlobCount.toLocaleString()"></div>
+                </div>
+            </template>
+            <template x-if="repoStatus?.source != null">
+                <div class="stat-card">
+                    <div class="stat-label">Source</div>
+                    <div class="stat-value stat-value--small" x-text="repoStatus?.source"></div>
+                </div>
+            </template>
+        </div>
+        <div class="actions" style="padding-top: 5%">
+            <button type="button" @click="await handleRunBackupNow()">Manually run backup now</button>
+            <button type="button" style="background-color: #c62828; color: #fff;" @click="await handleRemoveRepo()">Delete Backups</button>
+        </div>
+        <div x-show="error" x-text="error" class="error-message"></div>
+        <div x-show="showStatusMessage" id="status-message" class="status-message"></div>
+    </div>
+</div>
+
+
+{% endblock %}

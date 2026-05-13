@@ -1,0 +1,92 @@
+{%- import "partials/cow-header.askama.html" as cow -%}
+
+{% extends "layout.askama.html" %}
+
+{% block meta %}
+    <meta property="og:description" content="ATProto account migration tool"/>
+    <meta property="og:image" content="/halloween_moover.webp">
+{% endblock %}
+
+{% block content %}
+    <script>
+        document.addEventListener('alpine:init', () => {
+
+            window.Alpine.data('moover', () => ({
+                oldHandle: '',
+                oldPassword: '',
+                twoFactorCode: '',
+                showTwoFactorCodeInput: false,
+                error: null,
+                showStatusMessage: false,
+                updateStatusHandler(status) {
+                    console.log("Status update:", status);
+                    document.getElementById("status-message").innerText = status;
+                },
+                async handleSubmit() {
+                    this.error = null;
+                    this.showStatusMessage = false;
+
+                    try {
+
+                        if (this.showTwoFactorCodeInput) {
+                            if (this.twoFactorCode === null) {
+                                this.error = 'Please enter the 2FA that was sent to your email.'
+                            }
+                        }
+
+                        this.showStatusMessage = true;
+                        await window.Migrator.deactivateOldAccount(
+                            this.oldHandle,
+                            this.oldPassword,
+                            this.updateStatusHandler,
+                            this.twoFactorCode);
+                    } catch (error) {
+                        console.error(error.error, error.message);
+                        if (error.error === 'AuthFactorTokenRequired') {
+                            this.showTwoFactorCodeInput = true;
+                        }
+                        this.error = error.message;
+                    }
+                },
+            }))
+        })
+    </script>
+
+<div class="container" x-data="moover">
+
+   {% call cow::cow_header("Turn OFF") %}
+
+    <p>Use this page to make sure your old account is deactivated</p>
+    <form id="moover-form" @submit.prevent="await handleSubmit()">
+        <!-- First section: Login credentials -->
+        <div class="section">
+            <h2>Login for your old PDS</h2>
+            <div class="form-group">
+                <label for="handle">Old Handle:</label>
+                <input type="text" id="handle" name="handle" placeholder="alice.bsky.social" x-model="oldHandle"
+                       required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Old Password:</label>
+                <input type="password" id="password" name="password" x-model="oldPassword" required>
+            </div>
+
+            <div x-show="showTwoFactorCodeInput" class="form-group">
+                <label for="two-factor-code">2FA from the email sent</label>
+                <input type="text" id="two-factor-code" name="two-factor-code" x-model="twoFactorCode">
+                <div class="error-message">Enter your 2fa code here</div>
+
+            </div>
+        </div>
+
+        <div x-show="error" x-text="error" class="error-message"></div>
+        <div x-show="showStatusMessage" id="status-message" class="status-message"></div>
+        <div>
+            <button type="submit">Turn it off</button>
+        </div>
+    </form>
+</div>
+
+
+{% endblock %}

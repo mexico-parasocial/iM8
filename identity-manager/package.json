@@ -1,0 +1,41 @@
+{
+  "name": "@m8/identity-manager",
+  "version": "0.1.0",
+  "description": "M8 Identity Manager — proof broker, credential wallet, and trust policy service",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc && cp -r src/i18n/locales dist/src/i18n/locales",
+    "start": "node --enable-source-maps dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "test": "NODE_ENV=test node --test dist/tests/**/*.test.js",
+    "test:integration": "NODE_ENV=test tsx --test tests/integration/**/*.test.ts",
+    "test:e2e": "NODE_ENV=test tsx --test tests/e2e/**/*.test.ts",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@atproto/identity": "^0.4.12",
+    "@atproto/oauth-client-node": "^0.3.13",
+    "@fastify/cors": "^10.0.0",
+    "@fastify/jwt": "^9.0.0",
+    "better-sqlite3": "^12.0.0",
+    "circomlibjs": "^0.1.7",
+    "dotenv": "^16.4.0",
+    "fastify": "^5.2.0",
+    "fastify-type-provider-zod": "^4.0.0",
+    "iron-session": "^8.0.4",
+    "pino": "^9.6.0",
+    "snarkjs": "^0.7.6",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.13.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

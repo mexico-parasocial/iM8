@@ -1,0 +1,205 @@
+[
+  {
+    "id": "bsky",
+    "name": "Bluesky",
+    "summary": "The flagship social feed experience",
+    "url": "https://bsky.app",
+    "platforms": ["ios", "android", "web"],
+    "category": "getting-started",
+    "icon": {
+      "path": "./icons/bluesky.png",
+      "fallback": {
+        "color": "blue",
+        "initials": "bs"
+      }
+    }
+  },
+  {
+    "id": "blento",
+    "name": "Blento",
+    "summary": "Create your own website, the fun way",
+    "url": "https://blento.app/",
+    "platforms": ["web"],
+    "category": "getting-started",
+    "madeInEU": true,
+    "icon": {
+      "path": "./icons/blento.png",
+      "fallback": {
+        "color": "purple",
+        "initials": "b"
+      }
+    }
+  },
+  {
+    "id": "flashes",
+    "name": "Flashes",
+    "summary": "Photo and video social sharing",
+    "url": "https://www.flashes.blue",
+    "platforms": ["ios"],
+    "category": "getting-started",
+    "madeInEU": true,
+    "icon": {
+      "path": "./icons/flashes.png",
+      "fallback": {
+        "color": "blue",
+        "initials": "fl"
+      }
+    }
+  },
+  {
+    "id": "leaflet",
+    "name": "Leaflet",
+    "summary": "Easy blogging with social integration",
+    "url": "https://leaflet.pub",
+    "platforms": ["web"],
+    "category": "getting-started",
+    "icon": {
+      "path": "./icons/leaflet.png",
+      "fallback": {
+        "color": "green",
+        "initials": "lf"
+      }
+    }
+  },
+  {
+    "id": "skywalker",
+    "name": "Skywalker",
+    "summary": "European Bluesky client for Android",
+    "url": "https://play.google.com/store/apps/details?id=com.gmail.mfnboer.skywalker&hl=en_GB",
+    "platforms": ["android"],
+    "category": "getting-started",
+    "madeInEU": true,
+    "icon": {
+      "path": "./icons/skywalker.png",
+      "fallback": {
+        "color": "blue",
+        "initials": "sw"
+      }
+    }
+  },
+  {
+    "id": "skeets",
+    "name": "Skeets",
+    "summary": "European Bluesky client for iOS",
+    "url": "https://www.skeetsapp.com/",
+    "platforms": ["ios"],
+    "category": "getting-started",
+    "madeInEU": true,
+    "icon": {
+      "path": "./icons/skeets.png",
+      "fallback": {
+        "color": "blue",
+        "initials": "sk"
+      }
+    }
+  },
+  {
+    "id": "popfeed",
+    "name": "Popfeed",
+    "summary": "Discover films, TV, games, books and music",
+    "url": "https://popfeed.social/find",
+    "platforms": ["web"],
+    "category": "explore-more",
+    "icon": {
+      "path": "./icons/popfeed.png",
+      "fallback": {
+        "color": "purple",
+        "initials": "pf"
+      }
+    }
+  },
+  {
+    "id": "sill",
+    "name": "Sill",
+    "summary": "Discover the latest news with your social connections",
+    "url": "https://sill.social/",
+    "platforms": ["web"],
+    "category": "explore-more",
+    "madeInEU": true,
+    "icon": {
+      "path": "./icons/sill.png",
+      "fallback": {
+        "color": "yellow",
+        "initials": "s"
+      }
+    }
+  },
+  {
+    "id": "atmo",
+    "name": "atmo.rsvp",
+    "summary": "Find and create event for fun and for work",
+    "url": "https://atmo.rsvp/",
+    "platforms": ["web"],
+    "category": "explore-more",
+    "madeInEU": true,
+    "icon": {
+      "fallback": {
+        "color": "violet",
+        "initials": "at"
+      }
+    }
+  },
+  {
+    "id": "streamplace",
+    "name": "Streamplace",
+    "summary": "Easy video streaming from anywhere",
+    "url": "https://stream.place/",
+    "platforms": ["web", "ios", "android"],
+    "category": "explore-more",
+    "icon": {
+      "path": "./icons/streamplace.png",
+      "fallback": {
+        "color": "pink",
+        "initials": "sp"
+      }
+    }
+  },
+  {
+    "id": "semble",
+    "name": "Semble",
+    "summary": "The network for researchers",
+    "url": "https://semble.so/",
+    "platforms": ["web"],
+    "category": "for-work",
+    "madeInEU": true,
+    "icon": {
+      "path": "./icons/semble.png",
+      "fallback": {
+        "color": "orange",
+        "initials": "se"
+      }
+    }
+  },
+  {
+    "id": "tangled",
+    "name": "Tangled",
+    "summary": "Social code platform for GitHub-style collaboration",
+    "url": "https://tangled.org/",
+    "platforms": ["web"],
+    "category": "for-work",
+    "madeInEU": true,
+    "icon": {
+      "path": "./icons/tangled.png",
+      "fallback": {
+        "color": "gray",
+        "initials": "t"
+      }
+    }
+  },
+  {
+    "id": "sifa",
+    "name": "Sifa ID",
+    "summary": "Professional profile and networking",
+    "url": "https://sifa.id/",
+    "platforms": ["web"],
+    "category": "for-work",
+    "madeInEU": true,
+    "icon": {
+      "path": "./icons/sifa.png",
+      "fallback": {
+        "color": "gray",
+        "initials": "id"
+      }
+    }
+  }
+]

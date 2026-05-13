@@ -1,0 +1,55 @@
+{
+  "lexicon": 1,
+  "id": "com.pdsmoover.backup.describeServer",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get the status of the server",
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": [
+            "totalRepos",
+            "totalBlobs",
+            "estimatedReposSizeOnDisk",
+            "estimatedBlobsSizeOnDisk",
+            "statusLastUpdated"
+          ],
+          "properties": {
+            "totalRepos": {
+              "type": "integer"
+            },
+            "totalBlobs": {
+              "type": "integer"
+            },
+            "estimatedReposSizeOnDisk": {
+              "type": "integer"
+            },
+            "estimatedBlobsSizeOnDisk": {
+              "type": "integer"
+            },
+            "statusLastUpdated": {
+              "type": "string",
+              "format": "datetime",
+              "description": "Some status are cached for a while to save on resources. This is the last time the status was updated."
+            },
+            "nextBackupDueAt": {
+              "type": "string",
+              "format": "datetime"
+            },
+            "lastBackupAt": {
+              "type": "string",
+              "format": "datetime"
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "RepoNotFound"
+        }
+      ]
+    }
+  }
+}

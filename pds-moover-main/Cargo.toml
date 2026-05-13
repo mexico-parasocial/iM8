@@ -1,0 +1,37 @@
+[workspace]
+members = ["admin_cli", "lexicon_types_crate", "shared", "web", "worker", "cron-worker"]
+resolver = "2"
+
+[workspace.dependencies]
+anyhow = "1.0.100"
+jwt-compact = { git = "https://github.com/fatfingers23/jwt-compact.git", features = ["es256k"] }
+atproto-identity = "0.13.0"
+shared = { path = "./shared" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+lexicon_types_crate = { path = "./lexicon_types_crate" }
+jacquard = "0.9.5"
+jacquard-axum = "0.9.6"
+jacquard-common = "0.9.5"
+jacquard-identity = { version = "0.9.5", features = ["dns", "cache"] }
+jacquard-api = "0.9.5"
+apalis = { version = "0.7.3", features = ["retry", "limit", "layers", ] }
+#Manually brought in migrations cause I was fighting them
+apalis-sql = { version = "0.7.3", default-features = false, features = ["postgres", "tokio-comp"] }
+apalis-cron = "0.7.3"
+dotenvy = "0.15.7"
+reqwest = { version = "0.12.23", features = ["stream", "json"] }
+async-compression = { version = "0.4.30", features = ["futures-io", "tokio", "zstd"] }
+futures = "0.3.31"
+tokio-util = { version = "0.7.16", features = ["compat"] }
+tokio-stream = { version = "0.1.17", features = ["io-util"] }
+tokio = { version = "1.41.1", features = ["full"] }
+rust-s3 = "0.37.0"
+tracing-subscriber = { version = "0.3.11", features = ["env-filter", "json"] }
+tracing = "0.1.41"
+log = "0.4.28"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+
+#[profile.release]
+#debug = true

@@ -1,0 +1,60 @@
+{
+  "name": "@pds-moover/moover",
+  "version": "1.0.10",
+  "description": "Utilities for ATProto PDS migrations and recovery",
+  "repository": {
+    "type": "git",
+    "url": "https://tangled.org/@baileytownsend.dev/pds-moover",
+    "directory": "packages/moover"
+  },
+  "keywords": [
+    "atproto",
+    "pds",
+    "migration",
+    "recovery",
+    "PDS MOOver"
+  ],
+  "author": "Bailey Townsend",
+  "license": "MIT",
+  "type": "module",
+  "files": [
+    "dist",
+    "types"
+  ],
+  "main": "./dist/pds-moover.umd.cjs",
+  "module": "./dist/pds-moover.js",
+  "types": "./types/main.d.ts",
+  "exports": {
+    ".": {
+      "types": "./types/main.d.ts",
+      "import": "./dist/pds-moover.js",
+      "require": "./dist/pds-moover.umd.cjs"
+    }
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:watch": "vite build --watch",
+    "gen:types": "tsc -p .",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "eslint": "^9.34.0",
+    "eslint-plugin-import": "^2.32.0",
+    "vite": "^7.1.7"
+  },
+  "dependencies": {
+    "@atcute/cbor": "^2.2.7",
+    "@atcute/client": "^4.0.4",
+    "@atcute/crypto": "^2.2.5",
+    "@atcute/did-plc": "^0.1.7",
+    "@atcute/identity-resolver": "^1.1.3",
+    "@atcute/lexicons": "^1.2.2",
+    "@atcute/multibase": "^1.1.6",
+    "@atproto/api": "^0.16.7",
+    "@pds-moover/lexicons": "^1.0.0",
+    "alpinejs": "^3.15.0",
+    "vite-plugin-full-reload": "^1.2.0",
+    "vite-rs-plugin": "1.0.1"
+  }
+}

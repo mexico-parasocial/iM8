@@ -1,0 +1,23 @@
+[package]
+name = "lexicon_types_crate"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[dependencies]
+bytes = { version = "1.11.0", features = ["serde"] }
+jacquard-common.workspace = true
+jacquard-derive = "0.9.5"
+jacquard-lexicon = "0.9.5"
+serde.workspace = true
+thiserror.workspace = true
+miette = "7.6"
+bon = "3.8.0"
+unicode-segmentation = "1.12.0"
+
+
+[features]
+default = ["com_atproto", "com_pdsmoover", "app_bsky"]
+app_bsky = []
+com_atproto = []
+com_pdsmoover = []

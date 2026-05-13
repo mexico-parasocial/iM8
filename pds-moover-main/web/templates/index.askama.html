@@ -1,0 +1,95 @@
+{%- import "partials/cow-header.askama.html" as cow -%}
+{% extends "layout.askama.html" %}
+
+{% block meta %}
+    <meta property="og:description" content="PDS MOOver – ATProto tools for PDS migrations and backups"/>
+    <meta property="og:image" content="/halloween_moover.webp">
+{% endblock %}
+
+{% block content %}
+<script>
+
+
+document.addEventListener('alpine:init', () => {
+  window.Alpine.data('serverStats', () => ({
+    loading: true,
+    error: null,
+    stats: null,
+    async init() {
+      try {
+        const res = await fetch('/xrpc/com.pdsmoover.backup.describeServer');
+        if (!res.ok) throw new Error(`Failed to load: ${res.status}`);
+        this.stats = await res.json();
+      } catch (e) {
+        console.error(e);
+        this.error = 'Failed to load server stats. Please try again later.';
+      } finally {
+        this.loading = false;
+      }
+    },
+    //TODO bad but do not want to figure out onload with current setup
+
+
+  }));
+});
+
+</script>
+
+<div class="container">
+    {% call cow::cow_header("PDS MOOver") %}
+
+    <section class="section" style="text-align:left">
+        <p>
+            PDS MOOver is a set of AT Protocol tools to help you
+            <a href="/moover">migrate to a new PDS</a>,
+            <a href="/missing-blobs">find your missing blobs</a>,
+            sign up for free automated <a href="/backups">backups</a>, and <a href="/restore">restore your account</a>
+            in the event you need to.
+        </p>
+        <ul>
+            <li><a href="/moover">Moover</a> – helps you migrate to a new PDS.</li>
+            <li><a href="/missing-blobs">Missing Blobs</a> – find any missing blobs (pictures/videos) from a previous migration.</li>
+            <li><a href="/backups">Backups</a> – sign up for free automated backups stored on PDS MOOver servers and view your account's backup status.</li>
+            <li><a href="/restore">Restore</a> – restore from your backups if needed.</li>
+            <li><a href="/turn-off">Turn Off</a> – helper to make sure your old account is deactivated.</li>
+            <li><a href="/info">Info</a> – FAQs and a few other bits of information about our tools.</li>
+            <li><a href="https://tangled.org/@baileytownsend.dev/pds-moover">Check our source code on tangled</a></li>
+        </ul>
+    </section>
+
+    <section class="section" aria-labelledby="stats-heading" x-data="serverStats()" x-init="init()">
+        <h2 id="stats-heading">Server stats</h2>
+        <span>Total stats for all accounts backed up on pdsmoover.com</span>
+        <div style="padding-top: 5%" class="stats-grid" x-show="!error">
+            <div class="stat-card">
+                <div class="stat-label">Total repositories</div>
+                <div class="stat-value" x-text="stats?.totalRepos.toLocaleString()"></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total blobs</div>
+                <div class="stat-value" x-text="stats?.totalBlobs.toLocaleString()"></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Estimated total repo size</div>
+                <div class="stat-value" x-text="fmtBytes(stats?.estimatedReposSizeOnDisk)"></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Estimated total blob size</div>
+                <div class="stat-value" x-text="fmtBytes(stats?.estimatedBlobsSizeOnDisk)"></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Last backup ran at</div>
+                <div class="stat-value stat-value--small" x-text="fmtDate(stats?.lastBackupAt)"></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Server Status last updated</div>
+                <div class="stat-value stat-value--small" x-text="fmtDate(stats?.statusLastUpdated)"></div>
+            </div>
+        </div>
+        <div class="warning-message" x-show="error" x-text="error"></div>
+    </section>
+</div>
+
+
+
+{% endblock %}

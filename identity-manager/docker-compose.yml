@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  identity-manager:
+    build: .
+    container_name: m8-identity-manager
+    ports:
+      - "8787:8787"
+    environment:
+      - NODE_ENV=development
+      - PORT=8787
+      - HOST=0.0.0.0
+      - DATABASE_PATH=/app/data/identity-manager.db
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-do-not-use-in-production-change-me-now}
+      - APP_KEY=${APP_KEY:-dev-app-key-16b-change-me}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - CORS_ORIGIN=${CORS_ORIGIN:-*}
+      - PARA_API_BASE_URL=${PARA_API_BASE_URL:-}
+    volumes:
+      - m8-data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8787/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
+volumes:
+  m8-data:

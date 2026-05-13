@@ -1,0 +1,22 @@
+{
+  "include": ["lib/**/*"],
+  "exclude": ["node_modules", "dist", "types"],
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "declarationMap": true,
+    "outDir": "types",
+    // or use "declarationDir": "types"
+
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    // add "DOM" if you use browser APIs
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    // or "NodeNext" depending on your setup
+    "rootDir": "lib"
+  }
+}

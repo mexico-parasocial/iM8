@@ -1,0 +1,1 @@
+{"version":3,"file":"atprotoUtils.d.ts","sourceRoot":"","sources":["../lib/atprotoUtils.js"],"names":[],"mappings":"AASA,qDAQE;AAEF,sEAKE;AAkBF;;;;GAIG;AACH,oCAHkB,MAAM,GACX,MAAM,CAMyC;AAE5D;;;;;GAKG;AACH,mDAFa,OAAO,CAAC;IAAC,QAAQ,EAAE,MAAM,CAAC;IAAC,GAAG,EAAE,MAAM,CAAA;CAAC,CAAC,CA0BpD;AAED;;;;;GAKG;AACH,oDAFa,OAAO,CAAC,GAAC,CAAC,CAStB;wCA3FM,2BAA2B;6CAA3B,2BAA2B"}

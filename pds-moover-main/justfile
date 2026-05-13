@@ -1,0 +1,33 @@
+release:
+    #Web
+    docker buildx build \
+            --platform linux/arm64,linux/amd64 \
+            --tag fatfingers23/moover_web:latest \
+            --tag fatfingers23/moover_web:0.0.3 \
+            --file Dockerfiles/web.Dockerfile \
+            --builder desktop-linux \
+            --push .
+    # Worker
+    docker buildx build \
+            --platform linux/arm64,linux/amd64 \
+            --tag fatfingers23/moover_worker:latest \
+            --tag fatfingers23/moover_worker:0.0.4 \
+            --file Dockerfiles/worker.Dockerfile \
+            --builder desktop-linux \
+            --push .
+    #cron worker
+    docker buildx build \
+           --platform linux/arm64,linux/amd64 \
+           --tag fatfingers23/moover_cron_worker:latest \
+           --tag fatfingers23/moover_cron_worker:0.0.3 \
+           --file Dockerfiles/cron-worker.Dockerfile \
+            --push .
+
+    #web ui
+    docker buildx build \
+           --platform linux/arm64,linux/amd64 \
+           --tag fatfingers23/moover_ui:latest \
+           --tag fatfingers23/moover_ui:0.0.12 \
+           --file Dockerfiles/web-ui.Dockerfile \
+           --builder desktop-linux \
+            --push .

@@ -1,0 +1,18 @@
+{
+  "lexicon": 1,
+  "id": "com.pdsmoover.admin.requestInstanceBackup",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Admin authenticated. Will take a did and request a backup for that repo if they're registered and active",
+      "errors": [
+        {
+          "name": "NotFound"
+        },
+        {
+          "name": "NotAuthorized"
+        }
+      ]
+    }
+  }
+}

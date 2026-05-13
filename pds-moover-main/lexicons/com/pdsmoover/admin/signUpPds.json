@@ -1,0 +1,36 @@
+{
+  "lexicon": 1,
+  "id": "com.pdsmoover.admin.signUpPds",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Sign up an entire PDS to be backed up and monitored for new accounts to be backed up.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": [
+            "hostname"
+          ],
+          "properties": {
+            "hostname": {
+              "type": "string",
+              "description": "Hostname of the current the PDS"
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "NotFound"
+        },
+        {
+          "name": "NotAuthorized"
+        },
+        {
+          "name": "NotAValidPDS"
+        }
+      ]
+    }
+  }
+}

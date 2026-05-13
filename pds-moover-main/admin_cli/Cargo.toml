@@ -1,0 +1,21 @@
+[package]
+name = "moover-admin-cli"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[dependencies]
+anyhow.workspace = true
+clap = { version = "4.5", features = ["derive"] }
+dotenvy.workspace = true
+log.workspace = true
+env_logger = "0.11"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+jacquard-common.workspace = true
+jacquard.workspace = true
+lexicon_types_crate.workspace = true
+reqwest.workspace = true
+base64 = "0.22"
+shared = { path = "../shared" }
+sqlx = { version = "0.8.6", features = ["runtime-tokio", "postgres"] }
+rust-s3.workspace = true

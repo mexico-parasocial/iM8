@@ -1,0 +1,15 @@
+[Unit]
+Description=Eurosky Portal App
+Documentation=https://github.com/eurosky-social/eurosky-portal
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/portal-app
+ExecStart=/usr/bin/docker compose --file /portal-app/docker-compose.yaml up --detach
+ExecStop=/usr/bin/docker compose --file /portal-app/docker-compose.yaml down
+
+[Install]
+WantedBy=default.target
