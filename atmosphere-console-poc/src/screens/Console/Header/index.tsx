@@ -15,9 +15,9 @@ const surfaceColor: Record<string, string> = {
 }
 
 const SECTION_LABELS: Record<string, string> = {
-  home: 'Home',
-  providers: 'Providers',
-  mybase: 'MyBase',
+  identity: 'Identity',
+  requests: 'Requests',
+  para: 'PARA',
   safety: 'Safety',
 }
 
