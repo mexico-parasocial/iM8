@@ -14,7 +14,6 @@ const SECTIONS: {
   { id: 'requests', label: 'Requests', icon: 'inbox', iconActive: 'bellFilled' },
   { id: 'para', label: 'PARA', icon: 'globe', iconActive: 'globeFilled' },
   { id: 'safety', label: 'Safety', icon: 'shieldCheck', iconActive: 'shieldCheckFilled' },
-  { id: 'account', label: 'Account', icon: 'settingsGear', iconActive: 'settingsGearFilled' },
 ]
 
 export function BottomNav({

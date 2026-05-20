@@ -39,7 +39,7 @@ import { SafetySection } from './Console/sections/SafetySection'
 import { SettingsSheet } from '../components/m8/SettingsSheet'
 import { hapticMedium } from '../utils/haptics'
 
-type ConsoleSectionId = 'identity' | 'requests' | 'para' | 'safety' | 'account'
+type ConsoleSectionId = 'identity' | 'requests' | 'para' | 'safety'
 
 const SURFACE_META: Record<SurfaceId, { label: string; color: string; icon: IconName }> = {
   public: { label: 'Public', color: tokens.success, icon: 'globe' },
@@ -260,10 +260,6 @@ export function ConsoleScreen({
             theme={tokens}
           />
         )}
-
-        {activeSection === 'account' && (
-          <AccountSection session={session} />
-        )}
       </ConsoleLayout>
 
       <SettingsSheet
@@ -475,6 +471,13 @@ function IdentitySection({
           <Text style={buttonTextStyle('secondary')}>Create surface</Text>
         </Pressable>
       </View>
+
+      <View style={styles.listBlock}>
+        <SectionHeading title="Session record" detail="Technical details for recovery and app compatibility." />
+        <SimpleRow icon="person" title="Display name" detail={session.displayName} meta="Local" />
+        <SimpleRow icon="shield" title="DID" detail={session.did} meta="Portable" />
+        <SimpleRow icon="globe" title="Auth server" detail={session.authorizationServer} meta={session.brokerMode} />
+      </View>
     </View>
   )
 }
@@ -620,30 +623,6 @@ function ParaSection({
             meta={integration.status}
           />
         ))}
-      </View>
-    </View>
-  )
-}
-
-function AccountSection({
-  session,
-}: {
-  session: IdentitySession
-}) {
-  return (
-    <View style={styles.stack}>
-      <SectionHero
-        eyebrow="Account"
-        title="Identity record"
-        body="Technical details for recovery and app compatibility."
-        icon="person"
-      />
-
-      <View style={styles.listBlock}>
-        <SectionHeading title="Device" detail="This session." />
-        <SimpleRow icon="person" title="Display name" detail={session.displayName} meta="Local" />
-        <SimpleRow icon="shield" title="DID" detail={session.did} meta="Portable" />
-        <SimpleRow icon="globe" title="Auth server" detail={session.authorizationServer} meta={session.brokerMode} />
       </View>
     </View>
   )
