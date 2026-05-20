@@ -1,0 +1,32 @@
+import { defineConfig } from '@adonisjs/core/app'
+
+export default defineConfig({
+  experimental: {},
+  commands: [() => import('@adonisjs/core/commands')],
+  providers: [
+    () => import('@adonisjs/core/providers/app_provider'),
+    () => import('@adonisjs/core/providers/vinejs_provider'),
+    () => import('@adonisjs/cors/cors_provider'),
+  ],
+  preloads: [
+    () => import('#start/m8'),
+    () => import('#start/routes'),
+    () => import('#start/kernel'),
+  ],
+  tests: {
+    suites: [
+      {
+        files: ['tests/unit/**/*.test.{ts,js}'],
+        name: 'unit',
+        timeout: 2000,
+      },
+      {
+        files: ['tests/integration/**/*.test.{ts,js}'],
+        name: 'integration',
+        timeout: 30000,
+      },
+    ],
+    forceExit: false,
+  },
+  metaFiles: ['src/i18n/locales/**/*.json', 'zkp/out/**/*.json'],
+})

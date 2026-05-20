@@ -3,22 +3,28 @@
   "version": "0.1.0",
   "description": "M8 Identity Manager — proof broker, credential wallet, and trust policy service",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "build/bin/server.js",
   "scripts": {
-    "build": "tsc && cp -r src/i18n/locales dist/src/i18n/locales",
-    "start": "node --enable-source-maps dist/index.js",
-    "dev": "tsx watch src/index.ts",
-    "test": "NODE_ENV=test node --test dist/tests/**/*.test.js",
+    "build": "node ace build && cp -r src/i18n/locales build/src/i18n/locales",
+    "start": "node --enable-source-maps build/bin/server.js",
+    "dev": "node ace serve --watch",
+    "start:fastify": "tsx watch src/index.ts",
+    "test": "NODE_ENV=test node --test build/tests/**/*.test.js",
     "test:integration": "NODE_ENV=test tsx --test tests/integration/**/*.test.ts",
     "test:e2e": "NODE_ENV=test tsx --test tests/e2e/**/*.test.ts",
     "db:migrate": "tsx src/db/migrate.ts",
+    "ace": "node ace",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@adonisjs/core": "^7.3.3",
+    "@adonisjs/cors": "^3.0.0",
+    "@adonisjs/lucid": "^22.4.2",
     "@atproto/identity": "^0.4.12",
     "@atproto/oauth-client-node": "^0.3.13",
     "@fastify/cors": "^10.0.0",
     "@fastify/jwt": "^9.0.0",
+    "@vinejs/vine": "^4.4.0",
     "better-sqlite3": "^12.0.0",
     "circomlibjs": "^0.1.7",
     "dotenv": "^16.4.0",
@@ -26,10 +32,13 @@
     "fastify-type-provider-zod": "^4.0.0",
     "iron-session": "^8.0.4",
     "pino": "^9.6.0",
+    "reflect-metadata": "^0.2.2",
     "snarkjs": "^0.7.6",
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@adonisjs/assembler": "^8.4.0",
+    "@adonisjs/tsconfig": "^2.0.0",
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.13.0",
     "tsx": "^4.19.0",
@@ -37,5 +46,14 @@
   },
   "engines": {
     "node": ">=22.0.0"
+  },
+  "imports": {
+    "#controllers/*": "./app/controllers/*.js",
+    "#exceptions/*": "./app/exceptions/*.js",
+    "#middleware/*": "./app/middleware/*.js",
+    "#support/*": "./app/support/*.js",
+    "#config/*": "./config/*.js",
+    "#start/*": "./start/*.js",
+    "#src/*": "./src/*.js"
   }
 }

@@ -1,5 +1,6 @@
 import { tokens } from '../../theme'
-import type { SurfaceId, IconName, IdentitySession, RenameStatus } from '../../types'
+import type { SurfaceId, IdentitySession, RenameStatus } from '../../types'
+import type { IconName } from '../../components/m8/Icon'
 
 export const SURFACE_META: Record<SurfaceId, { label: string; color: string; icon: IconName }> = {
   public: { label: 'Public', color: tokens.success, icon: 'globe' },
