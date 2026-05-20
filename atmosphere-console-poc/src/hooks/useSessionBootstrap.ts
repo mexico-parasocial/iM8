@@ -1,4 +1,5 @@
 import { startTransition, useEffect, useState } from 'react'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
   clearIdentitySession,
   approveGrant,
@@ -169,12 +170,23 @@ export function useSessionBootstrap() {
     })
   }
 
-  function signOut() {
+  async function signOut() {
     clearIdentitySession()
     setSession(null)
     setError(null)
     setAttempt(null)
     setStatus('idle')
+
+    // Clear user preferences so they don't leak across identities
+    await AsyncStorage.removeItem('@m8/dark-mode')
+    await AsyncStorage.removeItem('@m8/biometric-enabled')
+    await AsyncStorage.removeItem('@m8/last-background')
+
+    const allKeys = await AsyncStorage.getAllKeys()
+    const aiCacheKeys = allKeys.filter((k) => k.startsWith('@ai_cache_'))
+    for (const key of aiCacheKeys) {
+      await AsyncStorage.removeItem(key)
+    }
   }
 
   return {

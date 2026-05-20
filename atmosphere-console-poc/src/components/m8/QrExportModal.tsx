@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from 'react-native'
+import QRCode from 'react-native-qrcode-svg'
 import { buttonStyle, buttonTextStyle } from './Button'
 import { cardStyle } from './Card'
 import { Icon } from './Icon'
@@ -61,11 +62,14 @@ export function QrExportModal({
           </Text>
 
           <View style={styles.qrCard}>
-            {/* QR Code Placeholder */}
-            <View style={styles.qrPlaceholder}>
-              <Icon name="paperPlane" size={48} color={tokens.muted} />
-              <Text style={styles.qrLabel}>QR Code</Text>
-              <Text style={styles.qrHint}>{qrPayload.length} bytes encoded</Text>
+            <View style={styles.qrBox}>
+              <QRCode
+                value={qrPayload}
+                size={168}
+                color={tokens.text}
+                backgroundColor={tokens.background}
+                quietZone={8}
+              />
             </View>
 
             <View style={styles.personaSummary}>
@@ -149,27 +153,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 16,
   },
-  qrPlaceholder: {
-    width: 180,
-    height: 180,
+  qrBox: {
+    width: 184,
+    height: 184,
     borderRadius: 16,
     backgroundColor: tokens.background,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: tokens.stroke,
-    borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-  },
-
-  qrLabel: {
-    color: tokens.text,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  qrHint: {
-    color: tokens.muted,
-    fontSize: 12,
+    padding: 8,
   },
   personaSummary: {
     alignItems: 'center',

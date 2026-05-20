@@ -30,7 +30,7 @@ export function BottomNav({
       style={[
         styles.container,
         {
-          paddingBottom: clamp(insets.bottom, 10, 34),
+          paddingBottom: clamp(insets.bottom, 6, 18),
         },
       ]}
     >
@@ -48,7 +48,7 @@ export function BottomNav({
           >
             <Icon
               name={active ? section.iconActive : section.icon}
-              size={22}
+              size={20}
               color={active ? tokens.onAccent : tokens.muted}
             />
             <Text style={[styles.label, active && styles.labelActive]} numberOfLines={1}>
@@ -79,22 +79,22 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.glassBorderStrong,
     paddingHorizontal: 8,
-    paddingTop: 8,
+    paddingTop: 6,
   },
   tab: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
-    minHeight: 54,
-    borderRadius: 14,
+    gap: 2,
+    minHeight: 46,
+    borderRadius: 10,
   },
   tabActive: {
     backgroundColor: tokens.accent,
   },
   label: {
     color: tokens.muted,
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
   },
   labelActive: {

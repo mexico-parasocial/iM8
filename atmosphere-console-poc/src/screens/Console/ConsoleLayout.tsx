@@ -7,7 +7,7 @@ import Animated, {
 import { tokens } from '../../theme'
 
 export const HEADER_HEIGHT = 52
-export const BOTTOM_NAV_HEIGHT = 72
+export const BOTTOM_NAV_HEIGHT = 58
 
 export function ConsoleLayout({
   children,
@@ -34,7 +34,7 @@ export function ConsoleLayout({
   })
 
   const topPadding = header ? HEADER_HEIGHT + insets.top + 8 : insets.top + 16
-  const bottomPadding = BOTTOM_NAV_HEIGHT + (insets.bottom || 8) + 12
+  const bottomPadding = BOTTOM_NAV_HEIGHT + clamp(insets.bottom, 6, 18) + 8
 
   return (
     <View style={styles.shell}>
@@ -77,3 +77,7 @@ const styles = StyleSheet.create({
     gap: 14,
   },
 })
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max)
+}
