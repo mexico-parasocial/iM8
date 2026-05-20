@@ -105,7 +105,7 @@ export function ConsoleHeader({
                     active && {borderColor: sColor + '90'},
                   ]}>
                   <Text style={[styles.dotText, {color: sColor}]}>
-                    {p.name[0].toUpperCase()}
+                    {p.id}
                   </Text>
                 </Pressable>
               )

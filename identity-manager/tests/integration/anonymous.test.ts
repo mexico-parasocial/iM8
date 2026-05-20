@@ -250,5 +250,80 @@ describe('Anonymous mode integration', () => {
     assert.equal(contactBody.provider, 'germ')
     assert.equal(contactBody.contactUrl.includes(did), false)
     assert.equal(JSON.stringify(contactBody).includes(did), false)
+
+    const gated = await app.inject({
+      method: 'PATCH',
+      url: `/v1/anonymous/posts/${posts[0].id}/dm-policy`,
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: { dmPolicy: 'para-verified' },
+    })
+    assert.equal(gated.statusCode, 200)
+    assert.equal(JSON.parse(gated.payload).post.dmPolicy, 'para-verified')
+
+    const publicGatedContact = await app.inject({
+      method: 'GET',
+      url: `/v1/anonymous/public-contact?postUri=${encodeURIComponent(posts[0].postUri)}`,
+    })
+    assert.equal(publicGatedContact.statusCode, 200)
+    const publicGatedBody = JSON.parse(publicGatedContact.payload)
+    assert.equal(publicGatedBody.dmEnabled, true)
+    assert.equal(publicGatedBody.senderRequirement, 'para-verified')
+    assert.equal(publicGatedBody.contactUrl, undefined)
+
+    const unverifiedSenderStart = await app.inject({
+      method: 'POST',
+      url: '/v1/sessions/start',
+      payload: { identifier: 'unverified-sender.bsky.social' },
+    })
+    const unverifiedSenderToken = JSON.parse(unverifiedSenderStart.payload).tokens.accessToken
+    const unverifiedEligibility = await app.inject({
+      method: 'GET',
+      url: `/v1/anonymous/public-contact/eligibility?postUri=${encodeURIComponent(posts[0].postUri)}`,
+      headers: { authorization: `Bearer ${unverifiedSenderToken}` },
+    })
+    assert.equal(unverifiedEligibility.statusCode, 403)
+    assert.equal(JSON.parse(unverifiedEligibility.payload).code, 'PARA_VERIFICATION_REQUIRED')
+
+    const verifiedSenderStart = await app.inject({
+      method: 'POST',
+      url: '/v1/sessions/start',
+      payload: { identifier: 'verified-sender.bsky.social' },
+    })
+    const verifiedSenderToken = JSON.parse(verifiedSenderStart.payload).tokens.accessToken
+    const grantCreate = await app.inject({
+      method: 'POST',
+      url: '/v1/grants',
+      headers: { authorization: `Bearer ${verifiedSenderToken}` },
+      payload: {
+        appId: 'germ.dm',
+        appName: 'Germ DM',
+        appKind: 'Consumer app',
+        surface: 'public',
+        requestedClaims: [{ type: 'has_para_verification', disclosure: 'proof-only' }],
+        proofMode: 'proof-only',
+        reason: 'Allow PARA-verified anonymous DM replies',
+      },
+    })
+    assert.equal(grantCreate.statusCode, 201)
+    const senderGrant = JSON.parse(grantCreate.payload).grant
+    const grantApprove = await app.inject({
+      method: 'POST',
+      url: `/v1/grants/${senderGrant.id}/approve`,
+      headers: { authorization: `Bearer ${verifiedSenderToken}` },
+      payload: { grantId: senderGrant.id, reviewNote: 'Sender verified' },
+    })
+    assert.equal(grantApprove.statusCode, 200)
+
+    const verifiedEligibility = await app.inject({
+      method: 'GET',
+      url: `/v1/anonymous/public-contact/eligibility?postUri=${encodeURIComponent(posts[0].postUri)}`,
+      headers: { authorization: `Bearer ${verifiedSenderToken}` },
+    })
+    assert.equal(verifiedEligibility.statusCode, 200)
+    const verifiedEligibilityBody = JSON.parse(verifiedEligibility.payload)
+    assert.equal(verifiedEligibilityBody.eligible, true)
+    assert.equal(verifiedEligibilityBody.senderRequirement, 'para-verified')
+    assert.equal(verifiedEligibilityBody.contactUrl.includes(did), false)
+    assert.equal(verifiedEligibilityBody.contactUrl, contactBody.contactUrl)
   })
 })

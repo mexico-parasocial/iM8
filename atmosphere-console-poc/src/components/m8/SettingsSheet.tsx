@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Modal,
   Pressable,
@@ -49,11 +49,13 @@ export function SettingsSheet({
 
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false)
 
-  // Animate in when visible changes
-  if (visible) {
-    translateY.value = withSpring(0, SPRING)
-    backdropOpacity.value = withSpring(0.5, SPRING)
-  }
+  // Animate in when visible changes (must be in useEffect, not render body)
+  useEffect(() => {
+    if (visible) {
+      translateY.value = withSpring(0, SPRING)
+      backdropOpacity.value = withSpring(0.5, SPRING)
+    }
+  }, [visible])
 
   function dismiss() {
     translateY.value = withSpring(SCREEN_H, SPRING, () => {

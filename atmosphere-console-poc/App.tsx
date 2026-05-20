@@ -1,4 +1,5 @@
 import { SafeAreaProvider } from 'react-native-safe-area-context'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { AuthScreen } from './src/screens/AuthScreen'
 import { ConsoleScreen } from './src/screens/ConsoleScreen'
 import { useSessionBootstrap } from './src/hooks/useSessionBootstrap'
@@ -41,5 +42,9 @@ export default function App() {
     />
   )
 
-  return <SafeAreaProvider>{screen}</SafeAreaProvider>
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>{screen}</SafeAreaProvider>
+    </GestureHandlerRootView>
+  )
 }

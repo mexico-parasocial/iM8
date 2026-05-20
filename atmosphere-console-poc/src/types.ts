@@ -62,6 +62,8 @@ export type Signal = {
   action: string
 }
 
+export type PersonaKind = 'para' | 'independent' | 'public'
+
 export type Persona = {
   id: string
   name: string
@@ -69,6 +71,7 @@ export type Persona = {
   role: string
   oneLine: string
   summary: string
+  kind: PersonaKind
   surfaceStates: Record<SurfaceId, SurfaceState>
   signals: Signal[]
 }

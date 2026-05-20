@@ -4,8 +4,9 @@ import { proofBrokerClaimLabel, type ProofBrokerClaimType, type ProofBrokerSurfa
 import { assertTrustedDevice, getDeviceTrustSummary, type DeviceTrustSummary } from './deviceTrustService.js'
 
 export type AnonymousIdentityStatus = 'active' | 'archived'
-export type AnonymousDmPolicy = 'off' | 'requests'
+export type AnonymousDmPolicy = 'off' | 'requests' | 'para-verified'
 export type AnonymousGermMode = 'germ-card-link' | 'm8-relay-pending-germ'
+export type AnonymousDmSenderRequirement = 'none' | 'para-verified'
 
 export interface PublicProofBadge {
   claimType: ProofBrokerClaimType
@@ -64,6 +65,27 @@ export interface AnonymousGermConnection {
   updatedAt: string
   revokedAt: string | null
 }
+
+export interface AnonymousGermContactPayload {
+  provider: 'germ'
+  label: 'Private reply via Germ DM'
+  contactUrl: string
+  mode: AnonymousGermMode
+  proofBadges: PublicProofBadge[]
+  dmPolicy: Exclude<AnonymousDmPolicy, 'off'>
+  senderRequirement: AnonymousDmSenderRequirement
+}
+
+export type AnonymousPublicContact = { dmEnabled: false } | (
+  Omit<AnonymousGermContactPayload, 'contactUrl'> & {
+    dmEnabled: true
+    contactUrl?: string
+  }
+)
+
+export type AnonymousContactEligibility = { eligible: false; reason: string; code: string } | (
+  { eligible: true } & AnonymousGermContactPayload
+)
 
 const PUBLIC_BADGE_CLAIMS = new Set<ProofBrokerClaimType>([
   'is_civic_eligible',
@@ -324,36 +346,43 @@ export function unlinkGermContact(sessionId: string, identityId: string): Anonym
   return { ...germ, status: 'revoked', revokedAt: now, updatedAt: now }
 }
 
-export function getAnonymousPublicContact(postUri: string): { dmEnabled: false } | {
-  dmEnabled: true
-  provider: 'germ'
-  label: 'Private reply via Germ DM'
-  contactUrl: string
-  mode: AnonymousGermMode
-  proofBadges: PublicProofBadge[]
-} {
-  const db = getDb()
-  const post = db.prepare(`
-    SELECT p.*, i.session_id, i.status AS identity_status
-    FROM anonymous_identity_posts p
-    JOIN anonymous_identities i ON i.id = p.identity_id
-    WHERE p.post_uri = ?
-  `).get(postUri) as Record<string, unknown> | undefined
-
-  if (!post || post.dm_policy === 'off' || post.identity_status !== 'active') {
+export function getAnonymousPublicContact(postUri: string): AnonymousPublicContact {
+  const contact = resolveAnonymousContact(postUri)
+  if (!contact) {
     return { dmEnabled: false }
   }
 
-  const germ = getActiveGermConnection(post.identity_id as string)
-  if (!germ) return { dmEnabled: false }
+  const payload: AnonymousPublicContact = {
+    dmEnabled: true,
+    ...contact,
+  }
+  if (contact.senderRequirement !== 'none') {
+    delete payload.contactUrl
+  }
+  return payload
+}
+
+export function getAnonymousContactEligibility(sessionId: string, postUri: string): AnonymousContactEligibility {
+  const contact = resolveAnonymousContact(postUri)
+  if (!contact) {
+    return {
+      eligible: false,
+      reason: 'Anonymous post is not accepting Germ DMs.',
+      code: 'ANONYMOUS_DM_UNAVAILABLE',
+    }
+  }
+
+  if (contact.senderRequirement === 'para-verified' && !hasActiveParaVerification(sessionId)) {
+    return {
+      eligible: false,
+      reason: 'Only PARA-verified users can send Germ DMs to this anonymous profile.',
+      code: 'PARA_VERIFICATION_REQUIRED',
+    }
+  }
 
   return {
-    dmEnabled: true,
-    provider: 'germ',
-    label: 'Private reply via Germ DM',
-    contactUrl: germ.contactUrl,
-    mode: germ.mode,
-    proofBadges: listPublicProofBadges(post.session_id as string),
+    eligible: true,
+    ...contact,
   }
 }
 
@@ -465,6 +494,48 @@ function getGermConnection(identityId: string): AnonymousGermConnection | null {
 function getActiveGermConnection(identityId: string): AnonymousGermConnection | null {
   const germ = getGermConnection(identityId)
   return germ?.status === 'active' ? germ : null
+}
+
+function resolveAnonymousContact(postUri: string): AnonymousGermContactPayload | null {
+  const db = getDb()
+  const post = db.prepare(`
+    SELECT p.*, i.session_id, i.status AS identity_status
+    FROM anonymous_identity_posts p
+    JOIN anonymous_identities i ON i.id = p.identity_id
+    WHERE p.post_uri = ?
+  `).get(postUri) as Record<string, unknown> | undefined
+
+  if (!post || post.dm_policy === 'off' || post.identity_status !== 'active') {
+    return null
+  }
+
+  const dmPolicy = post.dm_policy as AnonymousDmPolicy
+  const germ = getActiveGermConnection(post.identity_id as string)
+  if (!germ || dmPolicy === 'off') return null
+
+  return {
+    provider: 'germ',
+    label: 'Private reply via Germ DM',
+    contactUrl: germ.contactUrl,
+    mode: germ.mode,
+    proofBadges: listPublicProofBadges(post.session_id as string),
+    dmPolicy,
+    senderRequirement: dmPolicy === 'para-verified' ? 'para-verified' : 'none',
+  }
+}
+
+function hasActiveParaVerification(sessionId: string): boolean {
+  const db = getDb()
+  const row = db.prepare(`
+    SELECT 1
+    FROM proof_artifacts
+    WHERE session_id = ?
+      AND claim_type = 'has_para_verification'
+      AND status = 'active'
+      AND outcome = 'verified'
+    LIMIT 1
+  `).get(sessionId) as { 1: number } | undefined
+  return Boolean(row)
 }
 
 function listPublicProofBadges(sessionId: string): Array<PublicProofBadge & { id: string }> {

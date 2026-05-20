@@ -16,27 +16,33 @@ const { width } = Dimensions.get('window')
 const slides = [
   {
     id: '1',
-    icon: 'lock' as const,
-    title: 'One identity.\nMany faces.',
-    body: 'm8 lets you create different personas for different parts of your life. Your civic profile for politics. Your public profile for social. Each with its own proofs and boundaries.',
+    icon: 'shieldCheck' as const,
+    title: 'One identity.\nThree cards.',
+    body: 'm8 gives you up to three persona cards. Each card is a face you show to the world — but behind all of them lives one central, private identity that guarantees your civic rights.',
   },
   {
     id: '2',
-    icon: 'shield' as const,
-    title: 'Apps get proof.\nNot your data.',
-    body: 'When an app needs to know your age or eligibility, m8 sends a sealed proof — not your INE, not your birthdate, not your full name. You control what leaks.',
+    icon: 'person' as const,
+    title: 'Card 1:\nYour PARA voice.',
+    body: 'Card 1 is anonymous by default. It carries your civic proofs — eligibility, verification, affiliation — without exposing who you are. Use it to vote, deliberate, and participate in PARA.',
   },
   {
     id: '3',
-    icon: 'zap' as const,
-    title: 'Approve once.\nRevoke anytime.',
-    body: 'Every app request shows up here. Approve what makes sense. Deny what doesnt. Change your mind later? One tap and the proof is dead.',
+    icon: 'message' as const,
+    title: 'Card 2:\nPost independently.',
+    body: 'Card 2 is also anonymous, but unlinked from Card 1. Use it for independent posts, sensitive topics, or anything you want to keep separate from your main civic identity.',
   },
   {
     id: '4',
     icon: 'globe' as const,
-    title: 'Start with m8.\nLink later.',
-    body: 'Create your m8 identity first — no Bluesky or Mastodon required. Your data stays on your device. Link external accounts only when you want to go public.',
+    title: 'Card 3:\nGo public.',
+    body: 'Card 3 is yours to customize. Link it to Bluesky, Mastodon, or any social network. Build a public profile, share creative work, or network openly — or keep it dormant until you need it.',
+  },
+  {
+    id: '5',
+    icon: 'check' as const,
+    title: 'One vote.\nGuaranteed.',
+    body: 'No matter how many cards you use, your central private identity ensures you can only vote once per policy. Multiple faces, one voice, one vote — that is the m8 promise.',
   },
 ]
 

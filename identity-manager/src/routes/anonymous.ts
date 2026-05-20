@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify'
 import { requireAuth } from '../middleware/auth.js'
 import {
   createAnonymousIdentity,
+  getAnonymousContactEligibility,
   getAnonymousPublicContact,
   linkAnonymousPost,
   linkGermContact,
@@ -42,7 +43,7 @@ const linkPostSchema = z.object({
 }).strict()
 
 const dmPolicySchema = z.object({
-  dmPolicy: z.enum(['off', 'requests']),
+  dmPolicy: z.enum(['off', 'requests', 'para-verified']),
 }).strict()
 
 const postStatsSchema = z.object({
@@ -120,6 +121,13 @@ export async function anonymousRoutes(fastify: FastifyInstance) {
     const query = request.query as { postUri?: string }
     if (!query.postUri) return reply.status(400).send({ error: 'postUri is required' })
     return reply.send(getAnonymousPublicContact(query.postUri))
+  })
+
+  fastify.get('/anonymous/public-contact/eligibility', { preHandler: requireAuth }, async (request, reply) => {
+    const query = request.query as { postUri?: string }
+    if (!query.postUri) return reply.status(400).send({ error: 'postUri is required' })
+    const result = getAnonymousContactEligibility(request.sessionId!, query.postUri)
+    return reply.status(result.eligible ? 200 : 403).send(result)
   })
 
   fastify.get('/device-trust/me', { preHandler: requireAuth }, async (request, reply) => {

@@ -11,6 +11,7 @@ import { StatusBar } from 'expo-status-bar'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import Animated from 'react-native-reanimated'
 import { ConsoleLayout } from './Console/ConsoleLayout'
+import { ConsoleHeader } from './Console/Header'
 import { BottomNav } from './Console/Nav'
 import { useNotificationEngine, type NotificationItem } from '../hooks/useNotifications'
 import { BiometricGateModal, useBiometricGate } from '../components/m8/BiometricGate'
@@ -28,12 +29,15 @@ import type {
   IneVerificationRecord,
   NewSurfaceInput,
   Persona,
+  PersonaKind,
   ProofArtifact,
   RenameStatus,
   SurfaceId,
   SurfaceTemplate,
 } from '../types'
 import { SafetySection } from './Console/sections/SafetySection'
+import { SettingsSheet } from '../components/m8/SettingsSheet'
+import { hapticMedium } from '../utils/haptics'
 
 type ConsoleSectionId = 'identity' | 'requests' | 'para' | 'safety' | 'account'
 
@@ -80,6 +84,7 @@ export function ConsoleScreen({
   const [customSurfaces, setCustomSurfaces] = useState<NewSurfaceInput[]>([])
   const [showBiometricGate, setShowBiometricGate] = useState(false)
   const [showIneModal, setShowIneModal] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [renameInput, setRenameInput] = useState(session.verifiedDisplayName ?? session.displayName)
   const [savingName, setSavingName] = useState(false)
   const [requestingPara, setRequestingPara] = useState(false)
@@ -174,6 +179,22 @@ export function ConsoleScreen({
           setRefreshing(true)
           setTimeout(() => setRefreshing(false), 900)
         }}
+        header={
+          <ConsoleHeader
+            activeSection={activeSection}
+            notifications={notifications}
+            badgeCount={badgeCount}
+            hasDanger={hasDanger}
+            personas={session.personas}
+            activePersonaId={activePersonaId}
+            onSelectPersona={setActivePersonaId}
+            onShowSettings={() => {
+              hapticMedium()
+              setShowSettings(true)
+            }}
+            onDismissNotification={dismissNotification}
+          />
+        }
         footer={
           <BottomNav
             activeSection={activeSection}
@@ -241,22 +262,25 @@ export function ConsoleScreen({
         )}
 
         {activeSection === 'account' && (
-          <AccountSection
-            biometricEnabled={biometricEnabled}
-            darkMode={darkMode}
-            onSignOut={onSignOut}
-            onToggleBiometric={(value) => {
-              setBiometricEnabled(value)
-              void AsyncStorage.setItem('@m8/biometric-enabled', String(value))
-            }}
-            onToggleDarkMode={(value) => {
-              setDarkMode(value)
-              void AsyncStorage.setItem('@m8/dark-mode', String(value))
-            }}
-            session={session}
-          />
+          <AccountSection session={session} />
         )}
       </ConsoleLayout>
+
+      <SettingsSheet
+        visible={showSettings}
+        onClose={() => setShowSettings(false)}
+        darkMode={darkMode}
+        onToggleDarkMode={(value) => {
+          setDarkMode(value)
+          void AsyncStorage.setItem('@m8/dark-mode', String(value))
+        }}
+        biometricEnabled={biometricEnabled}
+        onToggleBiometric={(value) => {
+          setBiometricEnabled(value)
+          void AsyncStorage.setItem('@m8/biometric-enabled', String(value))
+        }}
+        onSignOut={onSignOut}
+      />
 
       <SurfaceBuilderModal
         visible={showSurfaceBuilder}
@@ -367,14 +391,14 @@ function IdentitySection({
   return (
     <View style={styles.stack}>
       <View style={styles.heroCard}>
-        <Text style={styles.eyebrow}>Critical flow</Text>
+        <Text style={styles.eyebrow}>Identity</Text>
         <Text style={styles.heroTitle}>
-          {isVerified ? 'Your identity can now use PARA.' : 'Verify once, then use PARA without exposing documents.'}
+          {isVerified ? 'Your identity is verified.' : 'Verify to unlock civic participation.'}
         </Text>
         <Text style={styles.heroBody}>
           {isVerified
-            ? 'PARA-compatible apps can request proof receipts from this identity. You approve each one.'
-            : 'Create is done. Verification is optional, but it unlocks PARA civic proofs and your public name choice.'}
+            ? 'Your central identity is verified. Choose a card to participate in PARA — each card is a face, but your vote is always one.'
+            : 'Verification unlocks PARA civic proofs, voting rights, and your public name choice. Your raw documents are never shared.'}
         </Text>
         <ProgressRail isVerified={isVerified} renameStatus={renameStatus} />
         {!isVerified ? (
@@ -423,8 +447,15 @@ function IdentitySection({
         <Metric label="PARA" value={session.paraProvider.availability} />
       </View>
 
+      <View style={[cardStyle('accent'), { marginBottom: 6 }]}>
+        <Text style={styles.sectionTitle}>One vote. Guaranteed.</Text>
+        <Text style={styles.sectionBody}>
+          No matter how many cards you use, your central private identity ensures you can only vote once per policy. Multiple faces, one voice, one vote.
+        </Text>
+      </View>
+
       <View style={styles.listBlock}>
-        <SectionHeading title="Identity cards" detail="Tap a card to make it the working identity context." />
+        <SectionHeading title="Your cards" detail="Up to 3 personas. Tap to activate." />
         {personas.map((persona) => (
           <PersonaCard
             key={persona.id}
@@ -595,73 +626,24 @@ function ParaSection({
 }
 
 function AccountSection({
-  biometricEnabled,
-  darkMode,
-  onSignOut,
-  onToggleBiometric,
-  onToggleDarkMode,
   session,
 }: {
-  biometricEnabled: boolean
-  darkMode: boolean
-  onSignOut: () => void
-  onToggleBiometric: (value: boolean) => void
-  onToggleDarkMode: (value: boolean) => void
   session: IdentitySession
 }) {
-  const [confirmSignOut, setConfirmSignOut] = useState(false)
-
   return (
     <View style={styles.stack}>
       <SectionHero
         eyebrow="Account"
-        title="Settings moved here."
-        body="The top-right gear is gone. Identity settings, device lock, and sign out now live in one labeled place."
-        icon="settingsGear"
+        title="Identity record"
+        body="Technical details for recovery and app compatibility."
+        icon="person"
       />
 
       <View style={styles.listBlock}>
-        <SectionHeading title="Device preferences" detail="Local controls for this app." />
-        <ToggleRow
-          icon="moon"
-          label="Dark mode"
-          value={darkMode}
-          onPress={() => onToggleDarkMode(!darkMode)}
-        />
-        <ToggleRow
-          icon="shieldCheck"
-          label="Biometric lock"
-          value={biometricEnabled}
-          onPress={() => onToggleBiometric(!biometricEnabled)}
-        />
-      </View>
-
-      <View style={styles.listBlock}>
-        <SectionHeading title="Identity record" detail="Technical record for recovery and app compatibility." />
+        <SectionHeading title="Device" detail="This session." />
         <SimpleRow icon="person" title="Display name" detail={session.displayName} meta="Local" />
         <SimpleRow icon="shield" title="DID" detail={session.did} meta="Portable" />
         <SimpleRow icon="globe" title="Auth server" detail={session.authorizationServer} meta={session.brokerMode} />
-      </View>
-
-      <View style={cardStyle('danger')}>
-        <Text style={styles.sectionTitle}>Sign out</Text>
-        <Text style={styles.sectionBody}>
-          This removes the local identity session from this device.
-        </Text>
-        {confirmSignOut ? (
-          <View style={styles.actionRow}>
-            <Pressable onPress={() => setConfirmSignOut(false)} style={buttonStyle('secondary')}>
-              <Text style={buttonTextStyle('secondary')}>Cancel</Text>
-            </Pressable>
-            <Pressable onPress={onSignOut} style={buttonStyle('danger')}>
-              <Text style={buttonTextStyle('danger')}>Sign out</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <Pressable onPress={() => setConfirmSignOut(true)} style={[buttonStyle('danger'), styles.fullButton]}>
-            <Text style={buttonTextStyle('danger')}>Sign out</Text>
-          </Pressable>
-        )}
       </View>
     </View>
   )
@@ -697,6 +679,22 @@ function ProgressRail({
   )
 }
 
+function kindLabel(kind: PersonaKind): string {
+  switch (kind) {
+    case 'para': return 'PARA'
+    case 'independent': return 'Independent'
+    case 'public': return 'Public'
+  }
+}
+
+function kindColor(kind: PersonaKind): string {
+  switch (kind) {
+    case 'para': return tokens.accent
+    case 'independent': return tokens.warning
+    case 'public': return tokens.success
+  }
+}
+
 function PersonaCard({
   active,
   onPress,
@@ -706,16 +704,17 @@ function PersonaCard({
   onPress: () => void
   persona: Persona
 }) {
+  const kColor = kindColor(persona.kind)
   return (
-    <Pressable onPress={onPress} style={[styles.personaCard, active && styles.personaCardActive]}>
+    <Pressable onPress={onPress} style={[styles.personaCard, active && { borderColor: kColor + '80', borderWidth: 2 }]}>
       <View style={styles.rowBetween}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{persona.name.slice(0, 1).toUpperCase()}</Text>
+        <View style={[styles.avatar, { backgroundColor: kColor + '20' }]}>
+          <Text style={[styles.avatarText, { color: kColor }]}>{persona.name.slice(-1)}</Text>
         </View>
-        <StatusPill label={active ? 'Active' : 'Card'} tone={active ? 'success' : 'neutral'} />
+        <StatusPill label={active ? 'Active' : kindLabel(persona.kind)} tone={active ? 'success' : 'neutral'} />
       </View>
       <Text style={styles.cardTitle}>{persona.name}</Text>
-      <Text style={styles.cardMeta}>{persona.handle}</Text>
+      <Text style={styles.cardMeta}>{persona.role}</Text>
       <Text style={styles.cardBodyText}>{persona.oneLine}</Text>
       <View style={styles.surfaceStateRow}>
         {(Object.keys(SURFACE_META) as SurfaceId[]).map((surface) => (
