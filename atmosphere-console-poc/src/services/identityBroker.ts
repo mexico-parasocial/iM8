@@ -4,6 +4,9 @@ import {
   getCurrentSession,
   getParaProviderStatus,
   restoreCurrentSession,
+  createNativeSession,
+  restoreNativeSession,
+  persistSessionSnapshot,
   postClaimVerify,
   postGrantApprove,
   postGrantRequest,
@@ -58,10 +61,23 @@ export async function readParaProviderStatus(): Promise<ParaProviderStatus> {
   return getParaProviderStatus()
 }
 
+export async function createNativeIdentity(handle: string): Promise<IdentitySession> {
+  return createNativeSession(handle)
+}
+
+export async function persistIdentitySession(session: IdentitySession): Promise<IdentitySession> {
+  return persistSessionSnapshot(session)
+}
+
 export async function restoreIdentitySession(): Promise<IdentitySession | null> {
   const cached = getCachedSession()
   if (cached) {
     return cached
+  }
+
+  const local = await restoreNativeSession()
+  if (local) {
+    return local
   }
 
   return restoreCurrentSession()

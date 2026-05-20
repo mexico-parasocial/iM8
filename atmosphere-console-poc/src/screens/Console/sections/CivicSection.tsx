@@ -3,6 +3,7 @@ import { cardStyle } from '../../../components/m8/Card'
 import { buttonStyle, buttonTextStyle } from '../../../components/m8/Button'
 import { pillStyle, pillTextStyle } from '../../../components/m8/Pill'
 import { MiniStat, CoreRow, EmptyState } from '../../../components/m8/ConsolePrimitives'
+import { Icon, type IconName } from '../../../components/m8/Icon'
 import type { IneVerificationRecord } from '../../../types'
 import { tokens } from '../../../theme'
 
@@ -27,7 +28,10 @@ export function CivicSection({
     <View style={styles.stack}>
       {/* Privacy Promise — moved to top */}
       <View style={cardStyle('warning')}>
-        <Text style={styles.warningTitle}>🔒 Privacy promise</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Icon name="lock" size={14} color={tokens.warning} />
+          <Text style={styles.warningTitle}>Privacy promise</Text>
+        </View>
         <Text style={styles.warningBody}>
           Your CURP, full name, INE number, and photo are encrypted on your device. Apps only receive the proofs you explicitly approve. You can revoke civic proofs at any time from the Grants section.
         </Text>
@@ -35,7 +39,7 @@ export function CivicSection({
 
       {/* Hero card */}
       <View style={cardStyle('accent')}>
-        <Text style={styles.summaryEyebrow}>🇲🇽 Mexican Civic Identity</Text>
+        <Text style={styles.summaryEyebrow}>Mexican Civic Identity</Text>
         <Text style={styles.summaryTitle}>
           {isVerified ? 'INE verified' : isInProgress ? 'Verification in progress' : 'Verify your INE'}
         </Text>
@@ -68,31 +72,31 @@ export function CivicSection({
       <View style={styles.listCard}>
         <Text style={styles.listTitle}>What you unlock</Text>
         <CivicFeatureRow
-          icon="🗳️"
+          icon="flag"
           title="Verified voting"
           detail="Vote on proposals and polls with proof of citizenship."
           locked={!isVerified}
         />
         <CivicFeatureRow
-          icon="📋"
+          icon="pencil"
           title="Digital petitions"
           detail="Sign civic petitions that require verified identity."
           locked={!isVerified}
         />
         <CivicFeatureRow
-          icon="💬"
+          icon="message"
           title="Verified comments"
           detail="Comment on political posts with a verified badge."
           locked={!isVerified}
         />
         <CivicFeatureRow
-          icon="🏘️"
+          icon="home"
           title="Regional communities"
           detail="Join state and municipality groups."
           locked={!isVerified}
         />
         <CivicFeatureRow
-          icon="🎖️"
+          icon="shieldCheck"
           title="Civic badges"
           detail="Display voter status, age range, and region without revealing raw data."
           locked={!isVerified}
@@ -116,9 +120,13 @@ function StepperStep({ number, title, completed, current }: { number: number; ti
   return (
     <View style={styles.stepperRow}>
       <View style={[styles.stepperDot, completed && styles.stepperDotCompleted, current && styles.stepperDotCurrent]}>
-        <Text style={[styles.stepperNumber, completed && styles.stepperNumberCompleted, current && styles.stepperNumberCurrent]}>
-          {completed ? '✓' : number}
-        </Text>
+        {completed ? (
+          <Icon name="check" size={12} color={tokens.success} />
+        ) : (
+          <Text style={[styles.stepperNumber, current && styles.stepperNumberCurrent]}>
+            {number}
+          </Text>
+        )}
       </View>
       <Text style={[styles.stepperText, completed && styles.stepperTextCompleted, current && styles.stepperTextCurrent]}>
         {title}
@@ -127,10 +135,12 @@ function StepperStep({ number, title, completed, current }: { number: number; ti
   )
 }
 
-function CivicFeatureRow({ icon, title, detail, locked }: { icon: string; title: string; detail: string; locked: boolean }) {
+function CivicFeatureRow({ icon, title, detail, locked }: { icon: IconName; title: string; detail: string; locked: boolean }) {
   return (
     <View style={[styles.featureRow, { opacity: locked ? 0.5 : 1 }]}>
-      <Text style={{ fontSize: 24, marginRight: 12 }}>{icon}</Text>
+      <View style={{ marginRight: 12 }}>
+        <Icon name={icon} size={22} color={locked ? tokens.muted : tokens.text} />
+      </View>
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Text style={{ color: tokens.text, fontSize: 14, fontWeight: '700' }}>{title}</Text>

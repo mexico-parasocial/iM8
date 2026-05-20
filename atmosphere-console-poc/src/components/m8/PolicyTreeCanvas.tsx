@@ -7,6 +7,7 @@ import {
   TextInput,
   Dimensions,
 } from 'react-native'
+import { Icon } from './Icon'
 import {
   Gesture,
   GestureDetector,
@@ -287,7 +288,7 @@ export default function PolicyTreeCanvas({
             style={styles.edgeCancel}
             onPress={() => { setEdgeFrom(null); setEdgePreview(null) }}
           >
-            <Text style={styles.edgeCancelText}>✕</Text>
+            <Icon name="circleX" size={14} color="#94A3B8" />
           </TouchableOpacity>
         </View>
       )}

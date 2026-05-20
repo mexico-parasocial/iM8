@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { env } from '../config/env.js'
 import { getDb } from '../db/connection.js'
 import { resolveHandleToDid, resolvePdsEndpoint } from './didResolver.js'
+import { PROOF_BROKER_CLAIM_TYPES } from '../types/index.js'
 import type {
   ProofBrokerSession,
   ProofBrokerSessionStartInput,
@@ -72,7 +73,7 @@ export async function createSession(input: ProofBrokerSessionStartInput): Promis
     policyRecord: 'com.para.identity' as const,
     compatibilityRecord: 'app.bsky.graph.verification' as const,
     lastSyncAt: now,
-    supportedClaims: ['is_verified_public_figure', 'is_civic_eligible', 'has_para_verification', 'has_party_affiliation_match'] as const,
+    supportedClaims: [...PROOF_BROKER_CLAIM_TYPES],
     notes: 'PARA provider initialized. Awaiting first sync.',
   }
 
@@ -270,4 +271,3 @@ export function buildSession(
 export function hashRefreshToken(token: string): string {
   return createHash('sha256').update(token).digest('hex')
 }
-

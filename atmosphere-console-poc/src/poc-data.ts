@@ -30,8 +30,8 @@ export function buildPersonas(handle: string): Persona[] {
 
   return [
     {
-      id: 'orbit',
-      name: 'Orbit',
+      id: '1',
+      name: '1',
       handle: `@${handle}`,
       role: 'Default identity wallet',
       oneLine: 'Easy first impression across Atmosphere apps',
@@ -60,8 +60,8 @@ export function buildPersonas(handle: string): Persona[] {
       ],
     },
     {
-      id: 'signal',
-      name: 'Signal',
+      id: '2',
+      name: '2',
       handle: `@${handleRoot}.civic`,
       role: 'Civic proof profile',
       oneLine: 'For public-interest spaces, advocacy, and trust workflows',
@@ -90,8 +90,8 @@ export function buildPersonas(handle: string): Persona[] {
       ],
     },
     {
-      id: 'spark',
-      name: 'Spark',
+      id: '3',
+      name: '3',
       handle: `@${handleRoot}.spark`,
       role: 'Selective dating profile',
       oneLine: 'Warmer discovery profile with proof-first boundaries',

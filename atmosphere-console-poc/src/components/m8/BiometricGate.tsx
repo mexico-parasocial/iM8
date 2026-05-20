@@ -12,6 +12,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { buttonStyle, buttonTextStyle } from './Button'
 import { cardStyle } from './Card'
+import { Icon } from './Icon'
 import { tokens } from '../../theme'
 
 const BIOMETRIC_ENABLED_KEY = '@m8/biometric-enabled'
@@ -126,7 +127,9 @@ export function BiometricGateModal({
     >
       <View style={styles.overlay}>
         <View style={styles.sheet}>
-          <Text style={styles.icon}>🔐</Text>
+          <View style={styles.iconWrap}>
+            <Icon name="lock" size={48} color={tokens.accent} />
+          </View>
           <Text style={styles.title}>Identity vault locked</Text>
           <Text style={styles.body}>
             Your sensitive identity data is protected. Authenticate to continue.
@@ -173,8 +176,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  icon: {
-    fontSize: 48,
+  iconWrap: {
     marginBottom: 8,
   },
   title: {

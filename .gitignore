@@ -27,3 +27,7 @@ build/
 
 # Embedded repos (submodules)
 identity-manager/zkp/circomlib/
+
+# Unused reference projects (not part of published m8-app)
+pds-moover-main/
+eurosky-portal-main/

@@ -7,12 +7,15 @@ import {
   requestGrant,
   revokeGrant,
   restoreIdentitySession,
+  createNativeIdentity,
+  persistIdentitySession,
 } from '../services/identityBroker'
 import {
   type BootstrapStatus,
   type BrokerAttempt,
   type GrantRequestInput,
   type IdentitySession,
+  type IneVerificationRecord,
 } from '../types'
 
 export function useSessionBootstrap() {
@@ -77,6 +80,24 @@ export function useSessionBootstrap() {
     }
   }
 
+  async function createLocalIdentity(handle: string) {
+    try {
+      setError(null)
+      setAttempt(null)
+      setStatus('hydrating')
+
+      const nextSession = await createNativeIdentity(handle)
+      startTransition(() => {
+        setSession(nextSession)
+      })
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'Unable to create identity'
+      setError(message)
+    } finally {
+      setStatus('idle')
+    }
+  }
+
   async function createGrantRequest(input: GrantRequestInput) {
     try {
       setError(null)
@@ -110,6 +131,44 @@ export function useSessionBootstrap() {
     }
   }
 
+  async function updateSession(nextSession: IdentitySession) {
+    const persisted = await persistIdentitySession(nextSession)
+    startTransition(() => {
+      setSession(persisted)
+    })
+  }
+
+  async function saveIneVerification(record: IneVerificationRecord) {
+    if (!session) return
+    await updateSession({
+      ...session,
+      ineVerification: record,
+      renameStatus: session.renameStatus === 'used' ? 'used' : 'available',
+    })
+  }
+
+  async function updateDisplayName(displayName: string) {
+    if (!session) return
+    const cleanName = displayName.trim()
+    if (!cleanName) return
+
+    await updateSession({
+      ...session,
+      displayName: cleanName,
+      verifiedDisplayName: cleanName,
+      renameStatus: 'used',
+      personas: session.personas.map((persona, index) =>
+        index === 0
+          ? {
+              ...persona,
+              name: cleanName,
+              oneLine: 'Verified public identity for PARA-compatible apps',
+            }
+          : persona
+      ),
+    })
+  }
+
   function signOut() {
     clearIdentitySession()
     setSession(null)
@@ -122,12 +181,15 @@ export function useSessionBootstrap() {
     attempt,
     approveGrantRequest,
     createGrantRequest,
+    createLocalIdentity,
     error,
     isLoading: status !== 'idle',
+    saveIneVerification,
     revokeExistingGrant,
     session,
     signIn,
     signOut,
     status,
+    updateDisplayName,
   }
 }

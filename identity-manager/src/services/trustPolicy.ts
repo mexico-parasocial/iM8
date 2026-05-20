@@ -37,6 +37,20 @@ export function verifyClaim(input: {
     case 'has_party_affiliation_match': {
       return { outcome: 'bounded', statement: `Bounded party affiliation match: ${input.requestedValue ?? 'none'}`, reference: `party:${input.sessionId}` }
     }
+    case 'joined_during_founding_period': {
+      return {
+        outcome: 'bounded',
+        statement: `Bounded party tenure proof: joined during founding period for ${input.requestedValue ?? 'party'}.`,
+        reference: `party-tenure:${input.sessionId}`,
+      }
+    }
+    case 'has_continuous_party_membership_30d': {
+      return {
+        outcome: 'bounded',
+        statement: `Bounded party tenure proof: continuous membership is at least 30 days for ${input.requestedValue ?? 'party'}.`,
+        reference: `party-tenure:${input.sessionId}`,
+      }
+    }
     case 'is_age_eligible': {
       return { outcome: 'verified', statement: 'Age eligibility verified via identity wallet.', reference: `age:${input.sessionId}` }
     }

@@ -164,13 +164,18 @@ export type ProofBrokerGrantStatus = 'pending' | 'approved' | 'revoked' | 'expir
 
 export type ProofBrokerProofStatus = 'pending' | 'active' | 'revoked' | 'expired'
 
-export type ProofBrokerClaimType =
-  | 'is_verified_public_figure'
-  | 'is_civic_eligible'
-  | 'has_para_verification'
-  | 'has_party_affiliation_match'
-  | 'is_age_eligible'
-  | 'has_backup_coverage'
+export const PROOF_BROKER_CLAIM_TYPES = [
+  'is_verified_public_figure',
+  'is_civic_eligible',
+  'has_para_verification',
+  'has_party_affiliation_match',
+  'joined_during_founding_period',
+  'has_continuous_party_membership_30d',
+  'is_age_eligible',
+  'has_backup_coverage',
+] as const
+
+export type ProofBrokerClaimType = (typeof PROOF_BROKER_CLAIM_TYPES)[number]
 
 export type ProofBrokerAppKind =
   | 'Consumer app'
@@ -372,6 +377,8 @@ export function proofBrokerClaimLabel(claimType: ProofBrokerClaimType) {
     is_civic_eligible: 'Civic eligible',
     has_para_verification: 'PARA verification',
     has_party_affiliation_match: 'Party affiliation match',
+    joined_during_founding_period: 'Joined during founding period',
+    has_continuous_party_membership_30d: 'Continuous party membership, 30+ days',
     is_age_eligible: 'Age eligible',
     has_backup_coverage: 'Backup coverage',
   }

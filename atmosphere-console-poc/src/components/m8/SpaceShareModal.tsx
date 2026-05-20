@@ -8,6 +8,7 @@ import {
   ScrollView,
   TextInput,
 } from 'react-native'
+import { Icon } from './Icon'
 import { KnowledgeBundle, PermissionedSpace, ProofArtifact } from '../../types'
 import InfoTooltip from '../m8/InfoTooltip'
 
@@ -102,7 +103,7 @@ export default function SpaceShareModal({
               />
             </View>
             <TouchableOpacity onPress={onClose}>
-              <Text style={styles.close}>✕</Text>
+              <Icon name="circleX" size={18} color="#94A3B8" />
             </TouchableOpacity>
           </View>
 

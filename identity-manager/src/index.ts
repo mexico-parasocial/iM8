@@ -16,6 +16,7 @@ import { providerRoutes } from './routes/providers.js'
 import { issuerRoutes } from './routes/issuers.js'
 import { ledgerRoutes } from './routes/ledger.js'
 import { karmaRoutes } from './routes/karma.js'
+import { anonymousRoutes } from './routes/anonymous.js'
 
 async function buildApp() {
   ensureSchema()
@@ -52,6 +53,7 @@ async function buildApp() {
   await app.register(issuerRoutes, { prefix: '/v1' })
   await app.register(ledgerRoutes, { prefix: '/v1' })
   await app.register(karmaRoutes, { prefix: '/v1' })
+  await app.register(anonymousRoutes, { prefix: '/v1' })
 
   return app
 }

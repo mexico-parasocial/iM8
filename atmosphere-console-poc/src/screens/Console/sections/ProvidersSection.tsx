@@ -43,7 +43,7 @@ export function ProvidersSection({
             <ListRow key={app.id} title={app.name} detail={`${app.status} · ${app.summary}`} meta={app.cta} />
           ))
         ) : (
-          <EmptyState icon="📱" title="No apps yet" detail="Apps will appear here when they connect to your identity." />
+          <EmptyState icon="globe" title="No apps yet" detail="Apps will appear here when they connect to your identity." />
         )}
       </View>
 

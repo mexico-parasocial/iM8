@@ -11,6 +11,7 @@ process.env.DATABASE_PATH = join(tmpDir, 'anon-test.db')
 describe('Anonymous mode integration', () => {
   let app: FastifyInstance
   let accessToken: string
+  let did: string
 
   before(async () => {
     const { buildApp } = await import('../../src/index.js')
@@ -22,6 +23,7 @@ describe('Anonymous mode integration', () => {
     })
     const body = JSON.parse(start.payload)
     accessToken = body.tokens.accessToken
+    did = body.attempt.did
   })
 
   after(async () => {
@@ -96,5 +98,157 @@ describe('Anonymous mode integration', () => {
     })
     const meBody = JSON.parse(me.payload)
     assert.equal(meBody.anonymousProfile, null)
+  })
+
+  it('manages anonymous identity cards and blocks Germ linking without device trust', async () => {
+    const identities = await app.inject({
+      method: 'GET',
+      url: '/v1/anonymous/identities',
+      headers: { authorization: `Bearer ${accessToken}` },
+    })
+    assert.equal(identities.statusCode, 200)
+    const identitiesBody = JSON.parse(identities.payload)
+    assert.equal(identitiesBody.identities.length, 1)
+    const identity = identitiesBody.identities[0]
+    assert.equal(identity.status, 'active')
+    assert.equal(identity.deviceTrust.status, 'unknown')
+
+    const linked = await app.inject({
+      method: 'POST',
+      url: '/v1/anonymous/posts',
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: {
+        identityId: identity.id,
+        postUri: 'at://did:plc:poster/app.bsky.feed.post/anon1',
+        communityUri: 'at://did:plc:community/com.para.community.board/main',
+        stats: {
+          replyCount: 12,
+          repostCount: 2,
+          likeCount: 30,
+          quoteCount: 1,
+          threadCount: 4,
+        },
+      },
+    })
+    assert.equal(linked.statusCode, 201)
+    const post = JSON.parse(linked.payload).post
+    assert.equal(post.dmPolicy, 'off')
+    assert.deepEqual(
+      {
+        replyCount: post.stats.replyCount,
+        repostCount: post.stats.repostCount,
+        likeCount: post.stats.likeCount,
+        quoteCount: post.stats.quoteCount,
+        threadCount: post.stats.threadCount,
+      },
+      { replyCount: 12, repostCount: 2, likeCount: 30, quoteCount: 1, threadCount: 4 },
+    )
+
+    const statsUpdate = await app.inject({
+      method: 'PATCH',
+      url: `/v1/anonymous/posts/${post.id}/stats`,
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: {
+        replyCount: 14,
+        threadCount: 5,
+      },
+    })
+    assert.equal(statsUpdate.statusCode, 200)
+    const updatedPost = JSON.parse(statsUpdate.payload).post
+    assert.equal(updatedPost.stats.replyCount, 14)
+    assert.equal(updatedPost.stats.threadCount, 5)
+    assert.equal(updatedPost.stats.likeCount, 30)
+    assert.ok(updatedPost.stats.syncedAt)
+
+    const blocked = await app.inject({
+      method: 'POST',
+      url: `/v1/anonymous/identities/${identity.id}/germ/link`,
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: {
+        contactUrl: 'https://landing.ger.mx/anonymous-card#opaque-burner-secret',
+      },
+    })
+    assert.equal(blocked.statusCode, 403)
+    assert.match(JSON.parse(blocked.payload).error, /Trusted device required/)
+
+    const publicContact = await app.inject({
+      method: 'GET',
+      url: `/v1/anonymous/public-contact?postUri=${encodeURIComponent(post.postUri)}`,
+    })
+    assert.equal(publicContact.statusCode, 200)
+    assert.deepEqual(JSON.parse(publicContact.payload), { dmEnabled: false })
+  })
+
+  it('links opaque Germ contact URLs after device trust and never leaks the author DID', async () => {
+    const trust = await app.inject({
+      method: 'POST',
+      url: '/v1/device-trust/development/verify',
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: {
+        platform: 'ios',
+        deviceKeyId: 'test-ios-app-attest-key',
+        publicKey: 'test-public-key',
+      },
+    })
+    assert.equal(trust.statusCode, 200)
+    assert.equal(JSON.parse(trust.payload).deviceTrust.status, 'trusted')
+
+    const identities = await app.inject({
+      method: 'GET',
+      url: '/v1/anonymous/identities',
+      headers: { authorization: `Bearer ${accessToken}` },
+    })
+    const identity = JSON.parse(identities.payload).identities[0]
+
+    const rejectsDidLeak = await app.inject({
+      method: 'POST',
+      url: `/v1/anonymous/identities/${identity.id}/germ/link`,
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: {
+        contactUrl: `https://landing.ger.mx/newUser#${did}+did:plc:viewer`,
+      },
+    })
+    assert.equal(rejectsDidLeak.statusCode, 400)
+    assert.match(JSON.parse(rejectsDidLeak.payload).error, /must not include the author DID/)
+
+    const link = await app.inject({
+      method: 'POST',
+      url: `/v1/anonymous/identities/${identity.id}/germ/link`,
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: {
+        contactUrl: 'https://landing.ger.mx/anonymous-card#opaque-burner-secret',
+        providerRef: 'germ-ref-1',
+        mode: 'germ-card-link',
+      },
+    })
+    assert.equal(link.statusCode, 200)
+    assert.equal(JSON.parse(link.payload).germ.provider, 'germ')
+
+    const posts = identity.posts.length
+      ? identity.posts
+      : [JSON.parse((await app.inject({
+        method: 'POST',
+        url: '/v1/anonymous/posts',
+        headers: { authorization: `Bearer ${accessToken}` },
+        payload: { identityId: identity.id, postUri: 'at://did:plc:poster/app.bsky.feed.post/anon2' },
+      })).payload).post]
+    const enable = await app.inject({
+      method: 'PATCH',
+      url: `/v1/anonymous/posts/${posts[0].id}/dm-policy`,
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: { dmPolicy: 'requests' },
+    })
+    assert.equal(enable.statusCode, 200)
+
+    const publicContact = await app.inject({
+      method: 'GET',
+      url: `/v1/anonymous/public-contact?postUri=${encodeURIComponent(posts[0].postUri)}`,
+    })
+    assert.equal(publicContact.statusCode, 200)
+    const contactBody = JSON.parse(publicContact.payload)
+    assert.equal(contactBody.dmEnabled, true)
+    assert.equal(contactBody.provider, 'germ')
+    assert.equal(contactBody.contactUrl.includes(did), false)
+    assert.equal(JSON.stringify(contactBody).includes(did), false)
   })
 })

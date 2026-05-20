@@ -3,11 +3,12 @@ import {
   Dimensions,
   FlatList,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   View,
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { Icon } from '../components/m8/Icon'
 import { tokens } from '../theme'
 
 const { width } = Dimensions.get('window')
@@ -15,27 +16,27 @@ const { width } = Dimensions.get('window')
 const slides = [
   {
     id: '1',
-    emoji: '🔐',
+    icon: 'lock' as const,
     title: 'One identity.\nMany faces.',
     body: 'm8 lets you create different personas for different parts of your life. Your civic profile for politics. Your public profile for social. Each with its own proofs and boundaries.',
   },
   {
     id: '2',
-    emoji: '🛡️',
+    icon: 'shield' as const,
     title: 'Apps get proof.\nNot your data.',
     body: 'When an app needs to know your age or eligibility, m8 sends a sealed proof — not your INE, not your birthdate, not your full name. You control what leaks.',
   },
   {
     id: '3',
-    emoji: '⚡',
+    icon: 'zap' as const,
     title: 'Approve once.\nRevoke anytime.',
     body: 'Every app request shows up here. Approve what makes sense. Deny what doesnt. Change your mind later? One tap and the proof is dead.',
   },
   {
     id: '4',
-    emoji: '🌐',
-    title: 'Works with Bluesky.\nAnd beyond.',
-    body: 'Sign in with your ATProto handle. m8 connects to Bluesky, Mastodon, and other identity providers. Your proofs travel with you across apps.',
+    icon: 'globe' as const,
+    title: 'Start with m8.\nLink later.',
+    body: 'Create your m8 identity first — no Bluesky or Mastodon required. Your data stays on your device. Link external accounts only when you want to go public.',
   },
 ]
 
@@ -56,7 +57,9 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
           }}
           renderItem={({ item }) => (
             <View style={styles.slide}>
-              <Text style={styles.emoji}>{item.emoji}</Text>
+              <View style={styles.iconWrap}>
+                <Icon name={item.icon} size={48} color={tokens.accent} />
+              </View>
               <Text style={styles.title}>{item.title}</Text>
               <Text style={styles.body}>{item.body}</Text>
             </View>
@@ -103,8 +106,7 @@ const styles = StyleSheet.create({
     paddingTop: 120,
     alignItems: 'flex-start',
   },
-  emoji: {
-    fontSize: 56,
+  iconWrap: {
     marginBottom: 24,
   },
   title: {

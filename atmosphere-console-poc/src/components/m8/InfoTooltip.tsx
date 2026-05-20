@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Modal,
 } from 'react-native'
+import { Icon } from './Icon'
 
 // ── Props ──
 type Props = {
@@ -41,7 +42,7 @@ export default function InfoTooltip({ title, explanation }: Props) {
             <View style={styles.header}>
               <Text style={styles.title}>{title}</Text>
               <TouchableOpacity onPress={() => setVisible(false)}>
-                <Text style={styles.close}>✕</Text>
+                <Icon name="circleX" size={16} color="#94A3B8" />
               </TouchableOpacity>
             </View>
             <Text style={styles.explanation}>{explanation}</Text>

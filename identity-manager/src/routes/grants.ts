@@ -3,10 +3,11 @@ import type { FastifyInstance } from 'fastify'
 import { requireAuth } from '../middleware/auth.js'
 import { requestGrant, approveGrant, revokeGrant } from '../services/grantService.js'
 import { hydrateSession } from '../services/sessionService.js'
+import { PROOF_BROKER_CLAIM_TYPES } from '../types/index.js'
 
 
 const claimSpecSchema = z.object({
-  type: z.enum(['is_verified_public_figure', 'is_civic_eligible', 'has_para_verification', 'has_party_affiliation_match', 'is_age_eligible', 'has_backup_coverage']),
+  type: z.enum(PROOF_BROKER_CLAIM_TYPES),
   disclosure: z.enum(['proof-only', 'signed-claim', 'raw']),
   requestedValue: z.string().optional(),
 })

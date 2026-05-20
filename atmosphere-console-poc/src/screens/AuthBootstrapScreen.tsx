@@ -3,12 +3,12 @@ import { useState } from 'react'
 import {
   ActivityIndicator,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { palette } from '../theme'
 import { type BootstrapStatus, type BrokerAttempt } from '../types'
 

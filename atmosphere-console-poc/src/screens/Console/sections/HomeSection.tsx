@@ -1,7 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Icon } from '../../../components/m8/Icon'
 import { cardStyle } from '../../../components/m8/Card'
 import { buttonStyle, buttonTextStyle } from '../../../components/m8/Button'
-import { MiniStat, CoreRow, ListRow, EmptyState } from '../../../components/m8/ConsolePrimitives'
+import { StatRow, CoreRow, ListRow, EmptyState } from '../../../components/m8/ConsolePrimitives'
 import type { IdentitySession, Persona, SurfaceId, NewSurfaceInput, GrantRequestInput } from '../../../types'
 import { tokens } from '../../../theme'
 
@@ -9,6 +10,7 @@ export function HomeSection({
   session,
   activeSurface,
   activePersona,
+  ineVerified,
   visibleRequests,
   commands,
   customSurfaces,
@@ -19,6 +21,7 @@ export function HomeSection({
   session: IdentitySession
   activeSurface: SurfaceId
   activePersona: Persona | undefined
+  ineVerified: boolean
   visibleRequests: { id: string; appName: string; requestedClaims: string[]; audience: string; status: string }[]
   commands: { title: string; detail: string }[]
   customSurfaces: NewSurfaceInput[]
@@ -29,34 +32,52 @@ export function HomeSection({
   const activeGrantCount = session.grants.filter((g) => g.status === 'Active').length
   const pendingGrantCount = session.pendingRequests.length
 
+  const surfaceColor: Record<string, string> = {
+    public: theme.success,
+    civic: theme.accent,
+    dating: '#a78bfa',
+  }
+  const sColor = surfaceColor[activeSurface] ?? theme.accent
+
   return (
     <View style={styles.stack}>
-      <View style={cardStyle('accent')}>
-        <Text style={styles.summaryEyebrow}>Broker posture</Text>
-        <Text style={styles.summaryTitle}>Your identity is verified. Apps only see what you approve.</Text>
-        <Text style={styles.summaryBody}>
+      {/* Broker posture */}
+      <View style={[styles.card, { backgroundColor: theme.accentTransparent }]}>
+        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2}}>
+          <Text style={styles.eyebrow}>Broker posture</Text>
+          {ineVerified && (
+            <View style={[styles.verifiedBadge, { backgroundColor: theme.success + '18' }]}>
+              <Icon name="shieldCheck" size={10} color={theme.success} />
+              <Text style={[styles.verifiedText, { color: theme.success }]}>Verified</Text>
+            </View>
+          )}
+        </View>
+        <Text style={styles.cardTitle}>Your identity is verified. Apps only see what you approve.</Text>
+        <Text style={styles.cardBody}>
           {activeGrantCount} apps are actively requesting proofs. {pendingGrantCount} requests need your attention.
         </Text>
-        <View style={styles.statRow}>
-          <MiniStat label="Active" value={String(activeGrantCount)} />
-          <MiniStat label="Pending" value={String(pendingGrantCount)} />
-          <MiniStat label="Proofs" value={String(session.proofArtifacts.filter((a) => a.status === 'Active').length)} />
-          <MiniStat label="Safety" value={session.pdsSafety.state} tone={
+        <StatRow stats={[
+          { label: 'Active', value: String(activeGrantCount) },
+          { label: 'Pending', value: String(pendingGrantCount) },
+          { label: 'Proofs', value: String(session.proofArtifacts.filter((a) => a.status === 'Active').length) },
+          { label: 'Safety', value: session.pdsSafety.state, tone:
             session.pdsSafety.state === 'Backed up' ? 'success'
             : session.pdsSafety.state === 'Needs attention' ? 'warning'
             : 'danger'
-          } />
-        </View>
+          },
+        ]} />
       </View>
 
-      <View style={cardStyle('filled')}>
-        <Text style={styles.summaryEyebrow}>Selected surface</Text>
-        <Text style={styles.summaryTitle}>
+      {/* Surface state */}
+      <View style={[styles.card, { backgroundColor: theme.surfaceTransparent }]}>
+        <Text style={styles.eyebrow}>Selected surface</Text>
+        <Text style={styles.cardTitle}>
           {activePersona?.name ?? 'Unknown'} is {(activePersona?.surfaceStates[activeSurface] ?? 'Muted').toLowerCase()} in {activeSurface}.
         </Text>
-        <Text style={styles.summaryBody}>{activePersona?.summary ?? ''}</Text>
+        <Text style={styles.cardBody}>{activePersona?.summary ?? ''}</Text>
       </View>
 
+      {/* Identity core */}
       <View style={styles.listCard}>
         <Text style={styles.listTitle}>Identity core</Text>
         <CoreRow label="DID" value={shortDid(session.did)} />
@@ -64,6 +85,7 @@ export function HomeSection({
         <CoreRow label="Policy" value={session.paraProvider.policyRecord} />
       </View>
 
+      {/* Incoming requests */}
       <View style={styles.listCard}>
         <Text style={styles.listTitle}>Incoming requests</Text>
         {visibleRequests.length > 0 ? (
@@ -77,13 +99,14 @@ export function HomeSection({
           ))
         ) : (
           <EmptyState
-            icon="📭"
+            icon="inbox"
             title="No pending requests"
             detail={`${activeSurface} is ready. Apps will appear here when they need proofs.`}
           />
         )}
       </View>
 
+      {/* Surfaces */}
       <View style={styles.listCard}>
         <Text style={styles.listTitle}>Your surfaces</Text>
         {customSurfaces.length > 0 ? (
@@ -97,7 +120,7 @@ export function HomeSection({
           ))
         ) : (
           <EmptyState
-            icon="🧩"
+            icon="home"
             title="No custom surfaces"
             detail="Create surfaces for specific contexts — work, anonymous posting, family, etc."
           />
@@ -110,6 +133,7 @@ export function HomeSection({
         </Pressable>
       </View>
 
+      {/* Recommended */}
       <View style={styles.listCard}>
         <Text style={styles.listTitle}>Recommended</Text>
         {commands.map((cmd) => (
@@ -128,7 +152,44 @@ function shortDid(did: string) {
 const styles = StyleSheet.create({
   stack: {
     gap: 12,
-    marginTop: 12,
+  },
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: tokens.success + '40',
+  },
+  verifiedText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  card: {
+    borderRadius: 14,
+    padding: 16,
+    gap: 6,
+  },
+  eyebrow: {
+    color: tokens.accentSoft,
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  cardTitle: {
+    color: tokens.text,
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '600',
+  },
+  cardBody: {
+    color: tokens.muted,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 2,
   },
   listCard: {
     gap: 8,
@@ -139,30 +200,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 2,
   },
-  summaryEyebrow: {
-    color: tokens.accentSoft,
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 8,
-  },
-  summaryTitle: {
-    color: tokens.text,
-    fontSize: 20,
-    lineHeight: 25,
-    fontWeight: '700',
-  },
-  summaryBody: {
-    color: tokens.muted,
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 8,
-  },
   statRow: {
     flexDirection: 'row',
     gap: 10,
     flexWrap: 'wrap',
-    marginTop: 12,
+    marginTop: 10,
   },
 })

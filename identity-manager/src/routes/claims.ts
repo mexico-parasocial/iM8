@@ -4,9 +4,10 @@ import type { FastifyInstance } from 'fastify'
 import { requireAuth } from '../middleware/auth.js'
 import { verifyClaim } from '../services/trustPolicy.js'
 import { getDb } from '../db/connection.js'
+import { PROOF_BROKER_CLAIM_TYPES } from '../types/index.js'
 
 const verifyClaimSchema = z.object({
-  claimType: z.enum(['is_verified_public_figure', 'is_civic_eligible', 'has_para_verification', 'has_party_affiliation_match', 'is_age_eligible', 'has_backup_coverage']),
+  claimType: z.enum(PROOF_BROKER_CLAIM_TYPES),
   requestedValue: z.string().optional(),
   audienceAppId: z.string().min(1),
   audienceAppName: z.string().min(1),

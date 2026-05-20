@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { View, Pressable, Text, StyleSheet, ScrollView } from 'react-native'
-import InfoTooltip from '../../../components/m8/InfoTooltip'
 import PolicyTreeCanvas from '../../../components/m8/PolicyTreeCanvas'
 import PolicyList from '../../../components/m8/PolicyList'
 import SpaceShareModal from '../../../components/m8/SpaceShareModal'
 import EndorsementPanel from '../../../components/m8/EndorsementPanel'
 import AIAssistPanel from '../../../components/m8/AIAssistPanel'
 import MyBaseSettingsModal from '../../../components/m8/MyBaseSettingsModal'
+import { Icon } from '../../../components/m8/Icon'
 import type { PolicyNode, PolicyEdge, KnowledgeBundle, PermissionedSpace, ProofArtifact } from '../../../types'
 import { tokens } from '../../../theme'
 
@@ -19,7 +19,7 @@ export function MyBaseSection({
   sessionDid: string
   proofArtifacts: ProofArtifact[]
   theme: typeof tokens
-  addNotification: (emoji: string, title: string) => void
+  addNotification: (icon: string, title: string) => void
 }) {
   const [policyNodes, setPolicyNodes] = useState<PolicyNode[]>([])
   const [policyEdges, setPolicyEdges] = useState<PolicyEdge[]>([])
@@ -40,82 +40,65 @@ export function MyBaseSection({
       {/* Primary Toolbar */}
       <View style={styles.primaryToolbar}>
         <View style={styles.toolbarGroup}>
-          <View style={styles.toolbarItem}>
-            <Pressable
-              onPress={() => setCanvasView(canvasView === 'canvas' ? 'list' : 'canvas')}
-              style={styles.toolbarButton}
-            >
+          <Pressable
+            onPress={() => setCanvasView(canvasView === 'canvas' ? 'list' : 'canvas')}
+            style={styles.toolbarButton}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Icon name={canvasView === 'canvas' ? 'list' : 'grid'} size={12} color={tokens.text} />
               <Text style={styles.toolbarButtonText}>
-                {canvasView === 'canvas' ? '☰ List' : '⊞ Canvas'}
+                {canvasView === 'canvas' ? 'List' : 'Canvas'}
               </Text>
-            </Pressable>
-            <InfoTooltip
-              title="View Mode"
-              explanation="Toggle between spatial canvas and list view."
-            />
-          </View>
+            </View>
+          </Pressable>
 
-          <View style={styles.toolbarItem}>
-            <Pressable
-              onPress={() => {
-                const newNode: PolicyNode = {
-                  id: `node-${Date.now()}`,
-                  type: 'claim',
-                  content: 'New claim',
-                  x: 100 + Math.random() * 200,
-                  y: 100 + Math.random() * 200,
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                }
-                setPolicyNodes((prev) => [...prev, newNode])
-              }}
-              style={[styles.toolbarButton, styles.toolbarButtonPrimary]}
-            >
-              <Text style={[styles.toolbarButtonText, styles.toolbarButtonPrimaryText]}>+ Claim</Text>
-            </Pressable>
-            <InfoTooltip
-              title="Add Claim"
-              explanation="Create a new claim node on the canvas."
-            />
-          </View>
-        </View>
+          <Pressable
+            onPress={() => {
+              const newNode: PolicyNode = {
+                id: `node-${Date.now()}`,
+                type: 'claim',
+                content: 'New claim',
+                x: 100 + Math.random() * 200,
+                y: 100 + Math.random() * 200,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              }
+              setPolicyNodes((prev) => [...prev, newNode])
+            }}
+            style={[styles.toolbarButton, styles.toolbarButtonPrimary]}
+          >
+            <Text style={[styles.toolbarButtonText, styles.toolbarButtonPrimaryText]}>+ Claim</Text>
+          </Pressable>
 
-        <View style={styles.toolbarGroup}>
-          <View style={styles.toolbarItem}>
-            <Pressable
-              onPress={() => {
-                if (selectedNodeIds.length > 0) {
-                  const bundle: KnowledgeBundle = {
-                    id: `bundle-${Date.now()}`,
-                    name: `Bundle ${knowledgeBundles.length + 1}`,
-                    nodeIds: [...selectedNodeIds],
-                    edgeIds: policyEdges
-                      .filter((e) => selectedNodeIds.includes(e.from) && selectedNodeIds.includes(e.to))
-                      .map((e) => e.id),
-                    spaceUri: '',
-                    authorDid: sessionDid,
-                    attachedProofs: [],
-                    status: 'draft',
-                    endorsements: [],
-                    challenges: [],
-                  }
-                  setShareBundle(bundle)
-                  setShowShareModal(true)
+          <Pressable
+            onPress={() => {
+              if (selectedNodeIds.length > 0) {
+                const bundle: KnowledgeBundle = {
+                  id: `bundle-${Date.now()}`,
+                  name: `Bundle ${knowledgeBundles.length + 1}`,
+                  nodeIds: [...selectedNodeIds],
+                  edgeIds: policyEdges
+                    .filter((e) => selectedNodeIds.includes(e.from) && selectedNodeIds.includes(e.to))
+                    .map((e) => e.id),
+                  spaceUri: '',
+                  authorDid: sessionDid,
+                  attachedProofs: [],
+                  status: 'draft',
+                  endorsements: [],
+                  challenges: [],
                 }
-              }}
-              style={[
-                styles.toolbarButton,
-                styles.toolbarButtonPrimary,
-                selectedNodeIds.length === 0 && styles.toolbarButtonDisabled,
-              ]}
-            >
-              <Text style={[styles.toolbarButtonText, styles.toolbarButtonPrimaryText]}>Share</Text>
-            </Pressable>
-            <InfoTooltip
-              title="Share Bundle"
-              explanation="Package selected nodes and submit to a permissioned space."
-            />
-          </View>
+                setShareBundle(bundle)
+                setShowShareModal(true)
+              }
+            }}
+            style={[
+              styles.toolbarButton,
+              styles.toolbarButtonPrimary,
+              selectedNodeIds.length === 0 && styles.toolbarButtonDisabled,
+            ]}
+          >
+            <Text style={[styles.toolbarButtonText, styles.toolbarButtonPrimaryText]}>Share</Text>
+          </Pressable>
 
           <Pressable
             onPress={() => setShowSecondaryTools(!showSecondaryTools)}
@@ -129,45 +112,36 @@ export function MyBaseSection({
       {/* Secondary Toolbar (collapsible) */}
       {showSecondaryTools && (
         <View style={styles.secondaryToolbar}>
-          <View style={styles.toolbarItem}>
-            <Pressable
-              onPress={() => setShowAIAssist(!showAIAssist)}
-              style={[styles.toolbarButton, showAIAssist && styles.toolbarButtonActive]}
-            >
-              <Text style={styles.toolbarButtonText}>💡 AI Assist</Text>
-            </Pressable>
-            <InfoTooltip
-              title="AI Assist"
-              explanation="Generate context, counter-arguments, or sources for selected nodes."
-            />
-          </View>
+          <Pressable
+            onPress={() => setShowAIAssist(!showAIAssist)}
+            style={[styles.toolbarButton, showAIAssist && styles.toolbarButtonActive]}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Icon name="zap" size={12} color={tokens.text} />
+              <Text style={styles.toolbarButtonText}>AI Assist</Text>
+            </View>
+          </Pressable>
 
-          <View style={styles.toolbarItem}>
-            <Pressable
-              onPress={() => setShowMyBaseSettings(true)}
-              style={styles.toolbarButton}
-            >
-              <Text style={styles.toolbarButtonText}>⚙ Settings</Text>
-            </Pressable>
-            <InfoTooltip
-              title="MyBase Settings"
-              explanation="Configure moderator mode, export data, or clear canvas."
-            />
-          </View>
+          <Pressable
+            onPress={() => setShowMyBaseSettings(true)}
+            style={styles.toolbarButton}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Icon name="settingsGear" size={12} color={tokens.text} />
+              <Text style={styles.toolbarButtonText}>Settings</Text>
+            </View>
+          </Pressable>
 
           {isModerator && (
-            <View style={styles.toolbarItem}>
-              <Pressable
-                onPress={() => setShowEndorsementPanel(!showEndorsementPanel)}
-                style={[styles.toolbarButton, showEndorsementPanel && styles.toolbarButtonActive]}
-              >
-                <Text style={styles.toolbarButtonText}>🛡 Moderator</Text>
-              </Pressable>
-              <InfoTooltip
-                title="Moderation Panel"
-                explanation="Review and endorse community submissions."
-              />
-            </View>
+            <Pressable
+              onPress={() => setShowEndorsementPanel(!showEndorsementPanel)}
+              style={[styles.toolbarButton, showEndorsementPanel && styles.toolbarButtonActive]}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Icon name="shield" size={12} color={tokens.text} />
+                <Text style={styles.toolbarButtonText}>Moderator</Text>
+              </View>
+            </Pressable>
           )}
         </View>
       )}
@@ -211,7 +185,7 @@ export function MyBaseSection({
             }
             setPolicyEdges((prev) => [...prev, newEdge])
             setSelectedNodeIds([])
-            addNotification('→', `Linked nodes with ${label}`)
+            addNotification('arrowRight', `Linked nodes with ${label}`)
           }}
         />
       ) : (
@@ -244,7 +218,7 @@ export function MyBaseSection({
             )
           )
           setShowShareModal(false)
-          addNotification('📤', `Bundle submitted to space`)
+          addNotification('paperPlane', `Bundle submitted to space`)
         }}
       />
 
@@ -303,7 +277,7 @@ export function MyBaseSection({
             updatedAt: new Date().toISOString(),
           }
           setPolicyNodes((prev) => [...prev, newNode])
-          addNotification('💡', `Added AI ${draft.type}: ${draft.content.slice(0, 30)}...`)
+          addNotification('zap', `Added AI ${draft.type}: ${draft.content.slice(0, 30)}...`)
         }}
         onDismissAll={() => setShowAIAssist(false)}
       />
@@ -323,14 +297,12 @@ export function MyBaseSection({
 const styles = StyleSheet.create({
   primaryToolbar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 8,
     backgroundColor: tokens.surface,
     borderBottomWidth: 1,
-    borderBottomColor: tokens.accentBorder,
-    zIndex: 10,
+    borderBottomColor: tokens.glassBorder,
   },
   secondaryToolbar: {
     flexDirection: 'row',
@@ -339,26 +311,23 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     backgroundColor: tokens.surfaceRaised,
     borderBottomWidth: 1,
-    borderBottomColor: tokens.stroke,
+    borderBottomColor: tokens.glassBorder,
   },
   toolbarGroup: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
     alignItems: 'center',
-  },
-  toolbarItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flex: 1,
   },
   toolbarButton: {
     backgroundColor: tokens.surfaceRaised,
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderWidth: 1,
     borderColor: tokens.accentBorder,
-    minWidth: 80,
     alignItems: 'center',
+    flex: 1,
   },
   toolbarButtonDisabled: {
     opacity: 0.4,
@@ -385,7 +354,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: tokens.accentBorder,
+    borderBottomColor: tokens.glassBorder,
   },
   hintText: {
     color: tokens.accent,

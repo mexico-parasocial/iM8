@@ -85,6 +85,62 @@ describe('grants integration', () => {
     assert.ok(body.proofs.length > 0)
   })
 
+  it('approves bounded party-tenure governance proofs without raw join dates', async () => {
+    const create = await app.inject({
+      method: 'POST',
+      url: '/v1/grants',
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: {
+        appId: 'para.governance',
+        appName: 'PARA Governance',
+        appKind: 'Civic app',
+        surface: 'civic',
+        requestedClaims: [
+          {
+            type: 'joined_during_founding_period',
+            disclosure: 'proof-only',
+            requestedValue: 'partido-migala',
+          },
+          {
+            type: 'has_continuous_party_membership_30d',
+            disclosure: 'proof-only',
+            requestedValue: 'partido-migala',
+          },
+        ],
+        proofMode: 'proof-only',
+        reason: 'Horizontal governance role eligibility',
+      },
+    })
+    assert.equal(create.statusCode, 201)
+    const { grant } = JSON.parse(create.payload)
+
+    const approve = await app.inject({
+      method: 'POST',
+      url: `/v1/grants/${grant.id}/approve`,
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: { grantId: grant.id, reviewNote: 'Governance proofs approved' },
+    })
+
+    assert.equal(approve.statusCode, 200)
+    const body = JSON.parse(approve.payload)
+    assert.equal(body.proofs.length, 2)
+    assert.deepEqual(
+      body.proofs.map((proof: { claimType: string; outcome: string }) => [
+        proof.claimType,
+        proof.outcome,
+      ]),
+      [
+        ['joined_during_founding_period', 'bounded'],
+        ['has_continuous_party_membership_30d', 'bounded'],
+      ],
+    )
+    assert.ok(
+      body.proofs.every((proof: { statement: string }) =>
+        !/\d{4}-\d{2}-\d{2}/.test(proof.statement),
+      ),
+    )
+  })
+
   it('POST /v1/grants/:id/revoke revokes a grant', async () => {
     const create = await app.inject({
       method: 'POST',

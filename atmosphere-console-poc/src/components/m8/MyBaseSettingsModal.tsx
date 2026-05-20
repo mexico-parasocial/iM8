@@ -8,6 +8,8 @@ import {
   ScrollView,
   Switch,
 } from 'react-native'
+import { Icon } from './Icon'
+import { tokens } from '../../theme'
 
 // ── Props ──
 type Props = {
@@ -36,8 +38,8 @@ export default function MyBaseSettingsModal({
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>MyBase Settings</Text>
-            <TouchableOpacity onPress={onClose}>
-              <Text style={styles.close}>✕</Text>
+            <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
+              <Icon name="circleX" size={20} color="#94A3B8" />
             </TouchableOpacity>
           </View>
 
@@ -79,10 +81,13 @@ export default function MyBaseSettingsModal({
 
               {isModerator && (
                 <View style={styles.moderatorInfo}>
-                  <Text style={styles.moderatorText}>
-                    🛡️ Active moderator. You can endorse, challenge, or request
-                    revisions on submitted bundles.
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Icon name="shield" size={14} color={tokens.accent} />
+                    <Text style={styles.moderatorText}>
+                      Active moderator. You can endorse, challenge, or request
+                      revisions on submitted bundles.
+                    </Text>
+                  </View>
                 </View>
               )}
             </View>

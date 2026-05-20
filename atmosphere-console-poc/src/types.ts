@@ -258,7 +258,8 @@ export type PdsSafetyPolicy = {
 
 export type BootstrapStatus = 'idle' | 'resolving' | 'hydrating'
 
-export type IdentityProvider = 'bsky' | 'mastodon' | 'custom'
+export type IdentityProvider = 'bsky' | 'mastodon' | 'custom' | 'm8-native'
+export type RenameStatus = 'locked' | 'available' | 'used'
 
 export type BrokerAttempt = {
   did: string
@@ -273,6 +274,8 @@ export type IdentitySession = {
   did: string
   handle: string
   displayName: string
+  renameStatus?: RenameStatus
+  verifiedDisplayName?: string
   authorizationServer: string
   pdsSafety: PdsSafetySnapshot
   paraProvider: ParaProviderStatus

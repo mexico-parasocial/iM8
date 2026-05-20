@@ -6,18 +6,14 @@ export type CardVariant = 'elevated' | 'outlined' | 'filled' | 'accent' | 'dange
 const variantStyles: Record<CardVariant, object> = {
   elevated: {
     backgroundColor: tokens.surfaceRaised,
-    borderWidth: 1,
-    borderColor: tokens.stroke,
   },
   outlined: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: tokens.stroke,
+    borderColor: tokens.glassBorder,
   },
   filled: {
     backgroundColor: tokens.surface,
-    borderWidth: 1,
-    borderColor: tokens.stroke,
   },
   accent: {
     backgroundColor: tokens.accentTransparent,

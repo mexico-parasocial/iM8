@@ -1,4 +1,5 @@
 import { env } from '../config/env.js'
+import { PROOF_BROKER_CLAIM_TYPES } from '../types/index.js'
 import type { ProofBrokerClaimType, ProofBrokerParaProviderStatus } from '../types/index.js'
 
 export type ParaClaimVerificationResult = {
@@ -38,7 +39,7 @@ export async function resolveParaProviderStatus(): Promise<ProofBrokerParaProvid
           policyRecord: 'com.para.identity',
           compatibilityRecord: 'app.bsky.graph.verification',
           lastSyncAt: nowIso(),
-          supportedClaims: ['is_verified_public_figure', 'is_civic_eligible', 'has_para_verification', 'has_party_affiliation_match'],
+          supportedClaims: [...PROOF_BROKER_CLAIM_TYPES],
           notes: 'PARA API reachable. Real-time verification enabled.',
         }
       }
@@ -55,7 +56,7 @@ export async function resolveParaProviderStatus(): Promise<ProofBrokerParaProvid
     policyRecord: 'com.para.identity',
     compatibilityRecord: 'app.bsky.graph.verification',
     lastSyncAt: nowIso(),
-    supportedClaims: ['is_verified_public_figure', 'is_civic_eligible', 'has_para_verification', 'has_party_affiliation_match'],
+    supportedClaims: [...PROOF_BROKER_CLAIM_TYPES],
     notes: hasApi
       ? 'PARA API is configured but unreachable. Operating in degraded mode.'
       : 'No PARA_API_BASE_URL configured. Using local seed resolution.',
@@ -119,6 +120,27 @@ export async function verifyParaClaim(input: {
       statement: `Bounded party affiliation match: ${input.requestedValue ?? 'independent'}`,
       reference: `local:party:${input.subject}`,
       notes: 'Resolved via local fallback (no PARA API).',
+      evaluatedAt: nowIso(),
+    }
+  }
+
+  if (
+    input.claimType === 'joined_during_founding_period' ||
+    input.claimType === 'has_continuous_party_membership_30d'
+  ) {
+    const party = input.requestedValue ?? 'party'
+    return {
+      claimType: input.claimType,
+      subject: input.subject,
+      disposition: 'bounded',
+      outcome: 'bounded',
+      requestedValue: party,
+      statement:
+        input.claimType === 'joined_during_founding_period'
+          ? `Bounded party tenure proof: joined during founding period for ${party}.`
+          : `Bounded party tenure proof: continuous membership is at least 30 days for ${party}.`,
+      reference: `local:party-tenure:${input.subject}`,
+      notes: 'Resolved via local fallback without disclosing an exact join date.',
       evaluatedAt: nowIso(),
     }
   }

@@ -37,7 +37,7 @@ export function SafetySection({
         {session.consentLedger.length > 0 ? (
           session.consentLedger.map((entry) => <LedgerRow key={entry.id} entry={entry} />)
         ) : (
-          <EmptyState icon="📖" title="Ledger empty" detail="Your consent history will appear here." />
+          <EmptyState icon="shield" title="Ledger empty" detail="Your consent history will appear here." />
         )}
       </View>
 

@@ -9,6 +9,7 @@ import {
 } from 'react-native'
 import { buttonStyle, buttonTextStyle } from './Button'
 import { cardStyle } from './Card'
+import { Icon } from './Icon'
 import { tokens } from '../../theme'
 import { type Persona } from '../../types'
 
@@ -54,7 +55,7 @@ export function QrExportModal({
         <View style={styles.sheet}>
           <View style={styles.handle} />
 
-          <Text style={styles.title}>📤 Export Persona</Text>
+          <Text style={styles.title}>Export Persona</Text>
           <Text style={styles.subtitle}>
             Other m8 users can scan this to request a connection. Only public traits are shared.
           </Text>
@@ -62,7 +63,7 @@ export function QrExportModal({
           <View style={styles.qrCard}>
             {/* QR Code Placeholder */}
             <View style={styles.qrPlaceholder}>
-              <Text style={styles.qrEmoji}>🔲</Text>
+              <Icon name="paperPlane" size={48} color={tokens.muted} />
               <Text style={styles.qrLabel}>QR Code</Text>
               <Text style={styles.qrHint}>{qrPayload.length} bytes encoded</Text>
             </View>
@@ -71,7 +72,10 @@ export function QrExportModal({
               <Text style={styles.summaryName}>{persona.name}</Text>
               <Text style={styles.summaryRole}>{persona.role}</Text>
               {publicTraits ? (
-                <Text style={styles.summaryTraits}>🌐 {publicTraits}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Icon name="globe" size={12} color={tokens.success} />
+                  <Text style={styles.summaryTraits}>{publicTraits}</Text>
+                </View>
               ) : (
                 <Text style={styles.summaryTraitsMuted}>No public traits set</Text>
               )}
@@ -157,9 +161,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
-  qrEmoji: {
-    fontSize: 48,
-  },
+
   qrLabel: {
     color: tokens.text,
     fontSize: 16,

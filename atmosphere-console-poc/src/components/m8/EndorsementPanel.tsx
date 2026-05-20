@@ -7,6 +7,8 @@ import {
   ScrollView,
 } from 'react-native'
 import { KnowledgeBundle, PermissionedSpace } from '../../types'
+import { Icon } from './Icon'
+import { tokens } from '../../theme'
 import InfoTooltip from '../m8/InfoTooltip'
 
 // ── Props ──
@@ -59,8 +61,8 @@ export default function EndorsementPanel({
             explanation="Bundles submitted to permissioned spaces await moderator review. Endorsements require reaching the space's threshold (e.g. 67%). Endorsed bundles merge into the Trust Mesh. Rejected bundles disappear until resubmitted."
           />
         </View>
-        <TouchableOpacity onPress={onClose}>
-          <Text style={styles.close}>✕</Text>
+        <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
+          <Icon name="circleX" size={18} color="#94A3B8" />
         </TouchableOpacity>
       </View>
 
@@ -144,9 +146,12 @@ export default function EndorsementPanel({
               {bundle.challenges.length > 0 && (
                 <View style={styles.challenges}>
                   {bundle.challenges.map((c, i) => (
-                    <Text key={i} style={styles.challengeText}>
-                      ⚠️ {c.reason} — {c.did.slice(0, 12)}…
-                    </Text>
+                    <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Icon name="warning" size={12} color={tokens.danger} />
+                      <Text style={styles.challengeText}>
+                        {c.reason} — {c.did.slice(0, 12)}…
+                      </Text>
+                    </View>
                   ))}
                 </View>
               )}

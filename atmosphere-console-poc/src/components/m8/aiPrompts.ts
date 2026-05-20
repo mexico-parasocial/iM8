@@ -12,10 +12,10 @@ export const AI_TASK_LABELS: Record<AITaskType, string> = {
 }
 
 export const AI_TASK_ICONS: Record<AITaskType, string> = {
-  context: '📚',
-  counter: '⚔️',
-  structure: '🏗️',
-  sources: '🔗',
+  context: 'eye',
+  counter: 'shield',
+  structure: 'home',
+  sources: 'globe',
 }
 
 // ── System prompts ──
@@ -122,5 +122,4 @@ export function buildPrompt(
 }
 
 // ── Re-exports for convenience ──
-export { useAIAssist } from './useAIAssist'
-export type { AIAssistState, AIAssistResult } from './useAIAssist'
+

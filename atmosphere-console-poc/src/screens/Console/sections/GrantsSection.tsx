@@ -51,7 +51,7 @@ export function GrantsSection({
             </Pressable>
           ))
         ) : (
-          <EmptyState icon="✅" title="All caught up" detail="No apps waiting for your approval." />
+          <EmptyState icon="check" title="All caught up" detail="No apps waiting for your approval." />
         )}
       </View>
 
@@ -97,7 +97,7 @@ export function GrantsSection({
             </Pressable>
           ))
         ) : (
-          <EmptyState icon="🔒" title="No active proofs" detail="Approve a request to start sharing claims." />
+          <EmptyState icon="lock" title="No active proofs" detail="Approve a request to start sharing claims." />
         )}
       </View>
 

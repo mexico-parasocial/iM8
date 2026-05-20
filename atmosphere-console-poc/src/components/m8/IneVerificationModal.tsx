@@ -10,15 +10,16 @@ import {
 import { buttonStyle, buttonTextStyle } from './Button'
 import { cardStyle } from './Card'
 import { pillStyle, pillTextStyle } from './Pill'
+import { Icon } from './Icon'
 import { tokens } from '../../theme'
 import { type IneVerificationRecord, type IneVerificationStatus } from '../../types'
 
-const STEPS: { status: IneVerificationStatus; label: string; emoji: string; detail: string }[] = [
-  { status: 'not_started', label: 'Start', emoji: '📷', detail: 'Scan the front of your INE' },
-  { status: 'scanning', label: 'Scanning', emoji: '📸', detail: 'Capture both sides of your INE' },
-  { status: 'ocr_processing', label: 'Reading', emoji: '🔍', detail: 'Extracting data from your INE' },
-  { status: 'face_matching', label: 'Verify', emoji: '🙂', detail: 'Match your face to the INE photo' },
-  { status: 'verified', label: 'Done', emoji: '✅', detail: 'Your civic proofs are ready' },
+const STEPS: { status: IneVerificationStatus; label: string; icon: string; detail: string }[] = [
+  { status: 'not_started', label: 'Start', icon: 'eye', detail: 'Scan the front of your INE' },
+  { status: 'scanning', label: 'Scanning', icon: 'eye', detail: 'Capture both sides of your INE' },
+  { status: 'ocr_processing', label: 'Reading', icon: 'eye', detail: 'Extracting data from your INE' },
+  { status: 'face_matching', label: 'Verify', icon: 'person', detail: 'Match your face to the INE photo' },
+  { status: 'verified', label: 'Done', icon: 'check', detail: 'Your civic proofs are ready' },
 ]
 
 const MEXICAN_STATES: Record<string, string> = {
@@ -110,7 +111,7 @@ export function IneVerificationModal({
         <View style={styles.sheet}>
           <View style={styles.handle} />
 
-          <Text style={styles.title}>🇲🇽 INE Verification</Text>
+          <Text style={styles.title}>INE Verification</Text>
           <Text style={styles.subtitle}>
             Verify your Mexican civic identity. Your INE data stays private — only proofs are shared with apps.
           </Text>
@@ -127,7 +128,7 @@ export function IneVerificationModal({
                       isFailed && i === currentStepIndex && styles.stepCircleFailed,
                     ]}
                   >
-                    <Text style={styles.stepEmoji}>{s.emoji}</Text>
+                    <Icon name={s.icon as never} size={18} color={i <= currentStepIndex ? tokens.accent : tokens.muted} />
                   </View>
                   <Text style={[styles.stepLabel, i <= currentStepIndex && styles.stepLabelActive]}>
                     {s.label}
@@ -140,7 +141,9 @@ export function IneVerificationModal({
             {/* Current Step Detail */}
             {step === 'not_started' && (
               <View style={cardStyle('filled')}>
-                <Text style={styles.stepDetailEmoji}>📷</Text>
+                <View style={styles.stepDetailIcon}>
+                  <Icon name="eye" size={40} color={tokens.accent} />
+                </View>
                 <Text style={styles.stepDetailTitle}>Scan your INE</Text>
                 <Text style={styles.stepDetailBody}>
                   We need both sides of your INE (Instituto Nacional Electoral) credential. The data is processed on your device and encrypted.
@@ -158,7 +161,9 @@ export function IneVerificationModal({
 
             {scanning && (
               <View style={cardStyle('accent')}>
-                <Text style={styles.scanningEmoji}>⏳</Text>
+                <View style={styles.scanningIcon}>
+                  <Icon name="refresh" size={40} color={tokens.accent} />
+                </View>
                 <Text style={styles.scanningTitle}>{STEPS.find((s) => s.status === step)?.detail}</Text>
                 <View style={styles.progressBar}>
                   <View
@@ -174,7 +179,9 @@ export function IneVerificationModal({
 
             {isComplete && record.proofs && (
               <View style={cardStyle('filled')}>
-                <Text style={styles.successEmoji}>🎉</Text>
+                <View style={styles.successIcon}>
+                  <Icon name="check" size={40} color={tokens.success} />
+                </View>
                 <Text style={styles.successTitle}>INE Verified</Text>
                 <Text style={styles.successBody}>
                   Your Mexican civic identity is now verified. Here are the proofs apps can request:
@@ -190,7 +197,10 @@ export function IneVerificationModal({
                 </View>
 
                 <View style={[cardStyle('warning'), { marginTop: 12 }]}>
-                  <Text style={styles.warningTitle}>⚠️ Raw data stays private</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Icon name="warning" size={14} color={tokens.warning} />
+                    <Text style={styles.warningTitle}>Raw data stays private</Text>
+                  </View>
                   <Text style={styles.warningBody}>
                     Apps never see your CURP, full name, or INE number. They only receive the proofs above when you explicitly approve a grant.
                   </Text>
@@ -204,7 +214,9 @@ export function IneVerificationModal({
 
             {isFailed && (
               <View style={cardStyle('danger')}>
-                <Text style={styles.failEmoji}>❌</Text>
+                <View style={styles.failIcon}>
+                  <Icon name="circleX" size={40} color={tokens.danger} />
+                </View>
                 <Text style={styles.failTitle}>Verification failed</Text>
                 <Text style={styles.failBody}>
                   We couldn't verify your INE. This could be due to poor image quality, mismatched face, or an invalid credential.
@@ -304,9 +316,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.danger,
     backgroundColor: tokens.dangerTransparent,
   },
-  stepEmoji: {
-    fontSize: 20,
-  },
+
   stepLabel: {
     color: tokens.muted,
     fontSize: 10,
@@ -328,9 +338,8 @@ const styles = StyleSheet.create({
   stepLineActive: {
     backgroundColor: tokens.accent,
   },
-  stepDetailEmoji: {
-    fontSize: 48,
-    textAlign: 'center',
+  stepDetailIcon: {
+    alignItems: 'center',
     marginBottom: 12,
   },
   stepDetailTitle: {
@@ -355,9 +364,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
-  scanningEmoji: {
-    fontSize: 48,
-    textAlign: 'center',
+  scanningIcon: {
+    alignItems: 'center',
     marginBottom: 12,
   },
   scanningTitle: {
@@ -384,9 +392,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 12,
   },
-  successEmoji: {
-    fontSize: 48,
-    textAlign: 'center',
+  successIcon: {
+    alignItems: 'center',
     marginBottom: 12,
   },
   successTitle: {
@@ -449,9 +456,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
-  failEmoji: {
-    fontSize: 48,
-    textAlign: 'center',
+  failIcon: {
+    alignItems: 'center',
     marginBottom: 12,
   },
   failTitle: {

@@ -7,8 +7,11 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native'
-import { useAIAssist, AI_TASK_LABELS, AI_TASK_ICONS, type AITaskType } from './aiPrompts'
+import { useAIAssist } from './useAIAssist'
+import { AI_TASK_LABELS, AI_TASK_ICONS, type AITaskType } from './aiPrompts'
+import { Icon, type IconName } from './Icon'
 import { PolicyNode } from '../../types'
+import { tokens } from '../../theme'
 
 // ── Props ──
 type Props = {
@@ -59,9 +62,12 @@ export default function AIAssistPanel({
     <View style={styles.panel}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>💡 AI Assist</Text>
-        <TouchableOpacity onPress={onClose}>
-          <Text style={styles.close}>✕</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Icon name="zap" size={18} color={tokens.text} />
+          <Text style={styles.title}>AI Assist</Text>
+        </View>
+        <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
+          <Icon name="circleX" size={18} color="#94A3B8" />
         </TouchableOpacity>
       </View>
 
@@ -117,9 +123,10 @@ export default function AIAssistPanel({
         {/* Results */}
         {result && (
           <View style={styles.results}>
-            <Text style={styles.resultsTitle}>
-              {AI_TASK_ICONS[result.task]} {AI_TASK_LABELS[result.task]}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <Icon name={AI_TASK_ICONS[result.task] as IconName} size={16} color={tokens.text} />
+              <Text style={styles.resultsTitle}>{AI_TASK_LABELS[result.task]}</Text>
+            </View>
 
             {result.draftNodes.length === 0 && (
               <Text style={styles.noDrafts}>No suggestions generated.</Text>
@@ -186,7 +193,9 @@ function TaskButton({
       onPress={onPress}
       disabled={!enabled}
     >
-      <Text style={styles.taskIcon}>{icon}</Text>
+      <View style={styles.taskIcon}>
+        <Icon name={icon as IconName} size={22} color={enabled ? tokens.text : '#64748B'} />
+      </View>
       <Text style={[styles.taskLabel, !enabled && styles.taskLabelDisabled]}>{label}</Text>
     </TouchableOpacity>
   )
@@ -262,7 +271,6 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   taskIcon: {
-    fontSize: 24,
     marginBottom: 6,
   },
   taskLabel: {
