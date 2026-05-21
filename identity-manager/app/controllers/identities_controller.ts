@@ -326,11 +326,10 @@ export default class IdentitiesController {
     if (!sessionId) return
 
     const body = ctx.request.body() as { proof: unknown; publicSignals: string[] }
-    const $t = t(ctx)
 
     const valid = await verifyAgeProof(body.proof, body.publicSignals)
     if (!valid) {
-      return ctx.response.status(400).send({ valid: false, reason: $t('errors.zkp.invalidProof') })
+      return ctx.response.status(400).send({ valid: false, reason: 'invalid_proof' })
     }
 
     const commitment = body.publicSignals[0] as string
@@ -340,11 +339,11 @@ export default class IdentitiesController {
     ).get(commitment) as { status: string } | undefined
 
     if (!artifact) {
-      return ctx.response.status(400).send({ valid: false, reason: $t('errors.zkp.unknownCommitment') })
+      return ctx.response.status(400).send({ valid: false, reason: 'unknown_commitment' })
     }
 
     if (artifact.status === 'revoked') {
-      return ctx.response.status(400).send({ valid: false, reason: $t('errors.zkp.credentialRevoked') })
+      return ctx.response.status(400).send({ valid: false, reason: 'credential_revoked' })
     }
 
     return ctx.response.send({ valid: true, commitment })
@@ -430,11 +429,10 @@ export default class IdentitiesController {
     if (!sessionId) return
 
     const body = ctx.request.body() as { proof: unknown; publicSignals: string[]; communityId: string }
-    const $t = t(ctx)
 
     const valid = await verifyNullifierProof(body.proof, body.publicSignals)
     if (!valid) {
-      return ctx.response.status(400).send({ valid: false, reason: $t('errors.zkp.invalidProof') })
+      return ctx.response.status(400).send({ valid: false, reason: 'invalid_proof' })
     }
 
     const commitment = body.publicSignals[0] as string
@@ -442,7 +440,7 @@ export default class IdentitiesController {
     const circuitCommunityId = body.publicSignals[2] as string
 
     if (circuitCommunityId !== body.communityId) {
-      return ctx.response.status(400).send({ valid: false, reason: $t('errors.zkp.communityMismatch') })
+      return ctx.response.status(400).send({ valid: false, reason: 'community_mismatch' })
     }
 
     const db = getDb()
@@ -451,11 +449,11 @@ export default class IdentitiesController {
     ).get(commitment) as { status: string } | undefined
 
     if (!artifact) {
-      return ctx.response.status(400).send({ valid: false, reason: $t('errors.zkp.unknownCommitment') })
+      return ctx.response.status(400).send({ valid: false, reason: 'unknown_commitment' })
     }
 
     if (artifact.status === 'revoked') {
-      return ctx.response.status(400).send({ valid: false, reason: $t('errors.zkp.credentialRevoked') })
+      return ctx.response.status(400).send({ valid: false, reason: 'credential_revoked' })
     }
 
     const existing = db.prepare(
@@ -463,7 +461,7 @@ export default class IdentitiesController {
     ).get(nullifier, body.communityId) as { id: string } | undefined
 
     if (existing) {
-      return ctx.response.status(400).send({ valid: false, reason: $t('errors.zkp.nullifierUsed') })
+      return ctx.response.status(400).send({ valid: false, reason: 'nullifier_already_used' })
     }
 
     db.prepare(`

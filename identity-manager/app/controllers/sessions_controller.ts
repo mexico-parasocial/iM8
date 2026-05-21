@@ -10,7 +10,7 @@ import {
   deleteAnonymousProfile,
   getAnonymousProfile,
 } from '../../src/services/anonymousProfileService.js'
-import { requireSessionId, signAccessToken, validateBody } from '#support/http'
+import { requireSessionId, signAccessToken, t, validateBody } from '#support/http'
 
 const startSessionSchema = z.object({
   identifier: z.string().min(1).max(256),
@@ -85,11 +85,12 @@ export default class SessionsController {
     if (!sessionId) return
 
     const existing = getAnonymousProfile(sessionId)
+    const $t = t(ctx)
     if (existing) {
-      return ctx.response.status(400).send({ error: 'Anonymous mode is already enabled.' })
+      return ctx.response.status(400).send({ error: $t('errors.anonymous.alreadyEnabled') })
     }
 
-    return ctx.response.send({ anonymousProfile: createAnonymousProfile(sessionId, 'anon') })
+    return ctx.response.send({ anonymousProfile: createAnonymousProfile(sessionId, $t('anonymous.prefix')) })
   }
 
   async disableAnonymous(ctx: HttpContext) {

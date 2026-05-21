@@ -1,6 +1,12 @@
 import app from '@adonisjs/core/services/app'
 import { type HttpContext, ExceptionHandler } from '@adonisjs/core/http'
 
+type HttpError = Error & {
+  code?: string
+  status?: number
+  statusCode?: number
+}
+
 export default class HttpExceptionHandler extends ExceptionHandler {
   /**
    * In debug mode, the exception handler will display verbose errors
@@ -13,6 +19,17 @@ export default class HttpExceptionHandler extends ExceptionHandler {
    * response to the client
    */
   async handle(error: unknown, ctx: HttpContext) {
+    if (error instanceof Error) {
+      const httpError = error as HttpError
+      const statusCode = httpError.statusCode ?? httpError.status
+      if (statusCode && statusCode >= 400 && statusCode < 500) {
+        return ctx.response.status(statusCode).send({
+          error: httpError.message,
+          code: httpError.code,
+        })
+      }
+    }
+
     return super.handle(error, ctx)
   }
 
@@ -23,6 +40,14 @@ export default class HttpExceptionHandler extends ExceptionHandler {
    * @note You should not attempt to send a response from this method.
    */
   async report(error: unknown, ctx: HttpContext) {
+    if (error instanceof Error) {
+      const httpError = error as HttpError
+      const statusCode = httpError.statusCode ?? httpError.status
+      if (statusCode && statusCode >= 400 && statusCode < 500) {
+        return
+      }
+    }
+
     return super.report(error, ctx)
   }
 }
