@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 import type { HttpContext } from '@adonisjs/core/http'
 import type { z } from 'zod'
 import { env } from '../../src/config/env.js'
+import { createT, resolveLocale } from '../../src/i18n/index.js'
 
 type JwtPayload = {
   sub?: string
@@ -80,4 +81,9 @@ export function validateBody<T extends z.ZodTypeAny>(ctx: HttpContext, schema: T
     })),
   })
   return null
+}
+
+export function t(ctx: HttpContext) {
+  const locale = resolveLocale(ctx.request.header('accept-language') ?? undefined)
+  return createT(locale)
 }

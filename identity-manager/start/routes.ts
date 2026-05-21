@@ -3,6 +3,10 @@ import AnonymousController from '#controllers/anonymous_controller'
 import ClaimsController from '#controllers/claims_controller'
 import GrantsController from '#controllers/grants_controller'
 import HealthController from '#controllers/health_controller'
+import IdentitiesController from '#controllers/identities_controller'
+import IssuersController from '#controllers/issuers_controller'
+import KarmaController from '#controllers/karma_controller'
+import LedgerController from '#controllers/ledger_controller'
 import ProvidersController from '#controllers/providers_controller'
 import SessionsController from '#controllers/sessions_controller'
 
@@ -23,6 +27,7 @@ router
     router.post('/grants/:id/revoke', [GrantsController, 'revoke'])
 
     router.post('/claims/:id/verify', [ClaimsController, 'verify'])
+
     router.get('/providers/para/status', [ProvidersController, 'paraStatus'])
 
     router.get('/anonymous/identities', [AnonymousController, 'identities'])
@@ -37,5 +42,33 @@ router
     router.get('/anonymous/public-contact/eligibility', [AnonymousController, 'publicContactEligibility'])
     router.get('/device-trust/me', [AnonymousController, 'deviceTrust'])
     router.post('/device-trust/development/verify', [AnonymousController, 'verifyDevelopmentDevice'])
+
+    router.post('/identity/request', [IdentitiesController, 'request'])
+    router.post('/identity/present', [IdentitiesController, 'present'])
+    router.post('/identity/verify', [IdentitiesController, 'verify'])
+    router.post('/identity/chat-key-backup', [IdentitiesController, 'createChatKeyBackup'])
+    router.get('/identity/chat-key-backup', [IdentitiesController, 'getChatKeyBackup'])
+    router.delete('/identity/chat-key-backup', [IdentitiesController, 'deleteChatKeyBackup'])
+    router.post('/identity/ine/analyze', [IdentitiesController, 'ineAnalyze'])
+    router.post('/identity/ine/verify', [IdentitiesController, 'ineVerify'])
+    router.post('/identity/ine/credential', [IdentitiesController, 'ineCredential'])
+    router.post('/identity/ine/zkp-verify', [IdentitiesController, 'zkpVerify'])
+    router.post('/identity/revoke', [IdentitiesController, 'revoke'])
+    router.get('/identity/crl', [IdentitiesController, 'crl'])
+    router.get('/identity/ine/zkp-prover.html', [IdentitiesController, 'zkpProverHtml'])
+    router.get('/identity/ine/zkp-prover.wasm', [IdentitiesController, 'zkpProverWasm'])
+    router.get('/identity/ine/zkp-prover.zkey', [IdentitiesController, 'zkpProverZkey'])
+    router.post('/identity/ine/zkp-nullifier', [IdentitiesController, 'zkpNullifier'])
+    router.get('/identity/ine/nullifier-prover.wasm', [IdentitiesController, 'nullifierProverWasm'])
+    router.get('/identity/ine/nullifier-prover.zkey', [IdentitiesController, 'nullifierProverZkey'])
+
+    router.get('/issuers', [IssuersController, 'index'])
+
+    router.post('/karma/earn', [KarmaController, 'earn'])
+    router.get('/karma/me', [KarmaController, 'me'])
+    router.get('/karma/:profileId', [KarmaController, 'show'])
+    router.put('/karma/revelation', [KarmaController, 'updateRevelation'])
+
+    router.get('/ledger', [LedgerController, 'index'])
   })
   .prefix('/v1')
