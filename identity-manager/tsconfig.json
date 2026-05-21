@@ -20,6 +20,6 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src/**/*", "tests/**/*"],
+  "include": ["adonisrc.ts", "ace.js", "app/**/*", "bin/**/*", "config/**/*", "start/**/*", "src/**/*", "tests/**/*"],
   "exclude": ["node_modules", "dist", "build"]
 }

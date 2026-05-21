@@ -28,5 +28,5 @@ export default defineConfig({
     ],
     forceExit: false,
   },
-  metaFiles: ['src/i18n/locales/**/*.json', 'zkp/out/**/*.json'],
+  metaFiles: ['src/db/schema.sql', 'src/db/migrations/**/*.sql', 'src/i18n/locales/**/*.json', 'zkp/out/**/*.json'],
 })

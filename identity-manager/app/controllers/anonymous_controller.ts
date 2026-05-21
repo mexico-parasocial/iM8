@@ -1,0 +1,170 @@
+import { z } from 'zod'
+import type { HttpContext } from '@adonisjs/core/http'
+import { requireSessionId, validateBody } from '#support/http'
+import {
+  createAnonymousIdentity,
+  getAnonymousContactEligibility,
+  getAnonymousPublicContact,
+  linkAnonymousPost,
+  linkGermContact,
+  listAnonymousIdentities,
+  unlinkGermContact,
+  updateAnonymousIdentity,
+  updateAnonymousPostDmPolicy,
+  updateAnonymousPostStats,
+} from '../../src/services/anonymousIdentityService.js'
+import { getDeviceTrustSummary, upsertDevelopmentTrustedDevice } from '../../src/services/deviceTrustService.js'
+
+const surfaceSchema = z.enum(['public', 'civic', 'dating'])
+
+const createIdentitySchema = z
+  .object({
+    displayName: z.string().min(1).max(80).optional(),
+    surface: surfaceSchema.optional(),
+    communityUri: z.string().min(1).max(512).nullable().optional(),
+  })
+  .strict()
+
+const updateIdentitySchema = z
+  .object({
+    displayName: z.string().min(1).max(80).optional(),
+    status: z.enum(['active', 'archived']).optional(),
+  })
+  .strict()
+
+const linkPostSchema = z
+  .object({
+    identityId: z.string().min(1).optional(),
+    postUri: z.string().min(1).max(512),
+    communityUri: z.string().min(1).max(512).nullable().optional(),
+    postType: z.string().min(1).max(40).optional(),
+    stats: z
+      .object({
+        replyCount: z.number().int().min(0).optional(),
+        repostCount: z.number().int().min(0).optional(),
+        likeCount: z.number().int().min(0).optional(),
+        quoteCount: z.number().int().min(0).optional(),
+        threadCount: z.number().int().min(0).optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict()
+
+const dmPolicySchema = z
+  .object({
+    dmPolicy: z.enum(['off', 'requests', 'para-verified']),
+  })
+  .strict()
+
+const postStatsSchema = z
+  .object({
+    replyCount: z.number().int().min(0).optional(),
+    repostCount: z.number().int().min(0).optional(),
+    likeCount: z.number().int().min(0).optional(),
+    quoteCount: z.number().int().min(0).optional(),
+    threadCount: z.number().int().min(0).optional(),
+  })
+  .strict()
+
+const germLinkSchema = z
+  .object({
+    contactUrl: z.string().url().max(2047),
+    providerRef: z.string().max(512).optional(),
+    mode: z.enum(['germ-card-link', 'm8-relay-pending-germ']).optional(),
+  })
+  .strict()
+
+const devTrustSchema = z
+  .object({
+    platform: z.enum(['ios', 'android', 'web']),
+    deviceKeyId: z.string().min(1).max(256),
+    publicKey: z.string().max(4096).optional(),
+  })
+  .strict()
+
+export default class AnonymousController {
+  identities(ctx: HttpContext) {
+    const sessionId = requireSessionId(ctx)
+    if (!sessionId) return
+    return ctx.response.send({ identities: listAnonymousIdentities(sessionId) })
+  }
+
+  createIdentity(ctx: HttpContext) {
+    const sessionId = requireSessionId(ctx)
+    const body = validateBody(ctx, createIdentitySchema)
+    if (!sessionId || !body) return
+    return ctx.response.status(201).send({ identity: createAnonymousIdentity(sessionId, body) })
+  }
+
+  updateIdentity(ctx: HttpContext) {
+    const sessionId = requireSessionId(ctx)
+    const body = validateBody(ctx, updateIdentitySchema)
+    if (!sessionId || !body) return
+    return ctx.response.send({ identity: updateAnonymousIdentity(sessionId, ctx.params.id, body) })
+  }
+
+  linkPost(ctx: HttpContext) {
+    const sessionId = requireSessionId(ctx)
+    const body = validateBody(ctx, linkPostSchema)
+    if (!sessionId || !body) return
+    return ctx.response.status(201).send({ post: linkAnonymousPost(sessionId, body) })
+  }
+
+  updatePostDmPolicy(ctx: HttpContext) {
+    const sessionId = requireSessionId(ctx)
+    const body = validateBody(ctx, dmPolicySchema)
+    if (!sessionId || !body) return
+    return ctx.response.send({ post: updateAnonymousPostDmPolicy(sessionId, ctx.params.id, body.dmPolicy) })
+  }
+
+  updatePostStats(ctx: HttpContext) {
+    const sessionId = requireSessionId(ctx)
+    const body = validateBody(ctx, postStatsSchema)
+    if (!sessionId || !body) return
+    return ctx.response.send({ post: updateAnonymousPostStats(sessionId, ctx.params.id, body) })
+  }
+
+  linkGerm(ctx: HttpContext) {
+    const sessionId = requireSessionId(ctx)
+    const body = validateBody(ctx, germLinkSchema)
+    if (!sessionId || !body) return
+    return ctx.response.send({ germ: linkGermContact(sessionId, ctx.params.id, body) })
+  }
+
+  unlinkGerm(ctx: HttpContext) {
+    const sessionId = requireSessionId(ctx)
+    if (!sessionId) return
+    return ctx.response.send({ germ: unlinkGermContact(sessionId, ctx.params.id) })
+  }
+
+  publicContact(ctx: HttpContext) {
+    const postUri = (ctx.request.qs() as { postUri?: string }).postUri
+    if (!postUri) return ctx.response.status(400).send({ error: 'postUri is required' })
+    return ctx.response.send(getAnonymousPublicContact(postUri))
+  }
+
+  publicContactEligibility(ctx: HttpContext) {
+    const sessionId = requireSessionId(ctx)
+    if (!sessionId) return
+
+    const postUri = (ctx.request.qs() as { postUri?: string }).postUri
+    if (!postUri) return ctx.response.status(400).send({ error: 'postUri is required' })
+
+    const result = getAnonymousContactEligibility(sessionId, postUri)
+    return ctx.response.status(result.eligible ? 200 : 403).send(result)
+  }
+
+  deviceTrust(ctx: HttpContext) {
+    const sessionId = requireSessionId(ctx)
+    if (!sessionId) return
+    return ctx.response.send({ deviceTrust: getDeviceTrustSummary(sessionId) })
+  }
+
+  verifyDevelopmentDevice(ctx: HttpContext) {
+    const sessionId = requireSessionId(ctx)
+    const body = validateBody(ctx, devTrustSchema)
+    if (!sessionId || !body) return
+    return ctx.response.send({ deviceTrust: upsertDevelopmentTrustedDevice(sessionId, body) })
+  }
+}
