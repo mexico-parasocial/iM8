@@ -63,9 +63,8 @@ export function ConsoleScreen({
   const [savingName, setSavingName] = useState(false)
   const [requestingPara, setRequestingPara] = useState(false)
   const [darkMode, setDarkMode] = useState(false)
-  const [biometricEnabled, setBiometricEnabled] = useState(false)
   const scrollRef = useRef<Animated.ScrollView>(null)
-  const { unlock } = useBiometricGate()
+  const { unlock, enabled: biometricEnabled, toggleEnabled: toggleBiometric } = useBiometricGate()
 
   const {
     notifications,
@@ -78,9 +77,7 @@ export function ConsoleScreen({
     AsyncStorage.getItem('@m8/dark-mode').then((val) => {
       if (val === 'true') setDarkMode(true)
     })
-    AsyncStorage.getItem('@m8/biometric-enabled').then((val) => {
-      if (val === 'true') setBiometricEnabled(true)
-    })
+
   }, [])
 
   useEffect(() => {
@@ -246,8 +243,7 @@ export function ConsoleScreen({
         }}
         biometricEnabled={biometricEnabled}
         onToggleBiometric={(value) => {
-          setBiometricEnabled(value)
-          void AsyncStorage.setItem('@m8/biometric-enabled', String(value))
+          void toggleBiometric(value)
         }}
         onSignOut={onSignOut}
       />

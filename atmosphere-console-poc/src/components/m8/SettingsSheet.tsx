@@ -19,6 +19,7 @@ import {
   GestureDetector,
   GestureHandlerRootView,
 } from 'react-native-gesture-handler'
+import * as LocalAuthentication from 'expo-local-authentication'
 import { Icon } from './Icon'
 import { tokens } from '../../theme'
 import { hapticLight, hapticMedium } from '../../utils/haptics'
@@ -48,6 +49,19 @@ export function SettingsSheet({
   const backdropOpacity = useSharedValue(0)
 
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false)
+  const [hasBiometricHardware, setHasBiometricHardware] = useState(false)
+  const [isBiometricEnrolled, setIsBiometricEnrolled] = useState(false)
+
+  // Check biometric hardware when sheet opens
+  useEffect(() => {
+    if (!visible) return
+    LocalAuthentication.hasHardwareAsync().then((hw) => {
+      setHasBiometricHardware(hw)
+      if (hw) {
+        LocalAuthentication.isEnrolledAsync().then(setIsBiometricEnrolled)
+      }
+    })
+  }, [visible])
 
   // Animate in when visible changes (must be in useEffect, not render body)
   useEffect(() => {
@@ -136,6 +150,13 @@ export function SettingsSheet({
               <SettingsRow
                 icon="shieldCheck"
                 label="Biometric lock"
+                detail={
+                  !hasBiometricHardware
+                    ? 'Not available on this device'
+                    : !isBiometricEnrolled
+                    ? 'No biometrics enrolled'
+                    : undefined
+                }
                 control={
                   <Switch
                     value={biometricEnabled}
@@ -145,6 +166,7 @@ export function SettingsSheet({
                     }}
                     trackColor={{ false: tokens.stroke, true: tokens.success }}
                     thumbColor={biometricEnabled ? tokens.text : tokens.muted}
+                    disabled={!hasBiometricHardware || !isBiometricEnrolled}
                   />
                 }
               />
@@ -211,17 +233,22 @@ export function SettingsSheet({
 function SettingsRow({
   icon,
   label,
+  detail,
   control,
 }: {
   icon: string
   label: string
+  detail?: string
   control: React.ReactNode
 }) {
   return (
     <View style={styles.row}>
       <View style={styles.rowLeft}>
         <Icon name={icon as never} size={18} color={tokens.text} />
-        <Text style={styles.rowLabel}>{label}</Text>
+        <View>
+          <Text style={styles.rowLabel}>{label}</Text>
+          {detail ? <Text style={styles.rowDetail}>{detail}</Text> : null}
+        </View>
       </View>
       {control}
     </View>
@@ -295,6 +322,11 @@ const styles = StyleSheet.create({
     color: tokens.text,
     fontSize: 15,
     fontWeight: '600',
+  },
+  rowDetail: {
+    color: tokens.muted,
+    fontSize: 12,
+    marginTop: 2,
   },
   destructiveRow: {
     flexDirection: 'row',
