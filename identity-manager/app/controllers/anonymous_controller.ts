@@ -84,68 +84,68 @@ const devTrustSchema = z
   .strict()
 
 export default class AnonymousController {
-  identities(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async identities(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     if (!sessionId) return
     return ctx.response.send({ identities: listAnonymousIdentities(sessionId) })
   }
 
-  createIdentity(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async createIdentity(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     const body = validateBody(ctx, createIdentitySchema)
     if (!sessionId || !body) return
     return ctx.response.status(201).send({ identity: createAnonymousIdentity(sessionId, body) })
   }
 
-  updateIdentity(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async updateIdentity(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     const body = validateBody(ctx, updateIdentitySchema)
     if (!sessionId || !body) return
     return ctx.response.send({ identity: updateAnonymousIdentity(sessionId, ctx.params.id, body) })
   }
 
-  linkPost(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async linkPost(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     const body = validateBody(ctx, linkPostSchema)
     if (!sessionId || !body) return
     return ctx.response.status(201).send({ post: linkAnonymousPost(sessionId, body) })
   }
 
-  updatePostDmPolicy(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async updatePostDmPolicy(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     const body = validateBody(ctx, dmPolicySchema)
     if (!sessionId || !body) return
     return ctx.response.send({ post: updateAnonymousPostDmPolicy(sessionId, ctx.params.id, body.dmPolicy) })
   }
 
-  updatePostStats(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async updatePostStats(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     const body = validateBody(ctx, postStatsSchema)
     if (!sessionId || !body) return
     return ctx.response.send({ post: updateAnonymousPostStats(sessionId, ctx.params.id, body) })
   }
 
-  linkGerm(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async linkGerm(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     const body = validateBody(ctx, germLinkSchema)
     if (!sessionId || !body) return
     return ctx.response.send({ germ: linkGermContact(sessionId, ctx.params.id, body) })
   }
 
-  unlinkGerm(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async unlinkGerm(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     if (!sessionId) return
     return ctx.response.send({ germ: unlinkGermContact(sessionId, ctx.params.id) })
   }
 
-  publicContact(ctx: HttpContext) {
+  async publicContact(ctx: HttpContext) {
     const postUri = (ctx.request.qs() as { postUri?: string }).postUri
     if (!postUri) return ctx.response.status(400).send({ error: 'postUri is required' })
     return ctx.response.send(getAnonymousPublicContact(postUri))
   }
 
-  publicContactEligibility(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async publicContactEligibility(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     if (!sessionId) return
 
     const postUri = (ctx.request.qs() as { postUri?: string }).postUri
@@ -155,14 +155,14 @@ export default class AnonymousController {
     return ctx.response.status(result.eligible ? 200 : 403).send(result)
   }
 
-  deviceTrust(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async deviceTrust(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     if (!sessionId) return
     return ctx.response.send({ deviceTrust: getDeviceTrustSummary(sessionId) })
   }
 
-  verifyDevelopmentDevice(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async verifyDevelopmentDevice(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     const body = validateBody(ctx, devTrustSchema)
     if (!sessionId || !body) return
     return ctx.response.send({ deviceTrust: upsertDevelopmentTrustedDevice(sessionId, body) })

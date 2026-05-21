@@ -3,12 +3,19 @@ import { z } from 'zod'
 
 config()
 
+const booleanEnv = z.preprocess((value) => {
+  if (value === undefined) return process.env.NODE_ENV !== 'production'
+  if (typeof value === 'string') return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase())
+  return value
+}, z.boolean())
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(8787),
   HOST: z.string().default('0.0.0.0'),
   SERVICE_URL: z.string().url().default('http://localhost:8787'),
   DATABASE_PATH: z.string().default('./data/identity-manager.db'),
+  DATABASE_AUTOMIGRATE: booleanEnv,
   JWT_SECRET: z.string().min(32).default(() => {
     if (process.env.NODE_ENV === 'production') {
       throw new Error('JWT_SECRET is required in production')
@@ -17,6 +24,8 @@ const envSchema = z.object({
   }),
   JWT_ACCESS_TTL_SECONDS: z.coerce.number().int().min(60).default(86400),
   JWT_REFRESH_TTL_DAYS: z.coerce.number().int().min(1).default(7),
+  JWT_ISSUER: z.string().min(1).default('m8.identity-manager'),
+  JWT_AUDIENCE: z.string().min(1).default('m8.api'),
   APP_KEY: z.string().min(16).default(() => {
     if (process.env.NODE_ENV === 'production') {
       throw new Error('APP_KEY is required in production')

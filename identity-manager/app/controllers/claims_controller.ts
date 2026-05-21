@@ -18,8 +18,8 @@ const verifyClaimSchema = z.object({
 })
 
 export default class ClaimsController {
-  verify(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async verify(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     const body = validateBody(ctx, verifyClaimSchema)
     if (!sessionId || !body) return
 

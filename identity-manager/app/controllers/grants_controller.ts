@@ -32,32 +32,32 @@ const revokeGrantSchema = z.object({
 })
 
 export default class GrantsController {
-  index(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async index(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     if (!sessionId) return
 
     const session = hydrateSession(sessionId)
     return ctx.response.send({ grants: session.grants, proofs: session.proofs })
   }
 
-  store(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async store(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     const body = validateBody(ctx, requestGrantSchema)
     if (!sessionId || !body) return
 
     return ctx.response.status(201).send(requestGrant(sessionId, body))
   }
 
-  approve(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async approve(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     const body = validateBody(ctx, approveGrantSchema)
     if (!sessionId || !body) return
 
     return ctx.response.send(approveGrant(sessionId, { ...body, grantId: ctx.params.id }))
   }
 
-  revoke(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async revoke(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     const body = validateBody(ctx, revokeGrantSchema)
     if (!sessionId || !body) return
 

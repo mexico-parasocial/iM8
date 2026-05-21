@@ -22,7 +22,7 @@ export default class SessionsController {
     if (!body) return
 
     const result = await createSession(body)
-    const accessToken = signAccessToken(result.attempt.sessionId)
+    const accessToken = await signAccessToken(result.attempt.sessionId)
     const refreshToken = randomUUID()
     const expiresAt = new Date(Date.now() + env.JWT_REFRESH_TTL_DAYS * 86400_000).toISOString()
 
@@ -70,8 +70,8 @@ export default class SessionsController {
     }
   }
 
-  me(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async me(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     if (!sessionId) return
 
     return ctx.response.send({
@@ -80,8 +80,8 @@ export default class SessionsController {
     })
   }
 
-  enableAnonymous(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async enableAnonymous(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     if (!sessionId) return
 
     const existing = getAnonymousProfile(sessionId)
@@ -92,15 +92,15 @@ export default class SessionsController {
     return ctx.response.send({ anonymousProfile: createAnonymousProfile(sessionId, 'anon') })
   }
 
-  disableAnonymous(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async disableAnonymous(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     if (!sessionId) return
 
     deleteAnonymousProfile(sessionId)
     return ctx.response.send({ disabled: true })
   }
 
-  refresh(ctx: HttpContext) {
+  async refresh(ctx: HttpContext) {
     const refreshToken = (ctx.request.body() as { refreshToken?: string } | null)?.refreshToken
     if (!refreshToken) {
       return ctx.response.status(400).send({ error: 'refreshToken is required' })
@@ -115,7 +115,7 @@ export default class SessionsController {
     }
 
     return ctx.response.send({
-      accessToken: signAccessToken(row.session_id as string),
+      accessToken: await signAccessToken(row.session_id as string),
       expiresIn: env.JWT_ACCESS_TTL_SECONDS,
     })
   }

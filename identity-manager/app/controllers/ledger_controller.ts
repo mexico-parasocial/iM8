@@ -3,8 +3,8 @@ import { getDb } from '../../src/db/connection.js'
 import { requireSessionId } from '#support/http'
 
 export default class LedgerController {
-  index(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async index(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     if (!sessionId) return
 
     const db = getDb()

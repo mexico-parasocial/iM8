@@ -1,65 +1,43 @@
-import { createHmac, timingSafeEqual } from 'node:crypto'
 import type { HttpContext } from '@adonisjs/core/http'
+import { SignJWT, jwtVerify, type JWTPayload } from 'jose'
 import type { z } from 'zod'
 import { env } from '../../src/config/env.js'
 import { createT, resolveLocale } from '../../src/i18n/index.js'
 
-type JwtPayload = {
-  sub?: string
-  type?: string
-  exp?: number
-  iat?: number
-}
-
-function base64url(input: Buffer | string) {
-  return Buffer.from(input).toString('base64url')
-}
-
-function sign(data: string) {
-  return createHmac('sha256', env.JWT_SECRET).update(data).digest('base64url')
-}
+const jwtSecret = new TextEncoder().encode(env.JWT_SECRET)
 
 export function signAccessToken(sessionId: string) {
   const now = Math.floor(Date.now() / 1000)
-  const header = base64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
-  const payload = base64url(
-    JSON.stringify({
-      sub: sessionId,
-      type: 'access',
-      iat: now,
-      exp: now + env.JWT_ACCESS_TTL_SECONDS,
-    })
-  )
-  const unsigned = `${header}.${payload}`
-  return `${unsigned}.${sign(unsigned)}`
+
+  return new SignJWT({ type: 'access' })
+    .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
+    .setSubject(sessionId)
+    .setIssuer(env.JWT_ISSUER)
+    .setAudience(env.JWT_AUDIENCE)
+    .setIssuedAt(now)
+    .setExpirationTime(now + env.JWT_ACCESS_TTL_SECONDS)
+    .sign(jwtSecret)
 }
 
-function verifyAccessToken(token: string): JwtPayload | null {
-  const [header, payload, signature] = token.split('.')
-  if (!header || !payload || !signature) return null
-
-  const expected = sign(`${header}.${payload}`)
-  const expectedBytes = Buffer.from(expected)
-  const actualBytes = Buffer.from(signature)
-  if (expectedBytes.length !== actualBytes.length || !timingSafeEqual(expectedBytes, actualBytes)) {
-    return null
-  }
-
+export async function verifyAccessToken(token: string): Promise<JWTPayload | null> {
   try {
-    const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as JwtPayload
-    if (parsed.type !== 'access' || !parsed.sub) return null
-    if (parsed.exp && parsed.exp <= Math.floor(Date.now() / 1000)) return null
-    return parsed
+    const { payload } = await jwtVerify(token, jwtSecret, {
+      algorithms: ['HS256'],
+      audience: env.JWT_AUDIENCE,
+      issuer: env.JWT_ISSUER,
+    })
+    if (payload.type !== 'access' || !payload.sub) return null
+    return payload
   } catch {
     return null
   }
 }
 
-export function requireSessionId(ctx: HttpContext) {
+export async function requireSessionId(ctx: HttpContext) {
   const authorization = ctx.request.header('authorization') ?? ''
   const match = authorization.match(/^Bearer\s+(.+)$/i)
   const token = match?.[1]
-  const payload = token ? verifyAccessToken(token) : null
+  const payload = token ? await verifyAccessToken(token) : null
 
   if (!payload?.sub) {
     ctx.response.status(401).send({ error: 'Unauthorized' })

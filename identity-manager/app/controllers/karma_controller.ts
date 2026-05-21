@@ -18,8 +18,8 @@ const revelationSchema = z.object({
 }).strict()
 
 export default class KarmaController {
-  earn(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async earn(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     const body = validateBody(ctx, earnSchema)
     if (!sessionId || !body) return
 
@@ -45,8 +45,8 @@ export default class KarmaController {
     return ctx.response.send({ earned: true, id, points: body.points ?? 1 })
   }
 
-  me(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async me(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     if (!sessionId) return
 
     const anon = getAnonymousProfile(sessionId)
@@ -76,7 +76,7 @@ export default class KarmaController {
     return ctx.response.send({ global, byCommunity, actions, profileId: anon.id })
   }
 
-  show(ctx: HttpContext) {
+  async show(ctx: HttpContext) {
     const { profileId } = ctx.params
     const db = getDb()
 
@@ -117,8 +117,8 @@ export default class KarmaController {
     })
   }
 
-  updateRevelation(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async updateRevelation(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     const body = validateBody(ctx, revelationSchema)
     if (!sessionId || !body) return
 

@@ -223,6 +223,13 @@ CREATE TABLE IF NOT EXISTS device_trust_events (
   FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS did_cache (
+  did TEXT PRIMARY KEY,
+  doc TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  expires_at TEXT NOT NULL DEFAULT (datetime('now', '+1 hour'))
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_claim_requests_session ON claim_requests(session_id);
 CREATE INDEX IF NOT EXISTS idx_claim_requests_status ON claim_requests(status);
@@ -242,3 +249,4 @@ CREATE INDEX IF NOT EXISTS idx_anonymous_identity_posts_uri ON anonymous_identit
 CREATE INDEX IF NOT EXISTS idx_anonymous_dm_connections_identity ON anonymous_dm_connections(identity_id);
 CREATE INDEX IF NOT EXISTS idx_trusted_devices_session ON trusted_devices(session_id);
 CREATE INDEX IF NOT EXISTS idx_device_trust_events_session ON device_trust_events(session_id);
+CREATE INDEX IF NOT EXISTS idx_did_cache_expires ON did_cache(expires_at);

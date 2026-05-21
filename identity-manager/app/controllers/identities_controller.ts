@@ -53,8 +53,8 @@ const chatKeyBackupSchema = z.object({
 }).strict()
 
 export default class IdentitiesController {
-  request(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async request(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     const body = validateBody(ctx, identityRequestSchema)
     if (!sessionId || !body) return
 
@@ -68,8 +68,8 @@ export default class IdentitiesController {
     return ctx.response.status(201).send(req)
   }
 
-  present(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async present(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     const body = validateBody(ctx, presentationSchema)
     if (!sessionId || !body) return
 
@@ -104,8 +104,8 @@ export default class IdentitiesController {
     return ctx.response.send(presentation)
   }
 
-  verify(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async verify(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     const body = validateBody(ctx, verifyPresentationSchema)
     if (!sessionId || !body) return
 
@@ -140,8 +140,8 @@ export default class IdentitiesController {
     return ctx.response.send(result)
   }
 
-  createChatKeyBackup(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async createChatKeyBackup(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     const parsed = chatKeyBackupSchema.safeParse(ctx.request.body())
     if (!sessionId) return
     if (!parsed.success) {
@@ -175,8 +175,8 @@ export default class IdentitiesController {
     return ctx.response.send({ ok: true, updatedAt: now })
   }
 
-  getChatKeyBackup(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async getChatKeyBackup(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     if (!sessionId) return
 
     const db = getDb()
@@ -207,8 +207,8 @@ export default class IdentitiesController {
     })
   }
 
-  deleteChatKeyBackup(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async deleteChatKeyBackup(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     if (!sessionId) return
 
     const db = getDb()
@@ -223,8 +223,8 @@ export default class IdentitiesController {
     return ctx.response.send({ deleted: result.changes > 0, deletedAt: now })
   }
 
-  ineAnalyze(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async ineAnalyze(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     if (!sessionId) return
 
     const body = ctx.request.body() as { inePhotoBase64?: string; selfieBase64?: string; simulatedMode?: boolean }
@@ -232,8 +232,8 @@ export default class IdentitiesController {
     return ctx.response.send(result)
   }
 
-  ineVerify(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async ineVerify(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     if (!sessionId) return
 
     const body = ctx.request.body() as { extracted: import('../../src/types/index.js').IneExtractedData; selfieBase64?: string; consentToStore?: boolean }
@@ -242,7 +242,7 @@ export default class IdentitiesController {
   }
 
   async ineCredential(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+    const sessionId = await requireSessionId(ctx)
     if (!sessionId) return
 
     const body = ctx.request.body() as { extracted: import('../../src/types/index.js').IneExtractedData; verification: import('../../src/types/index.js').IneVerificationResult }
@@ -322,7 +322,7 @@ export default class IdentitiesController {
   }
 
   async zkpVerify(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+    const sessionId = await requireSessionId(ctx)
     if (!sessionId) return
 
     const body = ctx.request.body() as { proof: unknown; publicSignals: string[] }
@@ -350,8 +350,8 @@ export default class IdentitiesController {
     return ctx.response.send({ valid: true, commitment })
   }
 
-  revoke(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+  async revoke(ctx: HttpContext) {
+    const sessionId = await requireSessionId(ctx)
     if (!sessionId) return
 
     const body = ctx.request.body() as { revocationHash: string; reason?: string }
@@ -389,7 +389,7 @@ export default class IdentitiesController {
     return ctx.response.send({ revoked: true, revokedAt: now })
   }
 
-  crl(ctx: HttpContext) {
+  async crl(ctx: HttpContext) {
     const db = getDb()
     const since = (ctx.request.qs() as { since?: string }).since
 
@@ -426,7 +426,7 @@ export default class IdentitiesController {
   }
 
   async zkpNullifier(ctx: HttpContext) {
-    const sessionId = requireSessionId(ctx)
+    const sessionId = await requireSessionId(ctx)
     if (!sessionId) return
 
     const body = ctx.request.body() as { proof: unknown; publicSignals: string[]; communityId: string }

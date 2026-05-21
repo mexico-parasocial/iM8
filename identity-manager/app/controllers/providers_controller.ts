@@ -4,7 +4,7 @@ import { resolveParaProviderStatus } from '../../src/services/paraProvider.js'
 
 export default class ProvidersController {
   async paraStatus(ctx: HttpContext) {
-    if (!requireSessionId(ctx)) return
+    if (!(await requireSessionId(ctx))) return
     return ctx.response.send(await resolveParaProviderStatus())
   }
 }
