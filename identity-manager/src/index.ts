@@ -1,94 +1,74 @@
-import Fastify from 'fastify'
-import cors from '@fastify/cors'
-import { env } from './config/env.js'
-import { closeDb } from './db/connection.js'
-import { ensureSchema, runMigrations } from './db/migrate.js'
-import { ensureDidCacheSchema } from './services/didResolver.js'
-import { registerAuth } from './middleware/auth.js'
-import { registerErrorHandler } from './middleware/errorHandler.js'
-import { resolveLocale, createT } from './i18n/index.js'
-import { healthRoutes } from './routes/health.js'
-import { sessionRoutes } from './routes/sessions.js'
-import { grantRoutes } from './routes/grants.js'
-import { claimRoutes } from './routes/claims.js'
-import { identityRoutes } from './routes/identity.js'
-import { providerRoutes } from './routes/providers.js'
-import { issuerRoutes } from './routes/issuers.js'
-import { ledgerRoutes } from './routes/ledger.js'
-import { karmaRoutes } from './routes/karma.js'
-import { anonymousRoutes } from './routes/anonymous.js'
+import { createServer, type Server } from 'node:http'
 
-async function buildApp() {
-  ensureSchema()
-  runMigrations()
-  ensureDidCacheSchema()
+type InjectOptions = {
+  method: string
+  url: string
+  headers?: Record<string, string>
+  payload?: unknown
+}
 
-  const app = Fastify({
-    logger: {
-      level: env.LOG_LEVEL,
+export type AdonisTestApp = {
+  inject(options: InjectOptions): Promise<{ statusCode: number; payload: string; headers: Record<string, string> }>
+  close(): Promise<void>
+}
+
+function pickTestPort() {
+  return String(18000 + Math.floor(Math.random() * 20000))
+}
+
+export async function buildApp(): Promise<AdonisTestApp> {
+  process.env.HOST = process.env.HOST || '127.0.0.1'
+  process.env.PORT = process.env.PORT || pickTestPort()
+
+  await import('reflect-metadata')
+  const { Ignitor } = await import('@adonisjs/core')
+  const appRoot = new URL('../', import.meta.url)
+  let nodeServer: Server | null = null
+
+  const importer = (filePath: string) => {
+    if (filePath.startsWith('./') || filePath.startsWith('../')) {
+      return import(new URL(filePath, appRoot).href)
+    }
+    return import(filePath)
+  }
+
+  const ignitor = new Ignitor(appRoot, { importer })
+  await ignitor.httpServer().start((handler) => {
+    nodeServer = createServer(handler)
+    return nodeServer
+  })
+
+  const activeServer = nodeServer as Server | null
+  const address = activeServer?.address()
+  const port = typeof address === 'object' && address ? address.port : Number(process.env.PORT)
+  const host = process.env.HOST === '0.0.0.0' ? '127.0.0.1' : process.env.HOST
+  const baseUrl = `http://${host}:${port}`
+
+  return {
+    async inject(options) {
+      const headers = new Headers(options.headers)
+      let body: string | undefined
+
+      if (options.payload !== undefined) {
+        body = typeof options.payload === 'string' ? options.payload : JSON.stringify(options.payload)
+        if (!headers.has('content-type')) headers.set('content-type', 'application/json')
+      }
+
+      const response = await fetch(new URL(options.url, baseUrl), {
+        method: options.method,
+        headers,
+        body,
+      })
+
+      return {
+        statusCode: response.status,
+        payload: await response.text(),
+        headers: Object.fromEntries(response.headers.entries()),
+      }
     },
-  })
 
-  await app.register(cors, {
-    origin: env.CORS_ORIGIN,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['content-type', 'authorization', 'x-m8-session-id'],
-    credentials: true,
-  })
-
-  registerErrorHandler(app)
-  await registerAuth(app)
-
-  app.addHook('onRequest', async (request) => {
-    const locale = resolveLocale(request.headers['accept-language'])
-    request.t = createT(locale)
-  })
-
-  await app.register(healthRoutes, { prefix: '/v1' })
-  await app.register(sessionRoutes, { prefix: '/v1' })
-  await app.register(grantRoutes, { prefix: '/v1' })
-  await app.register(claimRoutes, { prefix: '/v1' })
-  await app.register(identityRoutes, { prefix: '/v1' })
-  await app.register(providerRoutes, { prefix: '/v1' })
-  await app.register(issuerRoutes, { prefix: '/v1' })
-  await app.register(ledgerRoutes, { prefix: '/v1' })
-  await app.register(karmaRoutes, { prefix: '/v1' })
-  await app.register(anonymousRoutes, { prefix: '/v1' })
-
-  return app
-}
-
-async function main() {
-  ensureSchema()
-  runMigrations()
-  ensureDidCacheSchema()
-
-  const app = await buildApp()
-
-  app.addHook('onClose', async () => {
-    closeDb()
-  })
-
-  try {
-    await app.listen({ port: env.PORT, host: env.HOST })
-    app.log.info(`M8 Identity Manager listening on http://${env.HOST}:${env.PORT}`)
-  } catch (err) {
-    app.log.error(err)
-    process.exit(1)
+    async close() {
+      await ignitor.terminate()
+    },
   }
-
-  const shutdown = async (signal: string) => {
-    app.log.info(`Received ${signal}, shutting down gracefully...`)
-    await app.close()
-    process.exit(0)
-  }
-
-  process.on('SIGTERM', () => shutdown('SIGTERM'))
-  process.on('SIGINT', () => shutdown('SIGINT'))
 }
-
-if (import.meta.url.startsWith('file:') && process.argv[1] === new URL(import.meta.url).pathname) {
-  main()
-}
-
-export { buildApp }

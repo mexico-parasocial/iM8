@@ -3,13 +3,13 @@ import assert from 'node:assert/strict'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { FastifyInstance } from 'fastify'
+import type { TestApp } from '../helpers/testApp.js'
 
 const tmpDir = mkdtempSync(join(tmpdir(), 'm8-test-'))
 process.env.DATABASE_PATH = join(tmpDir, 'ledger-test.db')
 
 describe('ledger integration', () => {
-  let app: FastifyInstance
+  let app: TestApp
   let accessToken: string
 
   before(async () => {

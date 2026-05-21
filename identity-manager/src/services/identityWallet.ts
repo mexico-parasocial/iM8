@@ -208,7 +208,7 @@ export function createDemoWalletPresentation(params: {
     audienceAppId: params.request.audienceAppId,
     credential,
     disclosedClaims,
-    devicePublicKey: walletKey.publicKey.export({ type: 'spki', format: 'pem' }).toString(),
+    devicePublicKey: walletKey.publicKey.export({ type: 'spki', format: 'pem' }).toString().trim(),
     issuedAt: nowIso(),
     expiresAt: addSeconds(PRESENTATION_TTL_SECONDS),
     signatureAlg: 'Ed25519',
