@@ -1,6 +1,7 @@
 import router from '@adonisjs/core/services/router'
 import AnonymousController from '#controllers/anonymous_controller'
 import ClaimsController from '#controllers/claims_controller'
+import DocsController from '#controllers/docs_controller'
 import GrantsController from '#controllers/grants_controller'
 import HealthController from '#controllers/health_controller'
 import IdentitiesController from '#controllers/identities_controller'
@@ -9,6 +10,9 @@ import KarmaController from '#controllers/karma_controller'
 import LedgerController from '#controllers/ledger_controller'
 import ProvidersController from '#controllers/providers_controller'
 import SessionsController from '#controllers/sessions_controller'
+
+router.get('/docs', [DocsController, 'scalar'])
+router.get('/openapi.json', [DocsController, 'openapi'])
 
 router
   .group(() => {
