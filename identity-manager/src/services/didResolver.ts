@@ -1,5 +1,5 @@
 import { DidResolver, HandleResolver } from '@atproto/identity'
-import { env } from '../config/env.js'
+import env from '#start/env'
 import { getDb } from '../db/connection.js'
 
 // ─── SQLite-backed DID Cache ───────────────────────────────────────────────
@@ -144,7 +144,7 @@ export async function resolvePdsEndpoint(did: string): Promise<string | null> {
 // ─── Resolvers ─────────────────────────────────────────────────────────────
 
 export const didResolver = new DidResolver({
-  plcUrl: env.PLC_URL,
+  plcUrl: env.get('PLC_URL'),
 })
 
 export const handleResolver = new HandleResolver()

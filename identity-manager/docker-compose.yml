@@ -11,11 +11,15 @@ services:
       - PORT=8787
       - HOST=0.0.0.0
       - DATABASE_PATH=/app/data/identity-manager.db
+      - DATABASE_AUTOMIGRATE=true
       - JWT_SECRET=${JWT_SECRET:-dev-secret-do-not-use-in-production-change-me-now}
-      - APP_KEY=${APP_KEY:-dev-app-key-16b-change-me}
+      - APP_KEY=${APP_KEY:-dev-app-key-16-chars}
+      - COOKIE_SECRET=${COOKIE_SECRET:-dev-cookie-secret-16-chars}
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - CORS_ORIGIN=${CORS_ORIGIN:-*}
       - PARA_API_BASE_URL=${PARA_API_BASE_URL:-}
+      - SECURITY_HEADERS_ENABLED=true
+      - RATE_LIMIT_ENABLED=true
     volumes:
       - m8-data:/app/data
     healthcheck:

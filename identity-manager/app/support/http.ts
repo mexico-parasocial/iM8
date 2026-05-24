@@ -1,37 +1,9 @@
 import type { HttpContext } from '@adonisjs/core/http'
-import { SignJWT, jwtVerify, type JWTPayload } from 'jose'
 import type { z } from 'zod'
-import { env } from '../../src/config/env.js'
+import { getDb } from '../../src/db/connection.js'
 import { createT, resolveLocale } from '../../src/i18n/index.js'
-
-const jwtSecret = new TextEncoder().encode(env.JWT_SECRET)
-
-export function signAccessToken(sessionId: string) {
-  const now = Math.floor(Date.now() / 1000)
-
-  return new SignJWT({ type: 'access' })
-    .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
-    .setSubject(sessionId)
-    .setIssuer(env.JWT_ISSUER)
-    .setAudience(env.JWT_AUDIENCE)
-    .setIssuedAt(now)
-    .setExpirationTime(now + env.JWT_ACCESS_TTL_SECONDS)
-    .sign(jwtSecret)
-}
-
-export async function verifyAccessToken(token: string): Promise<JWTPayload | null> {
-  try {
-    const { payload } = await jwtVerify(token, jwtSecret, {
-      algorithms: ['HS256'],
-      audience: env.JWT_AUDIENCE,
-      issuer: env.JWT_ISSUER,
-    })
-    if (payload.type !== 'access' || !payload.sub) return null
-    return payload
-  } catch {
-    return null
-  }
-}
+export { signAccessToken, verifyAccessToken } from '../../src/services/tokenService.js'
+import { verifyAccessToken } from '../../src/services/tokenService.js'
 
 export async function requireSessionId(ctx: HttpContext) {
   const authorization = ctx.request.header('authorization') ?? ''
@@ -40,6 +12,15 @@ export async function requireSessionId(ctx: HttpContext) {
   const payload = token ? await verifyAccessToken(token) : null
 
   if (!payload?.sub) {
+    ctx.response.status(401).send({ error: 'Unauthorized' })
+    return null
+  }
+
+  const row = getDb()
+    .prepare('SELECT authenticated_at, status FROM sessions WHERE session_id = ?')
+    .get(payload.sub) as { authenticated_at: string | null; status: string } | undefined
+
+  if (!row?.authenticated_at || row.status !== 'active') {
     ctx.response.status(401).send({ error: 'Unauthorized' })
     return null
   }
@@ -59,6 +40,13 @@ export function validateBody<T extends z.ZodTypeAny>(ctx: HttpContext, schema: T
     })),
   })
   return null
+}
+
+export function getSessionId(ctx: HttpContext): string {
+  if (!ctx.sessionId) {
+    throw new Error('Session ID not available. Ensure auth middleware is applied to this route.')
+  }
+  return ctx.sessionId
 }
 
 export function t(ctx: HttpContext) {

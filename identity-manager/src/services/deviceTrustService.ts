@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { env } from '../config/env.js'
+import env from '#start/env'
 import { getDb } from '../db/connection.js'
 
 export type DeviceTrustPlatform = 'ios' | 'android' | 'web'
@@ -50,7 +50,7 @@ export function upsertDevelopmentTrustedDevice(sessionId: string, input: {
   deviceKeyId: string
   publicKey?: string
 }): DeviceTrustSummary {
-  if (env.NODE_ENV === 'production') {
+  if (env.get('NODE_ENV') === 'production') {
     throw appError('Development device trust override is disabled in production', 404, 'NOT_FOUND')
   }
 

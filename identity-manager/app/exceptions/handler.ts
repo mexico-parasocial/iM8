@@ -7,47 +7,77 @@ type HttpError = Error & {
   statusCode?: number
 }
 
+function sanitizeMessage(error: HttpError, statusCode: number | undefined): string {
+  if (!statusCode || statusCode < 500) {
+    return error.message || 'Request error'
+  }
+  // In production, never leak internal 5xx details to the client
+  return app.inProduction ? 'Internal server error' : error.message
+}
+
 export default class HttpExceptionHandler extends ExceptionHandler {
-  /**
-   * In debug mode, the exception handler will display verbose errors
-   * with pretty printed stack traces.
-   */
   protected debug = !app.inProduction
 
-  /**
-   * The method is used for handling errors and returning
-   * response to the client
-   */
   async handle(error: unknown, ctx: HttpContext) {
+    const requestId = ctx.request.id() ?? 'unknown'
+    const timestamp = new Date().toISOString()
+
     if (error instanceof Error) {
       const httpError = error as HttpError
       const statusCode = httpError.statusCode ?? httpError.status
+
       if (statusCode && statusCode >= 400 && statusCode < 500) {
         return ctx.response.status(statusCode).send({
-          error: httpError.message,
-          code: httpError.code,
+          error: sanitizeMessage(httpError, statusCode),
+          code: httpError.code || 'REQUEST_ERROR',
+          requestId,
+          timestamp,
         })
       }
+
+      // Handle 5xx and unhandled errors with a sanitized response
+      const fiveHundredStatus = statusCode && statusCode >= 500 ? statusCode : 500
+      return ctx.response.status(fiveHundredStatus).send({
+        error: sanitizeMessage(httpError, fiveHundredStatus),
+        code: httpError.code || 'INTERNAL_ERROR',
+        requestId,
+        timestamp,
+      })
     }
 
-    return super.handle(error, ctx)
+    // Unknown error type
+    return ctx.response.status(500).send({
+      error: app.inProduction ? 'Internal server error' : 'Unknown error',
+      code: 'INTERNAL_ERROR',
+      requestId,
+      timestamp,
+    })
   }
 
-  /**
-   * The method is used to report error to the logging service or
-   * the a third party error monitoring service.
-   *
-   * @note You should not attempt to send a response from this method.
-   */
   async report(error: unknown, ctx: HttpContext) {
+    const requestId = ctx.request.id() ?? 'unknown'
+
     if (error instanceof Error) {
       const httpError = error as HttpError
       const statusCode = httpError.statusCode ?? httpError.status
+
       if (statusCode && statusCode >= 400 && statusCode < 500) {
+        // Log 4xx at warn level with context for abuse analysis
+        ctx.logger.warn(
+          { requestId, statusCode, code: httpError.code, err: error },
+          'Client error'
+        )
         return
       }
+
+      // Log 5xx at error level with full context
+      ctx.logger.error(
+        { requestId, statusCode, code: httpError.code, err: error },
+        'Server error'
+      )
+      return
     }
 
-    return super.report(error, ctx)
+    ctx.logger.error({ requestId, err: error }, 'Unknown error')
   }
 }

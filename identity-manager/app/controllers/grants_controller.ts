@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { HttpContext } from '@adonisjs/core/http'
-import { requireSessionId, validateBody } from '#support/http'
+import { getSessionId, validateBody } from '#support/http'
 import { approveGrant, requestGrant, revokeGrant } from '../../src/services/grantService.js'
 import { hydrateSession } from '../../src/services/sessionService.js'
 import { PROOF_BROKER_CLAIM_TYPES } from '../../src/types/index.js'
@@ -33,33 +33,32 @@ const revokeGrantSchema = z.object({
 
 export default class GrantsController {
   async index(ctx: HttpContext) {
-    const sessionId = await requireSessionId(ctx)
-    if (!sessionId) return
+    const sessionId = getSessionId(ctx)
 
     const session = hydrateSession(sessionId)
     return ctx.response.send({ grants: session.grants, proofs: session.proofs })
   }
 
   async store(ctx: HttpContext) {
-    const sessionId = await requireSessionId(ctx)
+    const sessionId = getSessionId(ctx)
     const body = validateBody(ctx, requestGrantSchema)
-    if (!sessionId || !body) return
+    if (!body) return
 
     return ctx.response.status(201).send(requestGrant(sessionId, body))
   }
 
   async approve(ctx: HttpContext) {
-    const sessionId = await requireSessionId(ctx)
+    const sessionId = getSessionId(ctx)
     const body = validateBody(ctx, approveGrantSchema)
-    if (!sessionId || !body) return
+    if (!body) return
 
     return ctx.response.send(approveGrant(sessionId, { ...body, grantId: ctx.params.id }))
   }
 
   async revoke(ctx: HttpContext) {
-    const sessionId = await requireSessionId(ctx)
+    const sessionId = getSessionId(ctx)
     const body = validateBody(ctx, revokeGrantSchema)
-    if (!sessionId || !body) return
+    if (!body) return
 
     return ctx.response.send(revokeGrant(sessionId, { ...body, grantId: ctx.params.id }))
   }

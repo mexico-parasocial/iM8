@@ -1,10 +1,11 @@
 import { defineConfig } from '@adonisjs/cors'
-import { env } from '../src/config/env.js'
+import env from '#start/env'
 
+const corsOrigin = env.get('CORS_ORIGIN')
 const origin =
-  env.CORS_ORIGIN === '*'
+  corsOrigin === '*'
     ? true
-    : env.CORS_ORIGIN.split(',')
+    : corsOrigin.split(',')
         .map((value) => value.trim())
         .filter(Boolean)
 

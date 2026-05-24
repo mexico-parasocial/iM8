@@ -1,4 +1,14 @@
-import { generateKeyPairSync, randomBytes, randomUUID, sign, verify } from 'node:crypto'
+import {
+  generateKeyPairSync,
+  randomBytes,
+  randomUUID,
+  sign,
+  verify,
+  type KeyObject,
+} from 'node:crypto'
+import env from '#start/env'
+import { Features, isFeatureEnabled } from './features.js'
+import { getSharedIssuerKeyStore, resetSharedIssuerKeyStore } from './issuerKeyStore.js'
 import type {
   M8IdentityCredential,
   M8IdentityCredentialClaims,
@@ -13,13 +23,46 @@ import type {
 const DEFAULT_MERCHANT_IDENTIFIER = 'merchant.m8.identity.dev'
 const DEFAULT_REQUEST_TTL_SECONDS = 5 * 60
 const PRESENTATION_TTL_SECONDS = 90
+const DEMO_ISSUER_DID = 'did:m8:ine:emisor-001'
+const DEMO_ISSUER_KEY_ID = 'demo-ine-ed25519'
 
-// In production, load from APP_KEY-encrypted persistent storage.
-// For this sprint we generate at boot but keep stable within process.
 let _ineIssuerKey: ReturnType<typeof generateKeyPairSync> | null = null
 let _demoWalletKey: ReturnType<typeof generateKeyPairSync> | null = null
 
-function getIneIssuerKey() {
+type SigningIssuer = {
+  did: string
+  keyId: string
+  name: string
+  privateKey: KeyObject
+  publicKeyPem: string
+}
+
+function loadConfiguredIssuer() {
+  try {
+    const store = getSharedIssuerKeyStore()
+    const key = store.getSigningKey()
+    return {
+      did: key.did,
+      keyId: key.keyId,
+      privateKey: key.privateKey,
+      publicKeyPem: key.publicKeyPem,
+    }
+  } catch (error) {
+    if (env.get('NODE_ENV') === 'production') {
+      throw error
+    }
+    return null
+  }
+}
+
+export function assertIssuerKeyConfiguration() {
+  loadConfiguredIssuer()
+}
+
+function getDemoIneIssuerKey() {
+  if (!isFeatureEnabled(Features.DemoIdentityWalletEnable)) {
+    throw new Error('Demo identity issuer key is disabled')
+  }
   if (!_ineIssuerKey) {
     _ineIssuerKey = generateKeyPairSync('ed25519')
   }
@@ -27,41 +70,111 @@ function getIneIssuerKey() {
 }
 
 function getDemoWalletKey() {
+  if (!isFeatureEnabled(Features.DemoIdentityWalletEnable)) {
+    throw new Error('Demo identity wallet is disabled')
+  }
   if (!_demoWalletKey) {
     _demoWalletKey = generateKeyPairSync('ed25519')
   }
   return _demoWalletKey
 }
 
-export const TRUSTED_ISSUERS: M8TrustedIssuer[] = [
-  {
-    did: 'did:m8:ine:emisor-001',
+function getSigningIssuer(): SigningIssuer {
+  const configuredIssuer = loadConfiguredIssuer()
+  if (configuredIssuer) {
+    return {
+      did: configuredIssuer.did,
+      keyId: configuredIssuer.keyId,
+      name: 'Instituto Nacional Electoral',
+      privateKey: configuredIssuer.privateKey,
+      publicKeyPem: configuredIssuer.publicKeyPem,
+    }
+  }
+
+  const demoIssuer = getDemoIneIssuerKey()
+  return {
+    did: DEMO_ISSUER_DID,
+    keyId: DEMO_ISSUER_KEY_ID,
     name: 'Instituto Nacional Electoral',
+    privateKey: demoIssuer.privateKey,
+    publicKeyPem: demoIssuer.publicKey.export({ type: 'spki', format: 'pem' }).toString(),
+  }
+}
+
+export function getTrustedIssuers(): M8TrustedIssuer[] {
+  const store = getSharedIssuerKeyStore()
+  const verificationKeys = store.getTrustedVerificationKeys()
+  const signingIssuer = getSigningIssuer()
+
+  const issuers: M8TrustedIssuer[] = verificationKeys.map((key, index) => ({
+    did: key.did,
+    keyId: key.keyId,
+    name: index === 0 ? 'Instituto Nacional Electoral' : 'Instituto Nacional Electoral (previous)',
     country: 'MX',
-    status: 'active',
-    publicKeyPem: '',
+    status: key.status,
+    notAfter: key.notAfter,
+    publicKeyPem: key.publicKeyPem,
     allowedElements: ['age_over_18', 'age_over_21', 'citizenship', 'district_hash', 'curp_hash'],
-  },
-  {
+  }))
+
+  if (issuers.length === 0) {
+    issuers.push({
+      did: signingIssuer.did,
+      keyId: signingIssuer.keyId,
+      name: signingIssuer.name,
+      country: 'MX',
+      status: 'active',
+      publicKeyPem: signingIssuer.publicKeyPem,
+      allowedElements: ['age_over_18', 'age_over_21', 'citizenship', 'district_hash', 'curp_hash'],
+    })
+  }
+
+  issuers.push({
     did: 'did:m8:renapo:emisor-001',
+    keyId: 'renapo-suspended',
     name: 'RENAPO',
     country: 'MX',
     status: 'suspended',
-    publicKeyPem: '',
+    publicKeyPem: signingIssuer.publicKeyPem,
     allowedElements: ['citizenship', 'curp_hash'],
-  },
-]
+  })
 
-// Lazy-init PEMs after keys are generated
-function ensureIssuerPems() {
-  const ineKey = getIneIssuerKey()
-  if (!TRUSTED_ISSUERS[0].publicKeyPem) {
-    TRUSTED_ISSUERS[0].publicKeyPem = ineKey.publicKey.export({ type: 'spki', format: 'pem' }).toString()
-  }
-  if (!TRUSTED_ISSUERS[1].publicKeyPem) {
-    TRUSTED_ISSUERS[1].publicKeyPem = ineKey.publicKey.export({ type: 'spki', format: 'pem' }).toString()
-  }
+  return issuers
 }
+
+export function getIssuerMetadata(): M8TrustedIssuer[] {
+  const store = getSharedIssuerKeyStore()
+  const signingIssuer = getSigningIssuer()
+  const issuerKeys = store.getAllVerificationKeys()
+  const issuers = issuerKeys.map((key, index) => ({
+    did: key.did,
+    keyId: key.keyId,
+    name: index === 0 ? 'Instituto Nacional Electoral' : 'Instituto Nacional Electoral (previous)',
+    country: 'MX',
+    status: key.status,
+    notAfter: key.notAfter,
+    publicKeyPem: key.publicKeyPem,
+    allowedElements: ['age_over_18', 'age_over_21', 'citizenship', 'district_hash', 'curp_hash'],
+  })) satisfies M8TrustedIssuer[]
+
+  if (issuers.length > 0) {
+    return issuers
+  }
+
+  return [
+    {
+      did: signingIssuer.did,
+      keyId: signingIssuer.keyId,
+      name: signingIssuer.name,
+      country: 'MX',
+      status: 'active',
+      publicKeyPem: signingIssuer.publicKeyPem,
+      allowedElements: ['age_over_18', 'age_over_21', 'citizenship', 'district_hash', 'curp_hash'],
+    },
+  ]
+}
+
+export { resetSharedIssuerKeyStore }
 
 function nowIso() {
   return new Date().toISOString()
@@ -89,6 +202,7 @@ function signedCredentialPayload(credential: Omit<M8IdentityCredential, 'signatu
   return stableJson({
     id: credential.id,
     issuerDid: credential.issuerDid,
+    issuerKeyId: credential.issuerKeyId,
     subjectDid: credential.subjectDid,
     issuedAt: credential.issuedAt,
     expiresAt: credential.expiresAt,
@@ -102,7 +216,7 @@ function signedPresentationPayload(presentation: Omit<M8WalletPresentation, 'sig
   return stableJson(presentation)
 }
 
-function signPayload(payload: string, privateKey: ReturnType<typeof getIneIssuerKey>['privateKey']) {
+function signPayload(payload: string, privateKey: KeyObject) {
   return base64url(sign(null, Buffer.from(payload), privateKey))
 }
 
@@ -163,12 +277,36 @@ export function createIdentityRequest(
   }
 }
 
+export function createIssuerSignedCredential(params: {
+  subjectDid: string
+  claims: M8IdentityCredentialClaims
+  revocationHash: string
+  expiresAt?: string
+}): M8IdentityCredential {
+  const issuer = getSigningIssuer()
+  const unsignedCredential: Omit<M8IdentityCredential, 'signature'> = {
+    id: `credential-${randomUUID()}`,
+    issuerDid: issuer.did,
+    issuerKeyId: issuer.keyId,
+    subjectDid: params.subjectDid,
+    issuedAt: nowIso(),
+    expiresAt: params.expiresAt ?? addSeconds(365 * 24 * 60 * 60),
+    claims: params.claims,
+    revocationHash: params.revocationHash,
+    signatureAlg: 'Ed25519',
+  }
+
+  return {
+    ...unsignedCredential,
+    signature: signPayload(signedCredentialPayload(unsignedCredential), issuer.privateKey),
+  }
+}
+
 export function createDemoWalletPresentation(params: {
   request: M8IdentityRequest
   subjectDid: string
   selectedElementIds?: M8IdentityElementId[]
 }): M8WalletPresentation {
-  ensureIssuerPems()
   const selected = new Set(
     params.selectedElementIds ?? params.request.requestedElements.map((element) => element.id)
   )
@@ -183,23 +321,12 @@ export function createDemoWalletPresentation(params: {
     Object.entries(claims).filter(([key]) => selected.has(key as M8IdentityElementId))
   ) as M8IdentityCredentialClaims
 
-  const ineKey = getIneIssuerKey()
   const walletKey = getDemoWalletKey()
-
-  const unsignedCredential: Omit<M8IdentityCredential, 'signature'> = {
-    id: `credential-${randomUUID()}`,
-    issuerDid: 'did:m8:ine:emisor-001',
+  const credential = createIssuerSignedCredential({
     subjectDid: params.subjectDid,
-    issuedAt: nowIso(),
-    expiresAt: addSeconds(365 * 24 * 60 * 60),
     claims,
     revocationHash: base64url(randomBytes(32)),
-    signatureAlg: 'Ed25519',
-  }
-  const credential: M8IdentityCredential = {
-    ...unsignedCredential,
-    signature: signPayload(signedCredentialPayload(unsignedCredential), ineKey.privateKey),
-  }
+  })
 
   const unsignedPresentation: Omit<M8WalletPresentation, 'signature'> = {
     type: 'm8.identity.presentation.v1',
@@ -223,13 +350,15 @@ export function createDemoWalletPresentation(params: {
 export function verifyWalletPresentation(
   request: M8IdentityRequest,
   presentation: M8WalletPresentation,
-  trustedIssuers = TRUSTED_ISSUERS
+  trustedIssuers = getTrustedIssuers()
 ): M8IdentityVerificationResult {
-  ensureIssuerPems()
   const errors: string[] = []
   const warnings: string[] = []
   const checkedAt = nowIso()
-  const issuer = trustedIssuers.find((entry) => entry.did === presentation.credential?.issuerDid) ?? null
+  const issuer = trustedIssuers.find((entry) =>
+    entry.did === presentation.credential?.issuerDid &&
+    entry.keyId === presentation.credential?.issuerKeyId
+  ) ?? null
 
   if (request.status !== 'active') errors.push('identity request is not active')
   if (new Date(request.expiresAt).getTime() <= Date.now()) errors.push('identity request expired')
@@ -247,7 +376,7 @@ export function verifyWalletPresentation(
   }
   if (!issuer) {
     errors.push('credential issuer is not trusted')
-  } else if (issuer.status !== 'active') {
+  } else if (issuer.status !== 'active' && issuer.status !== 'previous') {
     errors.push(`credential issuer is ${issuer.status}`)
   }
 

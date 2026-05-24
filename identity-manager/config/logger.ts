@@ -1,7 +1,7 @@
 import { defineConfig, syncDestination, targets } from '@adonisjs/core/logger'
 import type { LoggerConfig } from '@adonisjs/logger/types'
 import app from '@adonisjs/core/services/app'
-import { env } from '../src/config/env.js'
+import env from '#start/env'
 
 const loggerConfig = defineConfig<{ app: LoggerConfig }>({
   default: 'app',
@@ -9,7 +9,7 @@ const loggerConfig = defineConfig<{ app: LoggerConfig }>({
     app: {
       enabled: true,
       name: 'm8-identity-manager',
-      level: env.LOG_LEVEL,
+      level: env.get('LOG_LEVEL'),
       destination: !app.inProduction ? await syncDestination() : undefined,
       transport: {
         targets: [targets.file({ destination: 1 })],

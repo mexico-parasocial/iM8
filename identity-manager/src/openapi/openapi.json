@@ -81,12 +81,19 @@
       },
       "SessionStartAttempt": {
         "type": "object",
-        "required": ["sessionId", "did", "handle", "authUrl"],
+        "required": ["authUrl", "phaseLabel", "startedAt"],
         "properties": {
           "sessionId": { "type": "string" },
+          "attemptId": { "type": "string" },
           "did": { "type": "string" },
           "handle": { "type": "string" },
-          "authUrl": { "type": "string" }
+          "identifier": { "type": "string" },
+          "authorizationServer": { "type": "string" },
+          "authUrl": { "type": "string" },
+          "phaseLabel": { "type": "string" },
+          "startedAt": { "type": "string", "format": "date-time" },
+          "resolvedAt": { "type": "string", "format": "date-time" },
+          "expiresAt": { "type": "string", "format": "date-time" }
         },
         "additionalProperties": true
       },
@@ -98,6 +105,7 @@
           "did": { "type": "string" },
           "handle": { "type": "string" },
           "displayName": { "type": "string" },
+          "status": { "type": "string", "enum": ["pending", "active", "suspended", "revoked"] },
           "claimRequests": { "type": "array", "items": { "$ref": "#/components/schemas/ClaimRequest" } },
           "grants": { "type": "array", "items": { "$ref": "#/components/schemas/Grant" } },
           "proofs": { "type": "array", "items": { "$ref": "#/components/schemas/ProofArtifact" } },
@@ -119,9 +127,31 @@
         "required": ["attempt", "session", "tokens"],
         "properties": {
           "attempt": { "$ref": "#/components/schemas/SessionStartAttempt" },
-          "session": { "$ref": "#/components/schemas/Session" },
-          "tokens": { "$ref": "#/components/schemas/TokenBundle" },
+          "session": {
+            "oneOf": [
+              { "$ref": "#/components/schemas/Session" },
+              { "type": "null" }
+            ]
+          },
+          "tokens": {
+            "oneOf": [
+              { "$ref": "#/components/schemas/TokenBundle" },
+              { "type": "null" }
+            ]
+          },
           "oauthUrl": { "type": ["string", "null"] }
+        },
+        "additionalProperties": true
+      },
+      "OAuthCallbackResponse": {
+        "type": "object",
+        "required": ["did", "authenticated", "sessionId", "session", "tokens"],
+        "properties": {
+          "did": { "type": "string" },
+          "authenticated": { "type": "boolean" },
+          "sessionId": { "type": "string" },
+          "session": { "$ref": "#/components/schemas/Session" },
+          "tokens": { "$ref": "#/components/schemas/TokenBundle" }
         },
         "additionalProperties": true
       },
@@ -181,7 +211,7 @@
           "surface": { "$ref": "#/components/schemas/Surface" },
           "requestedClaims": { "type": "array", "items": { "$ref": "#/components/schemas/ClaimSpec" } },
           "proofMode": { "$ref": "#/components/schemas/DisclosureMode" },
-          "status": { "type": "string", "enum": ["pending", "approved", "revoked", "expired"] },
+          "status": { "type": "string", "enum": ["pending", "approved", "revoked", "expired", "suspended"] },
           "reason": { "type": "string" }
         },
         "additionalProperties": true
@@ -223,7 +253,7 @@
           "audienceAppId": { "type": "string" },
           "audienceAppName": { "type": "string" },
           "surface": { "$ref": "#/components/schemas/Surface" },
-          "status": { "type": "string", "enum": ["pending", "active", "revoked", "expired"] }
+          "status": { "type": "string", "enum": ["pending", "active", "revoked", "expired", "suspended"] }
         },
         "additionalProperties": true
       },
@@ -249,6 +279,82 @@
           "requestedElements": { "type": "array", "items": { "type": "string" } }
         },
         "additionalProperties": true
+      },
+      "AgeProofPayload": {
+        "type": "object",
+        "required": ["proof", "publicSignals"],
+        "properties": {
+          "proof": {},
+          "publicSignals": {
+            "type": "array",
+            "minItems": 3,
+            "items": { "type": "string" },
+            "description": "Circuit public signals. Index 0 is the public commitment, index 1 is current year, index 2 is the age threshold."
+          }
+        },
+        "additionalProperties": false
+      },
+      "IneCredentialRequest": {
+        "type": "object",
+        "required": ["extracted", "verification", "ageProofs"],
+        "properties": {
+          "extracted": { "$ref": "#/components/schemas/GenericObject" },
+          "verification": { "$ref": "#/components/schemas/GenericObject" },
+          "ageProofs": {
+            "type": "object",
+            "required": ["over18"],
+            "properties": {
+              "over18": { "$ref": "#/components/schemas/AgeProofPayload" },
+              "over21": { "$ref": "#/components/schemas/AgeProofPayload" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "SignedCredential": {
+        "type": "object",
+        "required": ["id", "issuerDid", "issuerKeyId", "subjectDid", "issuedAt", "expiresAt", "claims", "revocationHash", "signatureAlg", "signature"],
+        "properties": {
+          "id": { "type": "string" },
+          "issuerDid": { "type": "string" },
+          "issuerKeyId": { "type": "string" },
+          "subjectDid": { "type": "string" },
+          "issuedAt": { "type": "string", "format": "date-time" },
+          "expiresAt": { "type": "string", "format": "date-time" },
+          "claims": { "$ref": "#/components/schemas/GenericObject" },
+          "revocationHash": { "type": "string" },
+          "signatureAlg": { "type": "string", "const": "Ed25519" },
+          "signature": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "IneCredentialResponse": {
+        "type": "object",
+        "required": ["credential", "proofArtifactId", "verificationId", "commitment"],
+        "properties": {
+          "credential": { "$ref": "#/components/schemas/SignedCredential" },
+          "proofArtifactId": { "type": "string" },
+          "verificationId": { "type": "string" },
+          "commitment": { "type": "string" },
+          "anonymousProfile": { "$ref": "#/components/schemas/AnonymousProfile" }
+        },
+        "additionalProperties": false
+      },
+      "TrustedIssuer": {
+        "type": "object",
+        "required": ["did", "keyId", "name", "country", "status", "publicKeyPem", "allowedElements"],
+        "properties": {
+          "did": { "type": "string" },
+          "keyId": { "type": "string" },
+          "name": { "type": "string" },
+          "country": { "type": "string" },
+          "status": { "type": "string", "enum": ["active", "previous", "suspended", "revoked", "expired"] },
+          "notAfter": { "type": "string", "format": "date-time" },
+          "publicKeyPem": { "type": "string" },
+          "allowedElements": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": false
       },
       "ZkpFailureReason": {
         "type": "string",
@@ -343,13 +449,15 @@
     "/v1/sessions/start": {
       "post": {
         "tags": ["Sessions"],
-        "summary": "Start an M8 session and issue tokens.",
+        "summary": "Start an OAuth-gated M8 session.",
         "requestBody": {
           "required": true,
           "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SessionStartInput" } } }
         },
         "responses": {
-          "200": { "description": "Session and tokens.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SessionStartResponse" } } } },
+          "200": { "description": "Development/test session and tokens when the dev bootstrap feature flag is enabled.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SessionStartResponse" } } } },
+          "202": { "description": "OAuth authorization started. No M8 session is created and tokens are issued only from the OAuth callback.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SessionStartResponse" } } } },
+          "503": { "description": "OAuth authorization unavailable.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
           "422": { "$ref": "#/components/responses/ValidationFailed" }
         }
       }
@@ -363,7 +471,7 @@
           { "name": "state", "in": "query", "schema": { "type": "string" } }
         ],
         "responses": {
-          "200": { "description": "OAuth callback result.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
+          "200": { "description": "OAuth callback result with issued tokens.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OAuthCallbackResponse" } } } },
           "400": { "description": "OAuth callback failed.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
         }
       }
@@ -414,7 +522,7 @@
           "content": { "application/json": { "schema": { "type": "object", "required": ["refreshToken"], "properties": { "refreshToken": { "type": "string" } } } } }
         },
         "responses": {
-          "200": { "description": "New access token.", "content": { "application/json": { "schema": { "type": "object", "required": ["accessToken", "expiresIn"], "properties": { "accessToken": { "type": "string" }, "expiresIn": { "type": "integer" } } } } } },
+          "200": { "description": "New access and rotated refresh token.", "content": { "application/json": { "schema": { "type": "object", "required": ["accessToken", "refreshToken", "expiresIn"], "properties": { "accessToken": { "type": "string" }, "refreshToken": { "type": "string" }, "expiresIn": { "type": "integer" } } } } } },
           "400": { "description": "refreshToken missing.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
           "401": { "$ref": "#/components/responses/Unauthorized" }
         }
@@ -733,12 +841,15 @@
     "/v1/identity/ine/credential": {
       "post": {
         "tags": ["INE"],
-        "summary": "Issue an INE-backed credential artifact.",
+        "summary": "Issue an INE-backed credential artifact from client-generated age proofs.",
         "security": [{ "bearerAuth": [] }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/IneCredentialRequest" } } } },
         "responses": {
-          "200": { "description": "Issued credential.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
+          "200": { "description": "Issued credential. The response never includes birthYear, salt, or witness material.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/IneCredentialResponse" } } } },
+          "400": { "description": "Invalid or mismatched age proof.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "409": { "description": "The public commitment is already registered.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "422": { "$ref": "#/components/responses/ValidationFailed" }
         }
       }
     },
@@ -758,11 +869,12 @@
     "/v1/identity/revoke": {
       "post": {
         "tags": ["Identity"],
-        "summary": "Revoke an identity proof artifact.",
+        "summary": "Revoke or suspend an identity proof artifact.",
         "security": [{ "bearerAuth": [] }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["revocationHash"], "properties": { "revocationHash": { "type": "string" }, "reason": { "type": "string" } } } } } },
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["revocationHash"], "properties": { "revocationHash": { "type": "string" }, "reason": { "type": "string" }, "targetStatus": { "type": "string", "enum": ["revoked", "suspended"] } } } } } },
         "responses": {
           "200": { "description": "Revocation result.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
+          "400": { "description": "Invalid state transition.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
           "401": { "$ref": "#/components/responses/Unauthorized" }
         }
       }
@@ -830,7 +942,7 @@
         "tags": ["Issuers"],
         "summary": "List supported credential issuers.",
         "responses": {
-          "200": { "description": "Issuers.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } }
+          "200": { "description": "Issuers.", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/TrustedIssuer" } } } } }
         }
       }
     },

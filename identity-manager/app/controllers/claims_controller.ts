@@ -4,7 +4,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { getDb } from '../../src/db/connection.js'
 import { verifyClaim } from '../../src/services/trustPolicy.js'
 import { PROOF_BROKER_CLAIM_TYPES } from '../../src/types/index.js'
-import { requireSessionId, validateBody } from '#support/http'
+import { getSessionId, validateBody } from '#support/http'
 
 const verifyClaimSchema = z.object({
   claimType: z.enum(PROOF_BROKER_CLAIM_TYPES),
@@ -19,9 +19,9 @@ const verifyClaimSchema = z.object({
 
 export default class ClaimsController {
   async verify(ctx: HttpContext) {
-    const sessionId = await requireSessionId(ctx)
+    const sessionId = getSessionId(ctx)
     const body = validateBody(ctx, verifyClaimSchema)
-    if (!sessionId || !body) return
+    if (!body) return
 
     const result = verifyClaim({ sessionId, ...body })
     const proofId = `proof-${randomUUID()}`

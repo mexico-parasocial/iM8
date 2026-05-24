@@ -1,11 +1,10 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import { getDb } from '../../src/db/connection.js'
-import { requireSessionId } from '#support/http'
+import { getSessionId } from '#support/http'
 
 export default class LedgerController {
   async index(ctx: HttpContext) {
-    const sessionId = await requireSessionId(ctx)
-    if (!sessionId) return
+    const sessionId = getSessionId(ctx)
 
     const db = getDb()
 

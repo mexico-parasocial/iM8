@@ -1,6 +1,6 @@
 import { NodeOAuthClient, JoseKey } from '@atproto/oauth-client-node'
 import type { NodeSavedState, NodeSavedSession } from '@atproto/oauth-client-node'
-import { env } from '../config/env.js'
+import env from '#start/env'
 import { getDb } from '../db/connection.js'
 
 // ─── OAuth State & Session Storage (SQLite-backed) ─────────────────────────
@@ -92,9 +92,10 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
   const sessionStore = new SQLiteSessionStore()
 
   let keyset: JoseKey[] | undefined
-  if (env.PRIVATE_KEYS) {
+  const privateKeys = env.get('PRIVATE_KEYS')
+  if (privateKeys) {
     try {
-      const jwks = JSON.parse(env.PRIVATE_KEYS)
+      const jwks = JSON.parse(privateKeys)
       const keys = Array.isArray(jwks) ? jwks : [jwks]
       keyset = await Promise.all(keys.map((k) => JoseKey.fromJWK(k)))
     } catch {
@@ -104,8 +105,8 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
 
   const clientMetadata = {
     client_name: 'M8 Identity Manager',
-    client_uri: env.SERVICE_URL,
-    redirect_uris: [`${env.SERVICE_URL}/v1/sessions/oauth/callback`] as [string, ...string[]],
+    client_uri: env.get('SERVICE_URL'),
+    redirect_uris: [`${env.get('SERVICE_URL')}/v1/sessions/oauth/callback`] as [string, ...string[]],
     scope: 'atproto transition:generic',
     grant_types: ['authorization_code', 'refresh_token'] as ['authorization_code', 'refresh_token'],
     response_types: ['code'] as ['code'],
@@ -119,8 +120,8 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
     keyset,
     stateStore,
     sessionStore,
-    plcDirectoryUrl: env.PLC_URL,
-    allowHttp: env.NODE_ENV === 'development',
+    plcDirectoryUrl: env.get('PLC_URL'),
+    allowHttp: env.get('NODE_ENV') === 'development',
   })
 
   return oauthClientInstance

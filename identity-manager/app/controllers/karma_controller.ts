@@ -3,7 +3,7 @@ import { z } from 'zod'
 import type { HttpContext } from '@adonisjs/core/http'
 import { getDb } from '../../src/db/connection.js'
 import { getAnonymousProfile } from '../../src/services/anonymousProfileService.js'
-import { requireSessionId, validateBody } from '#support/http'
+import { getSessionId, validateBody } from '#support/http'
 
 const earnSchema = z.object({
   actionType: z.string().min(1),
@@ -19,9 +19,9 @@ const revelationSchema = z.object({
 
 export default class KarmaController {
   async earn(ctx: HttpContext) {
-    const sessionId = await requireSessionId(ctx)
+    const sessionId = getSessionId(ctx)
     const body = validateBody(ctx, earnSchema)
-    if (!sessionId || !body) return
+    if (!body) return
 
     const anon = getAnonymousProfile(sessionId)
     if (!anon) {
@@ -46,8 +46,7 @@ export default class KarmaController {
   }
 
   async me(ctx: HttpContext) {
-    const sessionId = await requireSessionId(ctx)
-    if (!sessionId) return
+    const sessionId = getSessionId(ctx)
 
     const anon = getAnonymousProfile(sessionId)
     if (!anon) {
@@ -118,9 +117,9 @@ export default class KarmaController {
   }
 
   async updateRevelation(ctx: HttpContext) {
-    const sessionId = await requireSessionId(ctx)
+    const sessionId = getSessionId(ctx)
     const body = validateBody(ctx, revelationSchema)
-    if (!sessionId || !body) return
+    if (!body) return
 
     const anon = getAnonymousProfile(sessionId)
     if (!anon) {

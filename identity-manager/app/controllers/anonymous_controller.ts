@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { HttpContext } from '@adonisjs/core/http'
-import { requireSessionId, validateBody } from '#support/http'
+import { getSessionId, validateBody } from '#support/http'
 import {
   createAnonymousIdentity,
   getAnonymousContactEligibility,
@@ -14,6 +14,7 @@ import {
   updateAnonymousPostStats,
 } from '../../src/services/anonymousIdentityService.js'
 import { getDeviceTrustSummary, upsertDevelopmentTrustedDevice } from '../../src/services/deviceTrustService.js'
+import { Features, assertDemoPathAllowed } from '../../src/services/features.js'
 
 const surfaceSchema = z.enum(['public', 'civic', 'dating'])
 
@@ -85,56 +86,54 @@ const devTrustSchema = z
 
 export default class AnonymousController {
   async identities(ctx: HttpContext) {
-    const sessionId = await requireSessionId(ctx)
-    if (!sessionId) return
+    const sessionId = getSessionId(ctx)
     return ctx.response.send({ identities: listAnonymousIdentities(sessionId) })
   }
 
   async createIdentity(ctx: HttpContext) {
-    const sessionId = await requireSessionId(ctx)
+    const sessionId = getSessionId(ctx)
     const body = validateBody(ctx, createIdentitySchema)
-    if (!sessionId || !body) return
+    if (!body) return
     return ctx.response.status(201).send({ identity: createAnonymousIdentity(sessionId, body) })
   }
 
   async updateIdentity(ctx: HttpContext) {
-    const sessionId = await requireSessionId(ctx)
+    const sessionId = getSessionId(ctx)
     const body = validateBody(ctx, updateIdentitySchema)
-    if (!sessionId || !body) return
+    if (!body) return
     return ctx.response.send({ identity: updateAnonymousIdentity(sessionId, ctx.params.id, body) })
   }
 
   async linkPost(ctx: HttpContext) {
-    const sessionId = await requireSessionId(ctx)
+    const sessionId = getSessionId(ctx)
     const body = validateBody(ctx, linkPostSchema)
-    if (!sessionId || !body) return
+    if (!body) return
     return ctx.response.status(201).send({ post: linkAnonymousPost(sessionId, body) })
   }
 
   async updatePostDmPolicy(ctx: HttpContext) {
-    const sessionId = await requireSessionId(ctx)
+    const sessionId = getSessionId(ctx)
     const body = validateBody(ctx, dmPolicySchema)
-    if (!sessionId || !body) return
+    if (!body) return
     return ctx.response.send({ post: updateAnonymousPostDmPolicy(sessionId, ctx.params.id, body.dmPolicy) })
   }
 
   async updatePostStats(ctx: HttpContext) {
-    const sessionId = await requireSessionId(ctx)
+    const sessionId = getSessionId(ctx)
     const body = validateBody(ctx, postStatsSchema)
-    if (!sessionId || !body) return
+    if (!body) return
     return ctx.response.send({ post: updateAnonymousPostStats(sessionId, ctx.params.id, body) })
   }
 
   async linkGerm(ctx: HttpContext) {
-    const sessionId = await requireSessionId(ctx)
+    const sessionId = getSessionId(ctx)
     const body = validateBody(ctx, germLinkSchema)
-    if (!sessionId || !body) return
+    if (!body) return
     return ctx.response.send({ germ: linkGermContact(sessionId, ctx.params.id, body) })
   }
 
   async unlinkGerm(ctx: HttpContext) {
-    const sessionId = await requireSessionId(ctx)
-    if (!sessionId) return
+    const sessionId = getSessionId(ctx)
     return ctx.response.send({ germ: unlinkGermContact(sessionId, ctx.params.id) })
   }
 
@@ -145,8 +144,7 @@ export default class AnonymousController {
   }
 
   async publicContactEligibility(ctx: HttpContext) {
-    const sessionId = await requireSessionId(ctx)
-    if (!sessionId) return
+    const sessionId = getSessionId(ctx)
 
     const postUri = (ctx.request.qs() as { postUri?: string }).postUri
     if (!postUri) return ctx.response.status(400).send({ error: 'postUri is required' })
@@ -156,15 +154,20 @@ export default class AnonymousController {
   }
 
   async deviceTrust(ctx: HttpContext) {
-    const sessionId = await requireSessionId(ctx)
-    if (!sessionId) return
+    const sessionId = getSessionId(ctx)
     return ctx.response.send({ deviceTrust: getDeviceTrustSummary(sessionId) })
   }
 
   async verifyDevelopmentDevice(ctx: HttpContext) {
-    const sessionId = await requireSessionId(ctx)
+    const sessionId = getSessionId(ctx)
     const body = validateBody(ctx, devTrustSchema)
-    if (!sessionId || !body) return
+    if (!body) return
+    if (!assertDemoPathAllowed(Features.DevelopmentDeviceTrustEnable)) {
+      return ctx.response.status(404).send({
+        error: 'Development device trust override is disabled',
+        code: 'FEATURE_DISABLED',
+      })
+    }
     return ctx.response.send({ deviceTrust: upsertDevelopmentTrustedDevice(sessionId, body) })
   }
 }

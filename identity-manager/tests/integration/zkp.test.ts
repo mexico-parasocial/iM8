@@ -4,6 +4,7 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { TestApp } from '../helpers/testApp.js'
+import { issueIneCredentialWithClientProof } from '../helpers/clientProof.js'
 
 const tmpDir = mkdtempSync(join(tmpdir(), 'm8-zkp-test-'))
 process.env.DATABASE_PATH = join(tmpDir, 'zkp-test.db')
@@ -29,52 +30,25 @@ describe('ZKP age proof integration', () => {
   })
 
   it('POST /v1/identity/ine/zkp-verify accepts a valid client-generated proof', async () => {
-    // 1. Issue a credential to get a registered commitment
-    const analyze = await app.inject({
-      method: 'POST',
-      url: '/v1/identity/ine/analyze',
-      headers: { authorization: `Bearer ${accessToken}` },
-      payload: { inePhotoBase64: 'mock-zkp-valid', simulatedMode: true },
-    })
-    const { extracted } = JSON.parse(analyze.payload)
-
-    const verify = await app.inject({
-      method: 'POST',
-      url: '/v1/identity/ine/verify',
-      headers: { authorization: `Bearer ${accessToken}` },
-      payload: { extracted, selfieBase64: 'mock-selfie-valid', consentToStore: true },
-    })
-    const verification = JSON.parse(verify.payload)
-
-    const credRes = await app.inject({
-      method: 'POST',
-      url: '/v1/identity/ine/credential',
-      headers: { authorization: `Bearer ${accessToken}` },
-      payload: { extracted, verification },
-    })
-    const credential = JSON.parse(credRes.payload)
-
-    // 2. Simulate client-side proof generation using the credential's witness
-    const { generateAgeProof } = await import('../../src/services/zkpService.js')
-    const { proof, publicSignals } = await generateAgeProof({
-      birthYear: credential.birthYear,
-      salt: credential.salt,
-      currentYear: 2026,
-      ageThreshold: 18,
+    const credential = await issueIneCredentialWithClientProof({
+      app,
+      accessToken,
+      inePhotoBase64: 'mock-zkp-valid',
+      selfieBase64: 'mock-selfie-valid',
+      salt: 101001,
     })
 
-    // 3. Verify the proof server-side
     const res = await app.inject({
       method: 'POST',
       url: '/v1/identity/ine/zkp-verify',
       headers: { authorization: `Bearer ${accessToken}` },
-      payload: { proof, publicSignals },
+      payload: credential.clientProof.ageProofs.over18,
     })
 
     assert.equal(res.statusCode, 200)
     const body = JSON.parse(res.payload)
     assert.equal(body.valid, true)
-    assert.equal(body.commitment, credential.commitment)
+    assert.equal(body.commitment, credential.body.commitment)
   })
 
   it('rejects a proof with tampered public signals', async () => {
@@ -102,55 +76,27 @@ describe('ZKP age proof integration', () => {
   })
 
   it('rejects a proof for a revoked credential', async () => {
-    // 1. Issue a credential
-    const analyze = await app.inject({
-      method: 'POST',
-      url: '/v1/identity/ine/analyze',
-      headers: { authorization: `Bearer ${accessToken}` },
-      payload: { inePhotoBase64: 'mock-zkp-revoke', simulatedMode: true },
-    })
-    const { extracted } = JSON.parse(analyze.payload)
-
-    const verify = await app.inject({
-      method: 'POST',
-      url: '/v1/identity/ine/verify',
-      headers: { authorization: `Bearer ${accessToken}` },
-      payload: { extracted, selfieBase64: 'mock-selfie-revoke', consentToStore: true },
-    })
-    const verification = JSON.parse(verify.payload)
-
-    const credRes = await app.inject({
-      method: 'POST',
-      url: '/v1/identity/ine/credential',
-      headers: { authorization: `Bearer ${accessToken}` },
-      payload: { extracted, verification },
-    })
-    const credential = JSON.parse(credRes.payload)
-
-    // 2. Generate proof using the same birthYear + salt from the credential
-    const { generateAgeProof } = await import('../../src/services/zkpService.js')
-    const { proof, publicSignals } = await generateAgeProof({
-      birthYear: credential.birthYear,
-      salt: credential.salt,
-      currentYear: 2026,
-      ageThreshold: 18,
+    const credential = await issueIneCredentialWithClientProof({
+      app,
+      accessToken,
+      inePhotoBase64: 'mock-zkp-revoke',
+      selfieBase64: 'mock-selfie-revoke',
+      salt: 202002,
     })
 
-    // 3. Revoke the credential
     const revokeRes = await app.inject({
       method: 'POST',
       url: '/v1/identity/revoke',
       headers: { authorization: `Bearer ${accessToken}` },
-      payload: { revocationHash: credential.revocationHash, reason: 'Test revocation' },
+      payload: { revocationHash: credential.body.credential.revocationHash, reason: 'Test revocation' },
     })
     assert.equal(revokeRes.statusCode, 200)
 
-    // 4. Verify the proof — should fail because credential is revoked
     const res = await app.inject({
       method: 'POST',
       url: '/v1/identity/ine/zkp-verify',
       headers: { authorization: `Bearer ${accessToken}` },
-      payload: { proof, publicSignals },
+      payload: credential.clientProof.ageProofs.over18,
     })
 
     assert.equal(res.statusCode, 400)

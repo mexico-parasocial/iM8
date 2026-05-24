@@ -1,78 +1,78 @@
 import router from '@adonisjs/core/services/router'
-import AnonymousController from '#controllers/anonymous_controller'
-import ClaimsController from '#controllers/claims_controller'
-import DocsController from '#controllers/docs_controller'
-import GrantsController from '#controllers/grants_controller'
-import HealthController from '#controllers/health_controller'
-import IdentitiesController from '#controllers/identities_controller'
-import IssuersController from '#controllers/issuers_controller'
-import KarmaController from '#controllers/karma_controller'
-import LedgerController from '#controllers/ledger_controller'
-import ProvidersController from '#controllers/providers_controller'
-import SessionsController from '#controllers/sessions_controller'
+import { middleware } from '#start/kernel'
 
-router.get('/docs', [DocsController, 'scalar'])
-router.get('/openapi.json', [DocsController, 'openapi'])
+router.get('/docs', '#controllers/docs_controller.scalar')
+router.get('/openapi.json', '#controllers/docs_controller.openapi')
 
 router
   .group(() => {
-    router.get('/health', [HealthController, 'show'])
+    // Public routes
+    router.get('/health', '#controllers/health_controller.show')
 
-    router.post('/sessions/start', [SessionsController, 'start'])
-    router.get('/sessions/oauth/callback', [SessionsController, 'oauthCallback'])
-    router.get('/sessions/me', [SessionsController, 'me'])
-    router.post('/sessions/anonymous/enable', [SessionsController, 'enableAnonymous'])
-    router.post('/sessions/anonymous/disable', [SessionsController, 'disableAnonymous'])
-    router.post('/sessions/refresh', [SessionsController, 'refresh'])
+    router.post('/sessions/start', '#controllers/sessions_controller.start')
+    router.get('/sessions/oauth/callback', '#controllers/sessions_controller.oauthCallback')
+    router.post('/sessions/refresh', '#controllers/sessions_controller.refresh')
 
-    router.get('/grants', [GrantsController, 'index'])
-    router.post('/grants', [GrantsController, 'store'])
-    router.post('/grants/:id/approve', [GrantsController, 'approve'])
-    router.post('/grants/:id/revoke', [GrantsController, 'revoke'])
+    router.get('/identity/crl', '#controllers/revocation_controller.crl')
+    router.get('/identity/ine/zkp-prover.html', '#controllers/zk_proof_controller.zkpProverHtml')
+    router.get('/identity/ine/zkp-prover.wasm', '#controllers/zk_proof_controller.zkpProverWasm')
+    router.get('/identity/ine/zkp-prover.zkey', '#controllers/zk_proof_controller.zkpProverZkey')
+    router.get('/identity/ine/nullifier-prover.wasm', '#controllers/zk_proof_controller.nullifierProverWasm')
+    router.get('/identity/ine/nullifier-prover.zkey', '#controllers/zk_proof_controller.nullifierProverZkey')
 
-    router.post('/claims/:id/verify', [ClaimsController, 'verify'])
+    router.get('/issuers', '#controllers/issuers_controller.index')
 
-    router.get('/providers/para/status', [ProvidersController, 'paraStatus'])
+    router.get('/anonymous/public-contact', '#controllers/anonymous_controller.publicContact')
 
-    router.get('/anonymous/identities', [AnonymousController, 'identities'])
-    router.post('/anonymous/identities', [AnonymousController, 'createIdentity'])
-    router.patch('/anonymous/identities/:id', [AnonymousController, 'updateIdentity'])
-    router.post('/anonymous/posts', [AnonymousController, 'linkPost'])
-    router.patch('/anonymous/posts/:id/dm-policy', [AnonymousController, 'updatePostDmPolicy'])
-    router.patch('/anonymous/posts/:id/stats', [AnonymousController, 'updatePostStats'])
-    router.post('/anonymous/identities/:id/germ/link', [AnonymousController, 'linkGerm'])
-    router.post('/anonymous/identities/:id/germ/unlink', [AnonymousController, 'unlinkGerm'])
-    router.get('/anonymous/public-contact', [AnonymousController, 'publicContact'])
-    router.get('/anonymous/public-contact/eligibility', [AnonymousController, 'publicContactEligibility'])
-    router.get('/device-trust/me', [AnonymousController, 'deviceTrust'])
-    router.post('/device-trust/development/verify', [AnonymousController, 'verifyDevelopmentDevice'])
+    router.get('/karma/:profileId', '#controllers/karma_controller.show')
 
-    router.post('/identity/request', [IdentitiesController, 'request'])
-    router.post('/identity/present', [IdentitiesController, 'present'])
-    router.post('/identity/verify', [IdentitiesController, 'verify'])
-    router.post('/identity/chat-key-backup', [IdentitiesController, 'createChatKeyBackup'])
-    router.get('/identity/chat-key-backup', [IdentitiesController, 'getChatKeyBackup'])
-    router.delete('/identity/chat-key-backup', [IdentitiesController, 'deleteChatKeyBackup'])
-    router.post('/identity/ine/analyze', [IdentitiesController, 'ineAnalyze'])
-    router.post('/identity/ine/verify', [IdentitiesController, 'ineVerify'])
-    router.post('/identity/ine/credential', [IdentitiesController, 'ineCredential'])
-    router.post('/identity/ine/zkp-verify', [IdentitiesController, 'zkpVerify'])
-    router.post('/identity/revoke', [IdentitiesController, 'revoke'])
-    router.get('/identity/crl', [IdentitiesController, 'crl'])
-    router.get('/identity/ine/zkp-prover.html', [IdentitiesController, 'zkpProverHtml'])
-    router.get('/identity/ine/zkp-prover.wasm', [IdentitiesController, 'zkpProverWasm'])
-    router.get('/identity/ine/zkp-prover.zkey', [IdentitiesController, 'zkpProverZkey'])
-    router.post('/identity/ine/zkp-nullifier', [IdentitiesController, 'zkpNullifier'])
-    router.get('/identity/ine/nullifier-prover.wasm', [IdentitiesController, 'nullifierProverWasm'])
-    router.get('/identity/ine/nullifier-prover.zkey', [IdentitiesController, 'nullifierProverZkey'])
+    // Protected routes
+    router
+      .group(() => {
+        router.get('/sessions/me', '#controllers/sessions_controller.me')
+        router.post('/sessions/anonymous/enable', '#controllers/sessions_controller.enableAnonymous')
+        router.post('/sessions/anonymous/disable', '#controllers/sessions_controller.disableAnonymous')
 
-    router.get('/issuers', [IssuersController, 'index'])
+        router.get('/grants', '#controllers/grants_controller.index')
+        router.post('/grants', '#controllers/grants_controller.store')
+        router.post('/grants/:id/approve', '#controllers/grants_controller.approve')
+        router.post('/grants/:id/revoke', '#controllers/grants_controller.revoke')
 
-    router.post('/karma/earn', [KarmaController, 'earn'])
-    router.get('/karma/me', [KarmaController, 'me'])
-    router.get('/karma/:profileId', [KarmaController, 'show'])
-    router.put('/karma/revelation', [KarmaController, 'updateRevelation'])
+        router.post('/claims/:id/verify', '#controllers/claims_controller.verify')
 
-    router.get('/ledger', [LedgerController, 'index'])
+        router.get('/providers/para/status', '#controllers/providers_controller.paraStatus')
+
+        router.get('/anonymous/identities', '#controllers/anonymous_controller.identities')
+        router.post('/anonymous/identities', '#controllers/anonymous_controller.createIdentity')
+        router.patch('/anonymous/identities/:id', '#controllers/anonymous_controller.updateIdentity')
+        router.post('/anonymous/posts', '#controllers/anonymous_controller.linkPost')
+        router.patch('/anonymous/posts/:id/dm-policy', '#controllers/anonymous_controller.updatePostDmPolicy')
+        router.patch('/anonymous/posts/:id/stats', '#controllers/anonymous_controller.updatePostStats')
+        router.post('/anonymous/identities/:id/germ/link', '#controllers/anonymous_controller.linkGerm')
+        router.post('/anonymous/identities/:id/germ/unlink', '#controllers/anonymous_controller.unlinkGerm')
+        router.get('/anonymous/public-contact/eligibility', '#controllers/anonymous_controller.publicContactEligibility')
+        router.get('/device-trust/me', '#controllers/anonymous_controller.deviceTrust')
+        router.post('/device-trust/development/verify', '#controllers/anonymous_controller.verifyDevelopmentDevice')
+
+        router.post('/identity/request', '#controllers/identity_wallet_controller.request')
+        router.post('/identity/present', '#controllers/identity_wallet_controller.present')
+        router.post('/identity/verify', '#controllers/identity_wallet_controller.verify')
+        router.post('/identity/chat-key-backup', '#controllers/chat_key_backup_controller.createChatKeyBackup')
+        router.get('/identity/chat-key-backup', '#controllers/chat_key_backup_controller.getChatKeyBackup')
+        router.delete('/identity/chat-key-backup', '#controllers/chat_key_backup_controller.deleteChatKeyBackup')
+        router.post('/identity/ine/analyze', '#controllers/ine_controller.ineAnalyze')
+        router.post('/identity/ine/verify', '#controllers/ine_controller.ineVerify')
+        router.post('/identity/ine/credential', '#controllers/ine_controller.ineCredential')
+        router.post('/identity/ine/zkp-verify', '#controllers/zk_proof_controller.zkpVerify')
+        router.post('/identity/revoke', '#controllers/revocation_controller.revoke')
+        router.post('/identity/ine/zkp-nullifier', '#controllers/zk_proof_controller.zkpNullifier')
+
+        router.post('/karma/earn', '#controllers/karma_controller.earn')
+        router.get('/karma/me', '#controllers/karma_controller.me')
+        router.put('/karma/revelation', '#controllers/karma_controller.updateRevelation')
+
+        router.get('/ledger', '#controllers/ledger_controller.index')
+      })
+      .use(middleware.auth())
   })
   .prefix('/v1')

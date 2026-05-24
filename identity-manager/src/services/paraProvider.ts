@@ -1,5 +1,7 @@
-import { env } from '../config/env.js'
+import env from '#start/env'
+import { Features, isFeatureEnabled } from './features.js'
 import { PROOF_BROKER_CLAIM_TYPES } from '../types/index.js'
+import { mapClaimTypeToParaRecordType } from './paraTrustContract.js'
 import type { ProofBrokerClaimType, ProofBrokerParaProviderStatus } from '../types/index.js'
 
 export type ParaClaimVerificationResult = {
@@ -12,6 +14,7 @@ export type ParaClaimVerificationResult = {
   reference: string | null
   notes: string
   evaluatedAt: string
+  contractRecordType: ReturnType<typeof mapClaimTypeToParaRecordType>
 }
 
 function nowIso() {
@@ -19,13 +22,18 @@ function nowIso() {
 }
 
 export async function resolveParaProviderStatus(): Promise<ProofBrokerParaProviderStatus> {
-  const hasApi = Boolean(env.PARA_API_BASE_URL)
+  const paraApiBaseUrl = env.get('PARA_API_BASE_URL')
+  const hasApi = Boolean(paraApiBaseUrl)
+  // WARNING: Local PARA fallback is for demo/development only.
+  // In production, unavailability of the live PARA API should result in
+  // degraded service, not automatic fallback to local deterministic logic.
+  const localFallbackEnabled = isFeatureEnabled(Features.LocalParaFallbackEnable)
 
   if (hasApi) {
     try {
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), env.PARA_API_TIMEOUT_MS)
-      const res = await fetch(`${env.PARA_API_BASE_URL}/xrpc/app.bsky.actor.getProfile?actor=para.verifier`, {
+      const timeout = setTimeout(() => controller.abort(), env.get('PARA_API_TIMEOUT_MS'))
+      const res = await fetch(`${paraApiBaseUrl}/xrpc/app.bsky.actor.getProfile?actor=para.verifier`, {
         signal: controller.signal,
       })
       clearTimeout(timeout)
@@ -51,7 +59,7 @@ export async function resolveParaProviderStatus(): Promise<ProofBrokerParaProvid
   return {
     providerId: 'para.identity',
     displayName: 'PARA Trust MX',
-    availability: hasApi ? 'degraded' : 'online',
+    availability: hasApi ? 'degraded' : localFallbackEnabled ? 'online' : 'offline',
     compatibility: 'needs-review',
     policyRecord: 'com.para.identity',
     compatibilityRecord: 'app.bsky.graph.verification',
@@ -59,7 +67,9 @@ export async function resolveParaProviderStatus(): Promise<ProofBrokerParaProvid
     supportedClaims: [...PROOF_BROKER_CLAIM_TYPES],
     notes: hasApi
       ? 'PARA API is configured but unreachable. Operating in degraded mode.'
-      : 'No PARA_API_BASE_URL configured. Using local seed resolution.',
+      : localFallbackEnabled
+        ? 'No PARA_API_BASE_URL configured. Using local seed resolution.'
+        : 'No PARA_API_BASE_URL configured and local PARA fallback is disabled.',
   }
 }
 
@@ -71,13 +81,15 @@ export async function verifyParaClaim(input: {
   audienceAppName: string
   reason: string
 }): Promise<ParaClaimVerificationResult> {
-  const hasApi = Boolean(env.PARA_API_BASE_URL)
+  const paraApiBaseUrl = env.get('PARA_API_BASE_URL')
+  const hasApi = Boolean(paraApiBaseUrl)
+  let apiUnavailable = false
 
   if (hasApi) {
     try {
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), env.PARA_API_TIMEOUT_MS)
-      const res = await fetch(`${env.PARA_API_BASE_URL}/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(input.subject)}`, {
+      const timeout = setTimeout(() => controller.abort(), env.get('PARA_API_TIMEOUT_MS'))
+      const res = await fetch(`${paraApiBaseUrl}/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(input.subject)}`, {
         signal: controller.signal,
       })
       clearTimeout(timeout)
@@ -98,12 +110,30 @@ export async function verifyParaClaim(input: {
               reference: (profile.did as string) ?? null,
               notes: 'Resolved via live PARA API.',
               evaluatedAt: nowIso(),
+              contractRecordType: mapClaimTypeToParaRecordType(input.claimType),
             }
           }
         }
       }
     } catch {
-      // fall through to local resolution
+      apiUnavailable = true
+    }
+  }
+
+  if (!isFeatureEnabled(Features.LocalParaFallbackEnable)) {
+    return {
+      claimType: input.claimType,
+      subject: input.subject,
+      disposition: apiUnavailable ? 'unavailable' : 'not-verified',
+      outcome: apiUnavailable ? null : 'not-verified',
+      requestedValue: input.requestedValue ?? null,
+      statement: apiUnavailable
+        ? 'PARA API is unavailable and local fallback is disabled.'
+        : `No live PARA verification record found for ${input.claimType}.`,
+      reference: null,
+      notes: 'Local PARA fallback disabled by GrowthBook gate.',
+      evaluatedAt: nowIso(),
+      contractRecordType: mapClaimTypeToParaRecordType(input.claimType),
     }
   }
 
@@ -121,6 +151,7 @@ export async function verifyParaClaim(input: {
       reference: `local:party:${input.subject}`,
       notes: 'Resolved via local fallback (no PARA API).',
       evaluatedAt: nowIso(),
+      contractRecordType: mapClaimTypeToParaRecordType(input.claimType),
     }
   }
 
@@ -142,6 +173,7 @@ export async function verifyParaClaim(input: {
       reference: `local:party-tenure:${input.subject}`,
       notes: 'Resolved via local fallback without disclosing an exact join date.',
       evaluatedAt: nowIso(),
+      contractRecordType: mapClaimTypeToParaRecordType(input.claimType),
     }
   }
 
@@ -156,6 +188,7 @@ export async function verifyParaClaim(input: {
       reference: `local:${input.subject}`,
       notes: 'Resolved via local fallback (demo mode).',
       evaluatedAt: nowIso(),
+      contractRecordType: mapClaimTypeToParaRecordType(input.claimType),
     }
   }
 
@@ -169,5 +202,6 @@ export async function verifyParaClaim(input: {
     reference: null,
     notes: 'Local fallback returned no match.',
     evaluatedAt: nowIso(),
+    contractRecordType: mapClaimTypeToParaRecordType(input.claimType),
   }
 }

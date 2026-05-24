@@ -36,9 +36,32 @@ function loadVkey(path: string): unknown {
   return JSON.parse(readFileSync(path, 'utf8'))
 }
 
+/** Schema version stored with proof artifacts for circuit compatibility tracking. */
+export const PROOF_SCHEMA_VERSION = '1.0.0'
+
+/** Human-readable/stable circuit identifier. */
+export const CIRCUIT_ID = 'ine_age_proof_v1'
+
+/** BN254 field modulus. */
+export const FIELD_MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617n
+
+/**
+ * Validate that a commitment (publicSignals[0]) is a non-zero element within the BN254 field.
+ * The server cannot inspect the private salt; it can only reject commitments that are
+ * trivially invalid (zero or >= field modulus).
+ */
+export function isValidCommitment(commitment: string): boolean {
+  try {
+    const n = BigInt(commitment)
+    return n > 0n && n < FIELD_MODULUS
+  } catch {
+    return false
+  }
+}
+
 export interface AgeProofInput {
   birthYear: number
-  salt: number
+  salt: number | string | bigint
   currentYear: number
   ageThreshold: number
 }
@@ -51,7 +74,7 @@ export interface AgeProofResult {
 
 export interface NullifierProofInput {
   birthYear: number
-  salt: number
+  salt: number | string | bigint
   communityId: number
   currentYear: number
   ageThreshold: number
@@ -66,7 +89,7 @@ export interface NullifierProofResult {
 
 /**
  * Generate a ZKP proving age eligibility.
- * NOTE: In production this should run on the user's device, not the server.
+ * @deprecated For production, proofs must be generated client-side. Server-side proving is only for tests/demo.
  */
 export async function generateAgeProof(input: AgeProofInput): Promise<AgeProofResult> {
   const { proof, publicSignals } = await groth16.fullProve(
@@ -94,7 +117,7 @@ export async function verifyAgeProof(proof: unknown, publicSignals: string[]): P
 
 /**
  * Generate a ZKP proving age eligibility + nullifier for a community.
- * NOTE: In production this should run on the user's device, not the server.
+ * @deprecated For production, proofs must be generated client-side. Server-side proving is only for tests/demo.
  */
 export async function generateNullifierProof(input: NullifierProofInput): Promise<NullifierProofResult> {
   const { proof, publicSignals } = await groth16.fullProve(
@@ -126,7 +149,7 @@ export async function verifyNullifierProof(proof: unknown, publicSignals: string
 /**
  * Compute the Poseidon commitment off-circuit.
  */
-export async function computeCommitment(birthYear: number, salt: number): Promise<string> {
+export async function computeCommitment(birthYear: number, salt: number | string | bigint): Promise<string> {
   const poseidon = await getPoseidon()
   const hash = poseidon([birthYear, salt])
   return poseidon.F.toString(hash)
@@ -135,7 +158,7 @@ export async function computeCommitment(birthYear: number, salt: number): Promis
 /**
  * Compute the Poseidon nullifier off-circuit.
  */
-export async function computeNullifier(salt: number, communityId: number): Promise<string> {
+export async function computeNullifier(salt: number | string | bigint, communityId: number): Promise<string> {
   const poseidon = await getPoseidon()
   const hash = poseidon([salt, communityId])
   return poseidon.F.toString(hash)

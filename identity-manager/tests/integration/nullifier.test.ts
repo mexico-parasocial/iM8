@@ -4,6 +4,7 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { TestApp } from '../helpers/testApp.js'
+import { issueIneCredentialWithClientProof } from '../helpers/clientProof.js'
 
 const tmpDir = mkdtempSync(join(tmpdir(), 'm8-nullifier-test-'))
 process.env.DATABASE_PATH = join(tmpDir, 'nullifier-test.db')
@@ -29,42 +30,23 @@ describe('Nullifier ZKP integration', () => {
   })
 
   it('POST /v1/identity/ine/zkp-nullifier accepts a valid nullifier proof', async () => {
-    // 1. Issue a credential
-    const analyze = await app.inject({
-      method: 'POST',
-      url: '/v1/identity/ine/analyze',
-      headers: { authorization: `Bearer ${accessToken}` },
-      payload: { inePhotoBase64: 'mock-nullifier-valid', simulatedMode: true },
+    const credential = await issueIneCredentialWithClientProof({
+      app,
+      accessToken,
+      inePhotoBase64: 'mock-nullifier-valid',
+      selfieBase64: 'mock-selfie-valid',
+      salt: 303003,
     })
-    const { extracted } = JSON.parse(analyze.payload)
 
-    const verify = await app.inject({
-      method: 'POST',
-      url: '/v1/identity/ine/verify',
-      headers: { authorization: `Bearer ${accessToken}` },
-      payload: { extracted, selfieBase64: 'mock-selfie-valid', consentToStore: true },
-    })
-    const verification = JSON.parse(verify.payload)
-
-    const credRes = await app.inject({
-      method: 'POST',
-      url: '/v1/identity/ine/credential',
-      headers: { authorization: `Bearer ${accessToken}` },
-      payload: { extracted, verification },
-    })
-    const credential = JSON.parse(credRes.payload)
-
-    // 2. Generate nullifier proof client-side
     const { generateNullifierProof } = await import('../../src/services/zkpService.js')
     const { proof, publicSignals, nullifier } = await generateNullifierProof({
-      birthYear: credential.birthYear,
-      salt: credential.salt,
+      birthYear: credential.clientProof.witness.birthYear,
+      salt: credential.clientProof.witness.salt,
       communityId: 42,
-      currentYear: 2026,
+      currentYear: new Date().getFullYear(),
       ageThreshold: 18,
     })
 
-    // 3. Submit nullifier to backend
     const res = await app.inject({
       method: 'POST',
       url: '/v1/identity/ine/zkp-nullifier',
@@ -75,43 +57,25 @@ describe('Nullifier ZKP integration', () => {
     assert.equal(res.statusCode, 200)
     const body = JSON.parse(res.payload)
     assert.equal(body.valid, true)
-    assert.equal(body.commitment, credential.commitment)
+    assert.equal(body.commitment, credential.body.commitment)
     assert.equal(body.nullifier, nullifier)
   })
 
   it('rejects a reused nullifier for the same community', async () => {
-    // Use the same credential as before
-    const analyze = await app.inject({
-      method: 'POST',
-      url: '/v1/identity/ine/analyze',
-      headers: { authorization: `Bearer ${accessToken}` },
-      payload: { inePhotoBase64: 'mock-nullifier-reuse', simulatedMode: true },
+    const credential = await issueIneCredentialWithClientProof({
+      app,
+      accessToken,
+      inePhotoBase64: 'mock-nullifier-reuse',
+      selfieBase64: 'mock-selfie-reuse',
+      salt: 404004,
     })
-    const { extracted } = JSON.parse(analyze.payload)
 
-    const verify = await app.inject({
-      method: 'POST',
-      url: '/v1/identity/ine/verify',
-      headers: { authorization: `Bearer ${accessToken}` },
-      payload: { extracted, selfieBase64: 'mock-selfie-reuse', consentToStore: true },
-    })
-    const verification = JSON.parse(verify.payload)
-
-    const credRes = await app.inject({
-      method: 'POST',
-      url: '/v1/identity/ine/credential',
-      headers: { authorization: `Bearer ${accessToken}` },
-      payload: { extracted, verification },
-    })
-    const credential = JSON.parse(credRes.payload)
-
-    // Generate and submit first nullifier
     const { generateNullifierProof } = await import('../../src/services/zkpService.js')
     const { proof, publicSignals } = await generateNullifierProof({
-      birthYear: credential.birthYear,
-      salt: credential.salt,
+      birthYear: credential.clientProof.witness.birthYear,
+      salt: credential.clientProof.witness.salt,
       communityId: 99,
-      currentYear: 2026,
+      currentYear: new Date().getFullYear(),
       ageThreshold: 18,
     })
 
@@ -138,36 +102,20 @@ describe('Nullifier ZKP integration', () => {
   })
 
   it('rejects a nullifier proof with community mismatch', async () => {
-    const analyze = await app.inject({
-      method: 'POST',
-      url: '/v1/identity/ine/analyze',
-      headers: { authorization: `Bearer ${accessToken}` },
-      payload: { inePhotoBase64: 'mock-nullifier-mismatch', simulatedMode: true },
+    const credential = await issueIneCredentialWithClientProof({
+      app,
+      accessToken,
+      inePhotoBase64: 'mock-nullifier-mismatch',
+      selfieBase64: 'mock-selfie-mismatch',
+      salt: 505005,
     })
-    const { extracted } = JSON.parse(analyze.payload)
-
-    const verify = await app.inject({
-      method: 'POST',
-      url: '/v1/identity/ine/verify',
-      headers: { authorization: `Bearer ${accessToken}` },
-      payload: { extracted, selfieBase64: 'mock-selfie-mismatch', consentToStore: true },
-    })
-    const verification = JSON.parse(verify.payload)
-
-    const credRes = await app.inject({
-      method: 'POST',
-      url: '/v1/identity/ine/credential',
-      headers: { authorization: `Bearer ${accessToken}` },
-      payload: { extracted, verification },
-    })
-    const credential = JSON.parse(credRes.payload)
 
     const { generateNullifierProof } = await import('../../src/services/zkpService.js')
     const { proof, publicSignals } = await generateNullifierProof({
-      birthYear: credential.birthYear,
-      salt: credential.salt,
+      birthYear: credential.clientProof.witness.birthYear,
+      salt: credential.clientProof.witness.salt,
       communityId: 7,
-      currentYear: 2026,
+      currentYear: new Date().getFullYear(),
       ageThreshold: 18,
     })
 

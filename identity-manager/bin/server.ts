@@ -32,7 +32,9 @@ const IMPORTER = (filePath: string) => {
 new Ignitor(APP_ROOT, { importer: IMPORTER })
   .tap((app) => {
     app.booting(async () => {
-      await import('../src/config/env.js')
+      const { assertProductionFeatureSafety, featureFlagsReady } = await import('../src/services/features.js')
+      await featureFlagsReady
+      assertProductionFeatureSafety()
     })
     app.listen('SIGTERM', () => app.terminate())
     app.listenIf(app.managedByPm2, 'SIGINT', () => app.terminate())

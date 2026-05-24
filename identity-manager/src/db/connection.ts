@@ -1,22 +1,23 @@
 import Database from 'better-sqlite3'
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
-import { env } from '../config/env.js'
+import env from '#start/env'
 
 let dbInstance: Database.Database | null = null
 let dbPath: string | null = null
 
 export function getDb(): Database.Database {
-  if (dbInstance && dbPath === env.DATABASE_PATH) return dbInstance
+  if (dbInstance && dbPath === env.get('DATABASE_PATH')) return dbInstance
 
   if (dbInstance) {
     dbInstance.close()
   }
 
-  mkdirSync(dirname(env.DATABASE_PATH), { recursive: true })
+  const databasePath = env.get('DATABASE_PATH')
+  mkdirSync(dirname(databasePath), { recursive: true })
 
-  dbPath = env.DATABASE_PATH
-  dbInstance = new Database(env.DATABASE_PATH)
+  dbPath = databasePath
+  dbInstance = new Database(databasePath)
   dbInstance.pragma('journal_mode = WAL')
   dbInstance.pragma('foreign_keys = ON')
 
@@ -35,7 +36,7 @@ export async function resetDb(): Promise<void> {
   closeDb()
   try {
     const { unlinkSync } = await import('node:fs')
-    unlinkSync(env.DATABASE_PATH)
+    unlinkSync(env.get('DATABASE_PATH'))
   } catch {
     // ignore
   }

@@ -60,6 +60,7 @@ export type M8IdentityCredentialClaims = Partial<Record<M8IdentityElementId, str
 export type M8IdentityCredential = {
   id: string
   issuerDid: string
+  issuerKeyId: string
   subjectDid: string
   issuedAt: string
   expiresAt: string
@@ -85,9 +86,11 @@ export type M8WalletPresentation = {
 
 export type M8TrustedIssuer = {
   did: string
+  keyId: string
   name: string
   country: string
-  status: 'active' | 'suspended' | 'revoked'
+  status: 'active' | 'previous' | 'suspended' | 'revoked' | 'expired'
+  notAfter?: string
   publicKeyPem: string
   allowedElements: M8IdentityElementId[]
 }
@@ -160,9 +163,9 @@ export type ProofBrokerSurfaceId = 'public' | 'civic' | 'dating'
 
 export type ProofBrokerDisclosureMode = 'proof-only' | 'signed-claim' | 'raw'
 
-export type ProofBrokerGrantStatus = 'pending' | 'approved' | 'revoked' | 'expired'
+export type ProofBrokerGrantStatus = 'pending' | 'approved' | 'suspended' | 'revoked' | 'expired'
 
-export type ProofBrokerProofStatus = 'pending' | 'active' | 'revoked' | 'expired'
+export type ProofBrokerProofStatus = 'pending' | 'active' | 'suspended' | 'revoked' | 'expired'
 
 export const PROOF_BROKER_CLAIM_TYPES = [
   'is_verified_public_figure',
@@ -299,6 +302,7 @@ export type ProofBrokerSession = {
   displayName: string
   authorizationServer: string
   authenticatedAt: string
+  status: 'pending' | 'active' | 'suspended' | 'revoked'
   pdsSafety: ProofBrokerSafetySnapshot
   personas: ProofBrokerPersona[]
   surfaces: ProofBrokerSurface[]
@@ -317,19 +321,22 @@ export type ProofBrokerSessionStartInput = {
 }
 
 export type ProofBrokerSessionStartAttempt = {
-  sessionId: string
-  did: string
-  handle: string
-  authorizationServer: string
+  sessionId?: string
+  attemptId?: string
+  did?: string
+  handle?: string
+  identifier?: string
+  authorizationServer?: string
   authUrl: string
   phaseLabel: string
   startedAt: string
-  resolvedAt: string
+  resolvedAt?: string
+  expiresAt?: string
 }
 
 export type ProofBrokerSessionStartResponse = {
   attempt: ProofBrokerSessionStartAttempt
-  session: ProofBrokerSession
+  session: ProofBrokerSession | null
 }
 
 export type ProofBrokerGrantRequestInput = {
@@ -389,5 +396,7 @@ export function proofBrokerClaimSummary(spec: ProofBrokerClaimSpec) {
   const label = proofBrokerClaimLabel(spec.type)
   return spec.requestedValue ? `${label}: ${spec.requestedValue}` : label
 }
+
+export type { ParaRecordType, ParaTrustContractEntry, ParaRevocationState, ParaFailureState } from '../services/paraTrustContract.js'
 
 import { z } from 'zod'

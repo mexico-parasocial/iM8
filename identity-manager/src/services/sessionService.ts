@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { env } from '../config/env.js'
+import env from '#start/env'
 import { getDb } from '../db/connection.js'
 import { resolveHandleToDid, resolvePdsEndpoint } from './didResolver.js'
 import { PROOF_BROKER_CLAIM_TYPES } from '../types/index.js'
@@ -37,7 +37,7 @@ export async function createSession(input: ProofBrokerSessionStartInput): Promis
     if (resolvedDid) {
       did = resolvedDid
       handle = cleanHandle
-    } else if (env.NODE_ENV === 'development' || env.NODE_ENV === 'test') {
+    } else if (env.get('NODE_ENV') === 'development' || env.get('NODE_ENV') === 'test') {
       // Fallback for dev/test: synthesize a DID so tests still work
       did = `did:plc:${Buffer.from(cleanHandle).toString('base64url').slice(0, 24)}`
       handle = cleanHandle
@@ -48,7 +48,7 @@ export async function createSession(input: ProofBrokerSessionStartInput): Promis
 
   // Resolve PDS endpoint from DID document
   const pdsEndpoint = await resolvePdsEndpoint(did)
-  const authServer = pdsEndpoint ?? env.PDS_URL
+  const authServer = pdsEndpoint ?? env.get('PDS_URL')
 
   const sessionId = randomUUID()
   const now = nowIso()
@@ -61,8 +61,8 @@ export async function createSession(input: ProofBrokerSessionStartInput): Promis
   }
 
   db.prepare(`
-    INSERT INTO sessions (session_id, did, handle, display_name, authorization_server, authenticated_at, pds_safety_json, active_persona_id, active_surface_id, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO sessions (session_id, did, handle, display_name, authorization_server, authenticated_at, pds_safety_json, active_persona_id, active_surface_id, created_at, updated_at, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
   `).run(sessionId, did, handle, handle, authServer, now, JSON.stringify(pdsSafety), 'orbit', 'public', now, now)
 
   const paraStatus = {
@@ -100,7 +100,7 @@ export async function createSession(input: ProofBrokerSessionStartInput): Promis
     did,
     handle,
     authorizationServer: authServer,
-    authUrl: `${authServer}/oauth/authorize?client_id=m8.broker&request_uri=${encodeURIComponent(`${env.SERVICE_URL}/v1/sessions/oauth/callback`)}`,
+    authUrl: `${authServer}/oauth/authorize?client_id=m8.broker&request_uri=${encodeURIComponent(`${env.get('SERVICE_URL')}/v1/sessions/oauth/callback`)}`,
     phaseLabel: 'Awaiting authorization',
     startedAt: now,
     resolvedAt: now,
@@ -253,6 +253,7 @@ export function buildSession(
     displayName: row.display_name as string,
     authorizationServer: row.authorization_server as string,
     authenticatedAt: row.authenticated_at as string,
+    status: (row.status as ProofBrokerSession['status'] | undefined) ?? 'active',
     pdsSafety,
     personas,
     surfaces,

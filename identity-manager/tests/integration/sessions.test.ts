@@ -67,4 +67,39 @@ describe('sessions integration', () => {
     const body = JSON.parse(res.payload)
     assert.equal(body.session.handle, 'authed.bsky.social')
   })
+
+  it('POST /v1/sessions/refresh rotates refresh tokens and rejects reuse', async () => {
+    const start = await app.inject({
+      method: 'POST',
+      url: '/v1/sessions/start',
+      payload: { identifier: 'refresh.bsky.social' },
+    })
+    const { tokens } = JSON.parse(start.payload)
+
+    const firstRefresh = await app.inject({
+      method: 'POST',
+      url: '/v1/sessions/refresh',
+      payload: { refreshToken: tokens.refreshToken },
+    })
+    assert.equal(firstRefresh.statusCode, 200)
+    const rotated = JSON.parse(firstRefresh.payload)
+    assert.ok(rotated.accessToken)
+    assert.ok(rotated.refreshToken)
+    assert.notEqual(rotated.refreshToken, tokens.refreshToken)
+
+    const reused = await app.inject({
+      method: 'POST',
+      url: '/v1/sessions/refresh',
+      payload: { refreshToken: tokens.refreshToken },
+    })
+    assert.equal(reused.statusCode, 401)
+    assert.equal(JSON.parse(reused.payload).code, 'REFRESH_TOKEN_REUSED')
+
+    const secondRefresh = await app.inject({
+      method: 'POST',
+      url: '/v1/sessions/refresh',
+      payload: { refreshToken: rotated.refreshToken },
+    })
+    assert.equal(secondRefresh.statusCode, 200)
+  })
 })

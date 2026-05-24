@@ -21,6 +21,9 @@ export async function buildApp(): Promise<AdonisTestApp> {
   process.env.PORT = process.env.PORT || pickTestPort()
 
   await import('reflect-metadata')
+  const { assertProductionFeatureSafety, featureFlagsReady } = await import('./services/features.js')
+  await featureFlagsReady
+  assertProductionFeatureSafety()
   const { Ignitor } = await import('@adonisjs/core')
   const appRoot = new URL('../', import.meta.url)
   let nodeServer: Server | null = null

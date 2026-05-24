@@ -1,16 +1,22 @@
-import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import type { HttpContext } from '@adonisjs/core/http'
 import { getDb } from '../../src/db/connection.js'
-import { env } from '../../src/config/env.js'
+import { Features, assertDemoPathAllowed } from '../../src/services/features.js'
 import { completeOAuthCallback, initiateOAuthLogin } from '../../src/services/atprotoAuth.js'
-import { createSession, hashRefreshToken, hydrateSession } from '../../src/services/sessionService.js'
+import {
+  completeOAuthLoginAttempt,
+  createOAuthLoginAttempt,
+  failOAuthLoginAttempt,
+  getPendingOAuthLoginAttempt,
+} from '../../src/services/oauthLoginAttempts.js'
+import { createSession, hydrateSession } from '../../src/services/sessionService.js'
+import { issueTokenBundle, rotateRefreshToken, TokenIssueError } from '../../src/services/tokenService.js'
 import {
   createAnonymousProfile,
   deleteAnonymousProfile,
   getAnonymousProfile,
 } from '../../src/services/anonymousProfileService.js'
-import { requireSessionId, signAccessToken, t, validateBody } from '#support/http'
+import { getSessionId, t, validateBody } from '#support/http'
 
 const startSessionSchema = z.object({
   identifier: z.string().min(1).max(256),
@@ -21,58 +27,121 @@ export default class SessionsController {
     const body = validateBody(ctx, startSessionSchema)
     if (!body) return
 
-    const result = await createSession(body)
-    const accessToken = await signAccessToken(result.attempt.sessionId)
-    const refreshToken = randomUUID()
-    const expiresAt = new Date(Date.now() + env.JWT_REFRESH_TTL_DAYS * 86400_000).toISOString()
+    const devTokenBootstrap = assertDemoPathAllowed(Features.AuthDevTokenBootstrap)
 
-    getDb()
-      .prepare('INSERT INTO refresh_tokens (token_hash, session_id, expires_at) VALUES (?, ?, ?)')
-      .run(hashRefreshToken(refreshToken), result.attempt.sessionId, expiresAt)
-
-    let oauthUrl: string | null = null
+    let oauth: { url: string; state: string } | null = null
     try {
-      const oauth = await initiateOAuthLogin(body.identifier)
-      oauthUrl = oauth.url
+      oauth = await initiateOAuthLogin(body.identifier)
     } catch {
-      oauthUrl = null
+      oauth = null
     }
+
+    if (!devTokenBootstrap && !oauth) {
+      return ctx.response.status(503).send({
+        error: 'OAuth authorization is unavailable',
+        code: 'OAUTH_UNAVAILABLE',
+      })
+    }
+
+    if (!devTokenBootstrap) {
+      const oauthLogin = oauth
+      if (!oauthLogin) {
+        return ctx.response.status(503).send({
+          error: 'OAuth authorization is unavailable',
+          code: 'OAUTH_UNAVAILABLE',
+        })
+      }
+      const attempt = createOAuthLoginAttempt({
+        identifier: body.identifier,
+        state: oauthLogin.state,
+        oauthUrl: oauthLogin.url,
+      })
+
+      return ctx.response.status(202).send({
+        attempt: {
+          attemptId: attempt.id,
+          identifier: attempt.identifier,
+          authUrl: attempt.oauthUrl,
+          phaseLabel: 'Awaiting OAuth callback',
+          startedAt: attempt.createdAt,
+          expiresAt: attempt.expiresAt,
+        },
+        tokens: null,
+        session: null,
+        oauthUrl: attempt.oauthUrl,
+      })
+    }
+
+    const result = await createSession(body)
+    result.attempt.authUrl = oauth?.url ?? result.attempt.authUrl
 
     return ctx.response.send({
       ...result,
-      tokens: { accessToken, refreshToken, expiresIn: env.JWT_ACCESS_TTL_SECONDS },
-      oauthUrl,
+      tokens: await issueTokenBundle(result.attempt.sessionId!, {
+        source: 'dev_token_bootstrap',
+      }),
+      oauthUrl: oauth?.url ?? null,
     })
   }
 
   async oauthCallback(ctx: HttpContext) {
+    let attemptId: string | null = null
     try {
       const params = new URLSearchParams(ctx.request.request.url?.split('?')[1] ?? '')
+      const state = params.get('state')
+      if (!state) {
+        return ctx.response.status(400).send({ error: 'OAuth state is required', code: 'OAUTH_STATE_REQUIRED' })
+      }
+
+      const attempt = getPendingOAuthLoginAttempt(state)
+      if (!attempt) {
+        return ctx.response.status(400).send({ error: 'OAuth login attempt not found or expired', code: 'OAUTH_ATTEMPT_INVALID' })
+      }
+      attemptId = attempt.id
+
       const result = await completeOAuthCallback(params)
-      const sessionRow = getDb()
-        .prepare('SELECT session_id FROM sessions WHERE did = ?')
+      let sessionRow = getDb()
+        .prepare("SELECT session_id FROM sessions WHERE did = ? AND status = 'active'")
         .get(result.did) as { session_id: string } | undefined
 
-      if (sessionRow) {
-        getDb()
-          .prepare('UPDATE sessions SET authenticated_at = ? WHERE session_id = ?')
-          .run(new Date().toISOString(), sessionRow.session_id)
+      if (!sessionRow) {
+        const created = await createSession({ identifier: result.did })
+        if (!created.attempt.sessionId) {
+          throw new Error('OAuth callback could not create an authenticated session')
+        }
+        sessionRow = { session_id: created.attempt.sessionId }
       }
+
+      getDb()
+        .prepare('UPDATE sessions SET authenticated_at = ? WHERE session_id = ?')
+        .run(new Date().toISOString(), sessionRow.session_id)
+      completeOAuthLoginAttempt({
+        id: attempt.id,
+        resolvedDid: result.did,
+        sessionId: sessionRow.session_id,
+      })
 
       return ctx.response.send({
         did: result.did,
         authenticated: true,
-        sessionId: sessionRow?.session_id ?? null,
+        sessionId: sessionRow.session_id,
+        session: hydrateSession(sessionRow.session_id),
+        tokens: await issueTokenBundle(sessionRow.session_id, {
+          source: 'oauth_callback',
+          oauthAttemptId: attempt.id,
+        }),
       })
     } catch (error) {
+      if (attemptId) {
+        failOAuthLoginAttempt(attemptId, 'OAUTH_CALLBACK_FAILED')
+      }
       const message = error instanceof Error ? error.message : 'OAuth callback failed'
       return ctx.response.status(400).send({ error: message, code: 'OAUTH_CALLBACK_FAILED' })
     }
   }
 
   async me(ctx: HttpContext) {
-    const sessionId = await requireSessionId(ctx)
-    if (!sessionId) return
+    const sessionId = getSessionId(ctx)
 
     return ctx.response.send({
       session: hydrateSession(sessionId),
@@ -81,8 +150,7 @@ export default class SessionsController {
   }
 
   async enableAnonymous(ctx: HttpContext) {
-    const sessionId = await requireSessionId(ctx)
-    if (!sessionId) return
+    const sessionId = getSessionId(ctx)
 
     const existing = getAnonymousProfile(sessionId)
     const $t = t(ctx)
@@ -94,8 +162,7 @@ export default class SessionsController {
   }
 
   async disableAnonymous(ctx: HttpContext) {
-    const sessionId = await requireSessionId(ctx)
-    if (!sessionId) return
+    const sessionId = getSessionId(ctx)
 
     deleteAnonymousProfile(sessionId)
     return ctx.response.send({ disabled: true })
@@ -107,17 +174,11 @@ export default class SessionsController {
       return ctx.response.status(400).send({ error: 'refreshToken is required' })
     }
 
-    const row = getDb()
-      .prepare('SELECT * FROM refresh_tokens WHERE token_hash = ? AND revoked_at IS NULL')
-      .get(hashRefreshToken(refreshToken)) as Record<string, unknown> | undefined
-
-    if (!row || new Date(row.expires_at as string).getTime() <= Date.now()) {
-      return ctx.response.status(401).send({ error: 'Invalid refresh token' })
+    try {
+      return ctx.response.send(await rotateRefreshToken(refreshToken))
+    } catch (error) {
+      const code = error instanceof TokenIssueError ? error.code : 'INVALID_REFRESH_TOKEN'
+      return ctx.response.status(401).send({ error: 'Invalid refresh token', code })
     }
-
-    return ctx.response.send({
-      accessToken: await signAccessToken(row.session_id as string),
-      expiresIn: env.JWT_ACCESS_TTL_SECONDS,
-    })
   }
 }
