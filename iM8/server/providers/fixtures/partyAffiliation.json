@@ -1,0 +1,16 @@
+{
+  "subjects": [
+    {
+      "subject": "off-jal.test",
+      "boundedValue": "Morena-compatible",
+      "statement": "The broker can confirm this account falls within the requested bounded affiliation match for Morena-compatible audiences.",
+      "reference": "fixture://para/off-jal.test/party-match"
+    },
+    {
+      "subject": "off-cdmx.test",
+      "boundedValue": "MC-compatible",
+      "statement": "The broker can confirm this account falls within the requested bounded affiliation match for MC-compatible audiences.",
+      "reference": "fixture://para/off-cdmx.test/party-match"
+    }
+  ]
+}
