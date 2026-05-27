@@ -1,9 +1,0 @@
-target
-.idea/
-.env
-prod.env
-node_modules
-web/.DS_Store
-
-.DS_Store
-garage-data

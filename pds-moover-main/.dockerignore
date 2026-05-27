@@ -1,8 +1,0 @@
-*/target
-**/target
-**/.idea
-.idea
-.env
-*/node_modules
-*/build
-/web-ui/.env.local
