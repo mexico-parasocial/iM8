@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { getDb } from '../db/connection.js'
+import { getCommunityByDid } from './communityService.js'
 
 export type CivicVoteSubjectType =
   | 'cabildeo'
@@ -37,6 +38,11 @@ const VALID_SUBJECT_TYPES = new Set<CivicVoteSubjectType>([
   'policy',
   'matter',
   'governance',
+  'community_proposal',
+  'community_deliberation',
+  'open_question_reply',
+  'raq_axis',
+  'raq_proposal',
 ])
 
 export function issueCivicVoteProof(
@@ -54,6 +60,23 @@ export function issueCivicVoteProof(
   }
   if (!VALID_SUBJECT_TYPES.has(subjectType)) {
     throw appError('Unsupported civic vote subject type', 400, 'INVALID_SUBJECT_TYPE')
+  }
+
+  // For community votes, validate membership
+  if (subjectType === 'community_proposal' || subjectType === 'community_deliberation') {
+    const communityDid = extractDidFromAtUri(subjectUri)
+    if (communityDid) {
+      const community = getCommunityByDid(communityDid)
+      if (community) {
+        const session = getSessionIdentity(sessionId)
+        const isMember = getDb()
+          .prepare('SELECT 1 FROM community_memberships WHERE community_id = ? AND member_did = ? AND status = ?')
+          .get(community.id, session.did, 'active') as { '1': number } | undefined
+        if (!isMember) {
+          throw appError('You must be an active member of this community to vote', 403, 'NOT_COMMUNITY_MEMBER')
+        }
+      }
+    }
   }
 
   const session = getSessionIdentity(sessionId)
@@ -230,6 +253,15 @@ function writeLedger(sessionId: string, action: string, targetType: string, targ
       VALUES (?, ?, ?, ?, ?, ?)
     `)
     .run(sessionId, action, targetType, targetId, JSON.stringify(detail ?? {}), new Date().toISOString())
+}
+
+function extractDidFromAtUri(uri: string): string | null {
+  // AT URI format: at://did/collection/rkey
+  if (!uri.startsWith('at://')) return null
+  const rest = uri.slice(5) // remove 'at://'
+  const slashIndex = rest.indexOf('/')
+  if (slashIndex === -1) return rest
+  return rest.slice(0, slashIndex)
 }
 
 function appError(message: string, statusCode: number, code: string) {

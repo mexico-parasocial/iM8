@@ -4,6 +4,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { getDb } from '../../src/db/connection.js'
 import { getAnonymousProfile } from '../../src/services/anonymousProfileService.js'
 import { getSessionId, validateBody } from '#support/http'
+import { getCommunity } from '../../src/services/communityService.js'
 
 const earnSchema = z.object({
   actionType: z.string().min(1),
@@ -26,6 +27,32 @@ export default class KarmaController {
     const anon = getAnonymousProfile(sessionId)
     if (!anon) {
       return ctx.response.status(400).send({ error: 'Anonymous profile required' })
+    }
+
+    // If community-scoped karma, validate membership
+    if (body.communityId) {
+      const community = getCommunity(body.communityId)
+      if (!community) {
+        return ctx.response.status(404).send({ error: 'Community not found', code: 'COMMUNITY_NOT_FOUND' })
+      }
+
+      const sessionRow = getDb().prepare('SELECT did FROM sessions WHERE session_id = ?').get(sessionId) as
+        | { did: string }
+        | undefined
+      const userDid = sessionRow?.did
+
+      if (userDid) {
+        const isMember = getDb()
+          .prepare('SELECT 1 FROM community_memberships WHERE community_id = ? AND member_did = ? AND status = ?')
+          .get(body.communityId, userDid, 'active') as { '1': number } | undefined
+
+        if (!isMember) {
+          return ctx.response.status(403).send({
+            error: 'You must be an active member of this community to earn karma',
+            code: 'NOT_COMMUNITY_MEMBER',
+          })
+        }
+      }
     }
 
     const id = `karma-${randomUUID()}`
