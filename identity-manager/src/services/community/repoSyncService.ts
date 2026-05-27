@@ -1,11 +1,14 @@
 import { getDb } from '../../db/connection.js'
 import { getCommunity } from '../communityService.js'
 import { resolvePdsEndpoint } from '../didResolver.js'
+import { createCommunityServiceAuthToken, resolvePdsServiceDid } from '../atproto/serviceAuthService.js'
+import { Features, assertDemoPathAllowed } from '../features.js'
 import { appError } from '../../utils/errors.js'
 
 /**
  * Resolve the PDS endpoint for a community and make an authenticated XRPC request.
- * Uses the community's stored pds_auth_token for Bearer authentication.
+ * Uses ATProto service auth by default. The legacy pds_auth_token fallback is
+ * only allowed through a non-production GrowthBook demo gate.
  */
 async function communityXrpcRequest(
   communityId: string,
@@ -23,11 +26,6 @@ async function communityXrpcRequest(
 
   const did = row.did as string
   const pdsHost = (row.pds_host as string) || ''
-  const authToken = (row.pds_auth_token as string) || ''
-
-  if (!pdsHost) {
-    throw appError('Community has no PDS configured', 503, 'COMMUNITY_PDS_MISSING')
-  }
 
   let pds = pdsHost
   if (!pds) {
@@ -41,10 +39,11 @@ async function communityXrpcRequest(
 
   const base = pds.endsWith('/') ? pds.slice(0, -1) : pds
   const url = `${base}/xrpc/${method}`
+  const authorization = await getCommunityAuthorization(communityId, base, method, (row.pds_auth_token as string) || '')
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+    Authorization: authorization,
     ...(init.headers as Record<string, string> || {}),
   }
 
@@ -70,6 +69,29 @@ async function communityXrpcRequest(
     return response.json()
   }
   return { success: true }
+}
+
+async function getCommunityAuthorization(
+  communityId: string,
+  pdsBaseUrl: string,
+  lxm: string,
+  legacyAuthToken: string
+): Promise<string> {
+  try {
+    const audienceDid = await resolvePdsServiceDid(pdsBaseUrl)
+    const serviceAuth = createCommunityServiceAuthToken(communityId, audienceDid, lxm)
+    return `Bearer ${serviceAuth.token}`
+  } catch (error) {
+    if (legacyAuthToken && assertDemoPathAllowed(Features.CommunityPdsAuthTokenFallbackEnable)) {
+      return `Bearer ${legacyAuthToken}`
+    }
+
+    const err = error as { statusCode?: number; code?: string; message?: string }
+    if (err.statusCode && err.code) {
+      throw error
+    }
+    throw appError('Could not create community service auth token', 503, 'COMMUNITY_SERVICE_AUTH_FAILED')
+  }
 }
 
 /**

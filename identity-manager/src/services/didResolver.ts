@@ -103,18 +103,20 @@ export async function resolveDidWithCache(did: string): Promise<object | null> {
 }
 
 export async function resolveHandleWithCache(handle: string): Promise<string | null> {
+  const cleanedHandle = cleanHandle(handle)
   try {
-    const did = await handleResolver.resolve(handle)
+    const did = await handleResolver.resolve(cleanedHandle)
     return did ?? null
   } catch (err) {
-    console.warn('[didResolver] Failed to resolve handle:', handle, err)
+    console.warn('[didResolver] Failed to resolve handle:', cleanedHandle, err)
     return null
   }
 }
 
 export async function resolveHandleToDid(handle: string): Promise<string | null> {
   // Bidirectional verification per ATProto spec
-  const did = await resolveHandleWithCache(handle)
+  const cleanedHandle = cleanHandle(handle)
+  const did = await resolveHandleWithCache(cleanedHandle)
   if (!did) return null
 
   const doc = await resolveDidWithCache(did)
@@ -122,12 +124,29 @@ export async function resolveHandleToDid(handle: string): Promise<string | null>
 
   // Verify the DID document's alsoKnownAs includes the handle
   const alsoKnownAs = (doc as Record<string, unknown>)?.alsoKnownAs as string[] | undefined
-  if (alsoKnownAs && alsoKnownAs.includes(`at://${handle}`)) {
+  if (alsoKnownAs && alsoKnownAs.includes(`at://${cleanedHandle}`)) {
     return did
   }
 
   // Fallback: less strict match
   return did
+}
+
+export function cleanHandle(handle: string): string {
+  return handle
+    .trim()
+    .replace(/[\u202A\u202C\u200E\u200F\u2066-\u2069]/g, '')
+    .replace(/^@+/, '')
+}
+
+export async function resolveHandleToDidAndPds(identifier: string): Promise<{ did: string; pds: string } | null> {
+  const did = identifier.startsWith('did:') ? identifier : await resolveHandleToDid(identifier)
+  if (!did) return null
+
+  const pds = await resolvePdsEndpoint(did)
+  if (!pds) return null
+
+  return { did, pds }
 }
 
 export async function resolvePdsEndpoint(did: string): Promise<string | null> {

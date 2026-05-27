@@ -8,6 +8,7 @@ export enum Features {
   LocalParaFallbackEnable = 'm8:local_para_fallback:enable',
   LocalTrustPolicyEnable = 'm8:local_trust_policy:enable',
   DevelopmentDeviceTrustEnable = 'm8:development_device_trust:enable',
+  CommunityPdsAuthTokenFallbackEnable = 'm8:community:pds_auth_token_fallback:enable',
 }
 
 const nonProductionDefault = env.get('NODE_ENV') !== 'production'
@@ -19,6 +20,7 @@ const defaultFeatureValues: Record<Features, boolean> = {
   [Features.LocalParaFallbackEnable]: nonProductionDefault,
   [Features.LocalTrustPolicyEnable]: nonProductionDefault,
   [Features.DevelopmentDeviceTrustEnable]: nonProductionDefault,
+  [Features.CommunityPdsAuthTokenFallbackEnable]: nonProductionDefault,
 }
 
 function toGrowthBookFeatures(values: Record<Features, boolean>): Record<string, FeatureDefinition<boolean>> {
@@ -105,6 +107,7 @@ export function assertProductionFeatureSafety() {
     Features.LocalParaFallbackEnable,
     Features.LocalTrustPolicyEnable,
     Features.DevelopmentDeviceTrustEnable,
+    Features.CommunityPdsAuthTokenFallbackEnable,
   ].filter((feature) => forced.get(feature) === true)
 
   if (forbidden.length > 0) {

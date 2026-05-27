@@ -45,4 +45,28 @@ describe('production feature safety', () => {
       })
     })
   })
+
+  it('rejects production legacy community PDS token fallback overrides without break-glass', () => {
+    const code = `
+      const { assertProductionFeatureSafety } = await import('./src/services/features.ts')
+      try {
+        assertProductionFeatureSafety()
+        process.exit(2)
+      } catch (error) {
+        if (!String(error?.message ?? error).includes('m8:community:pds_auth_token_fallback:enable')) process.exit(3)
+      }
+    `
+
+    assert.doesNotThrow(() => {
+      execFileSync(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', code], {
+        cwd: process.cwd(),
+        env: productionEnv({
+          GROWTHBOOK_FEATURE_OVERRIDES: JSON.stringify({
+            'm8:community:pds_auth_token_fallback:enable': true,
+          }),
+        }),
+        stdio: 'pipe',
+      })
+    })
+  })
 })
