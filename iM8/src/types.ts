@@ -68,6 +68,7 @@ export type Persona = {
   id: string
   name: string
   handle: string
+  avatar?: string
   role: string
   oneLine: string
   summary: string

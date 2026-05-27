@@ -8,6 +8,7 @@ import {
   SimpleRow,
   StatusPill,
 } from '../../../components/m8/ConsolePrimitives'
+import { UserAvatar } from '../../../components/m8/UserAvatar'
 import { tokens } from '../../../theme'
 import type {
   IdentitySession,
@@ -215,9 +216,12 @@ function PersonaCard({
   return (
     <Pressable onPress={onPress} style={[consoleStyles.personaCard, active && { borderColor: kColor + '80', borderWidth: 2 }]}>
       <View style={consoleStyles.rowBetween}>
-        <View style={[consoleStyles.avatar, { backgroundColor: kColor + '20' }]}>
-          <Text style={[styles.avatarText, { color: kColor }]}>{persona.name.slice(-1)}</Text>
-        </View>
+        <UserAvatar
+          uri={persona.avatar}
+          size={44}
+          fallback={persona.name}
+          borderColor={active ? kColor : undefined}
+        />
         <StatusPill label={active ? 'Active' : kindLabel(persona.kind)} tone={active ? 'success' : 'neutral'} />
       </View>
       <Text style={consoleStyles.cardTitle}>{persona.name}</Text>
