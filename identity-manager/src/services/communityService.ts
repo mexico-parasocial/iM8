@@ -1,35 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { getDb } from '../db/connection.js'
 import type { Community, CommunityStatus, CreateCommunityInput } from '../types/index.js'
-import { provisionCommunityKeys } from './communityAgentService.js'
-
-function appError(message: string, statusCode: number, code: string) {
-  return Object.assign(new Error(message), { statusCode, code })
-}
-
-function nowIso() {
-  return new Date().toISOString()
-}
-
-function mapCommunity(row: Record<string, unknown>): Community {
-  return {
-    id: row.id as string,
-    did: row.did as string,
-    handle: (row.handle as string) ?? null,
-    name: row.name as string,
-    description: row.description as string,
-    manifestoCid: (row.manifesto_cid as string) ?? null,
-    politicalCompassX: (row.political_compass_x as number) ?? null,
-    politicalCompassY: (row.political_compass_y as number) ?? null,
-    rulesetCid: (row.ruleset_cid as string) ?? null,
-    pdsHost: (row.pds_host as string) || '',
-    status: row.status as CommunityStatus,
-    createdByDid: row.created_by_did as string,
-    bootstrapUsedAt: (row.bootstrap_used_at as string) ?? null,
-    createdAt: row.created_at as string,
-    updatedAt: row.updated_at as string,
-  }
-}
+import { provisionCommunityKeys } from './community/didService.js'
+import { appError } from '../utils/errors.js'
+import { nowIso } from '../utils/time.js'
+import { mapCommunity } from './community/mappers.js'
 
 export function createCommunity(
   sessionId: string,

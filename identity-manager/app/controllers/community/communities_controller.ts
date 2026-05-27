@@ -1,34 +1,20 @@
 import type { HttpContext } from '@adonisjs/core/http'
-import { getSessionId, validateBody } from '#support/http'
-import { getDb } from '../../src/db/connection.js'
+import { getSessionId, getSessionDid, validateBody } from '#support/http'
+import { appError } from '../../../src/utils/errors.js'
 import {
   createCommunity,
   getCommunity,
   listCommunities,
-} from '../../src/services/communityService.js'
+} from '../../../src/services/communityService.js'
 import {
   listAdmins,
   getAdminCount,
   bootstrapCommunityAdmins,
-} from '../../src/services/communityAdminService.js'
-import { proposeAction } from '../../src/services/communityActionService.js'
-import { CreateCommunityInputSchema, AddAdminInputSchema, BootstrapAdminsInputSchema } from '../../src/types/index.js'
+} from '../../../src/services/communityAdminService.js'
+import { proposeAction } from '../../../src/services/community/actionService.js'
+import { CreateCommunityInputSchema, AddAdminInputSchema, BootstrapAdminsInputSchema } from '../../../src/types/index.js'
 
-function appError(message: string, statusCode: number, code: string) {
-  return Object.assign(new Error(message), { statusCode, code })
-}
 
-async function getSessionDid(ctx: HttpContext): Promise<string> {
-  const sessionId = getSessionId(ctx)
-  const db = getDb()
-  const row = db.prepare('SELECT did FROM sessions WHERE session_id = ?').get(sessionId) as
-    | Record<string, unknown>
-    | undefined
-  if (!row) {
-    throw appError('Session not found', 404, 'SESSION_NOT_FOUND')
-  }
-  return row.did as string
-}
 
 export default class CommunitiesController {
   async index(ctx: HttpContext) {

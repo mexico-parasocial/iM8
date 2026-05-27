@@ -1,6 +1,7 @@
 import { createHash, createPublicKey, verify, type JsonWebKey, type KeyObject } from 'node:crypto'
 import { resolveDidWithCache } from './didResolver.js'
 import type { CommunityAction, CommunityActionVote } from '../types/index.js'
+import { appError } from '../utils/errors.js'
 
 const VOTE_PAYLOAD_TYPE = 'app.m8.community.vote'
 const VOTE_PAYLOAD_VERSION = 1
@@ -35,10 +36,6 @@ export type CommunityVoteVerificationResult = {
   canonicalPayload: string
   signedPayloadHash: string
   verificationMethodId: string
-}
-
-function appError(message: string, statusCode: number, code: string) {
-  return Object.assign(new Error(message), { statusCode, code })
 }
 
 export function canonicalJson(value: unknown): string {

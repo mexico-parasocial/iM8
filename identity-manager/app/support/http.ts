@@ -49,6 +49,19 @@ export function getSessionId(ctx: HttpContext): string {
   return ctx.sessionId
 }
 
+export async function getSessionDid(ctx: HttpContext): Promise<string> {
+  const sessionId = getSessionId(ctx)
+  const row = getDb()
+    .prepare('SELECT did FROM sessions WHERE session_id = ?')
+    .get(sessionId) as { did: string } | undefined
+  if (!row) {
+    const err = new Error('Session not found')
+    Object.assign(err, { statusCode: 404, code: 'SESSION_NOT_FOUND' })
+    throw err
+  }
+  return row.did
+}
+
 export function t(ctx: HttpContext) {
   const locale = resolveLocale(ctx.request.header('accept-language') ?? undefined)
   return createT(locale)

@@ -1,25 +1,10 @@
 import { getDb } from '../db/connection.js'
-import type { CommunityAdmin, CommunityAdminStatus } from '../types/index.js'
+import type { CommunityAdmin } from '../types/index.js'
 import { MIN_COMMUNITY_ADMINS } from '../types/index.js'
 import { getCommunity, updateCommunityStatus } from './communityService.js'
-
-function appError(message: string, statusCode: number, code: string) {
-  return Object.assign(new Error(message), { statusCode, code })
-}
-
-function nowIso() {
-  return new Date().toISOString()
-}
-
-function mapAdmin(row: Record<string, unknown>): CommunityAdmin {
-  return {
-    communityId: row.community_id as string,
-    adminDid: row.admin_did as string,
-    addedByDid: (row.added_by_did as string) ?? null,
-    addedAt: row.added_at as string,
-    status: row.status as CommunityAdminStatus,
-  }
-}
+import { appError } from '../utils/errors.js'
+import { nowIso } from '../utils/time.js'
+import { mapAdmin } from './community/mappers.js'
 
 export function isAdmin(communityId: string, did: string): boolean {
   const db = getDb()

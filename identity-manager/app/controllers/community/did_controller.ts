@@ -1,6 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
-import { getDb } from '../../src/db/connection.js'
-import { createDidDocument } from '../../src/services/communityAgentService.js'
+import { getDb } from '../../../src/db/connection.js'
+import { createDidDocument } from '../../../src/services/community/didService.js'
 
 export default class DidController {
   async webDid(ctx: HttpContext) {

@@ -1,30 +1,19 @@
 import type { HttpContext } from '@adonisjs/core/http'
-import { getSessionId } from '#support/http'
-import { getDb } from '../../src/db/connection.js'
-import { getCommunity } from '../../src/services/communityService.js'
-import { isAdmin } from '../../src/services/communityAdminService.js'
-import { addCommunityMemberRecord } from '../../src/services/communityAgentService.js'
-import { xrpcRequest } from '../../src/services/atprotoAgent.js'
-
-function appError(message: string, statusCode: number, code: string) {
-  return Object.assign(new Error(message), { statusCode, code })
-}
-
-function nowIso() {
-  return new Date().toISOString()
-}
-
-async function getSessionDid(ctx: HttpContext): Promise<string> {
-  const sessionId = getSessionId(ctx)
-  const db = getDb()
-  const row = db.prepare('SELECT did FROM sessions WHERE session_id = ?').get(sessionId) as
-    | Record<string, unknown>
-    | undefined
-  if (!row) {
-    throw appError('Session not found', 404, 'SESSION_NOT_FOUND')
-  }
-  return row.did as string
-}
+import { getSessionDid } from '#support/http'
+import { getCommunity } from '../../../src/services/communityService.js'
+import { isAdmin } from '../../../src/services/communityAdminService.js'
+import {
+  listMemberships,
+  requestMembership,
+  approveMembership,
+  rejectMembership,
+  leaveMembership,
+  updateMembershipUris,
+} from '../../../src/services/community/membershipService.js'
+import { addCommunityMemberRecord } from '../../../src/services/community/repoSyncService.js'
+import { xrpcRequest } from '../../../src/services/atprotoAgent.js'
+import { appError } from '../../../src/utils/errors.js'
+import { nowIso } from '../../../src/utils/time.js'
 
 export default class CommunityMembershipsController {
   async index(ctx: HttpContext) {
@@ -38,37 +27,15 @@ export default class CommunityMembershipsController {
       throw appError('Community not found', 404, 'COMMUNITY_NOT_FOUND')
     }
 
-    const db = getDb()
-    let whereClause = 'WHERE community_id = ?'
-    const params: (string | number)[] = [communityId]
-
-    if (status) {
-      whereClause += ' AND status = ?'
-      params.push(status)
-    }
-    params.push(limit, offset)
-
-    const rows = db
-      .prepare(`SELECT * FROM community_memberships ${whereClause} ORDER BY joined_at DESC LIMIT ? OFFSET ?`)
-      .all(...params) as Record<string, unknown>[]
-
-    const countParams: (string | number)[] = [communityId]
-    if (status) countParams.push(status)
-    const countRow = db
-      .prepare(`SELECT COUNT(*) as count FROM community_memberships ${whereClause}`)
-      .get(...countParams) as Record<string, unknown>
-
-    const memberships = rows.map((row) => ({
-      communityId: row.community_id as string,
-      memberDid: row.member_did as string,
-      status: row.status as string,
-      joinedAt: (row.joined_at as string) ?? null,
-      leftAt: (row.left_at as string) ?? null,
-    }))
+    const result = listMemberships(communityId, {
+      status: status as 'pending' | 'active' | 'suspended' | 'left' | undefined,
+      limit,
+      offset,
+    })
 
     return ctx.response.send({
-      memberships,
-      pagination: { total: (countRow.count as number) ?? 0, limit, offset },
+      memberships: result.memberships,
+      pagination: { total: result.total, limit, offset },
     })
   }
 
@@ -82,27 +49,7 @@ export default class CommunityMembershipsController {
       throw appError('Community not found', 404, 'COMMUNITY_NOT_FOUND')
     }
 
-    const db = getDb()
-
-    // Check if membership already exists
-    const existing = db
-      .prepare('SELECT status FROM community_memberships WHERE community_id = ? AND member_did = ?')
-      .get(communityId, memberDid) as Record<string, unknown> | undefined
-
-    if (existing?.status === 'active' || existing?.status === 'pending') {
-      throw appError('Membership request already exists', 409, 'MEMBERSHIP_EXISTS')
-    }
-
-    if (existing?.status === 'left') {
-      // Re-apply
-      db.prepare(
-        'UPDATE community_memberships SET status = ?, joined_at = ?, left_at = NULL WHERE community_id = ? AND member_did = ?'
-      ).run('pending', now, communityId, memberDid)
-    } else {
-      db.prepare(
-        'INSERT INTO community_memberships (community_id, member_did, status, joined_at) VALUES (?, ?, ?, ?)'
-      ).run(communityId, memberDid, 'pending', now)
-    }
+    const membership = requestMembership(communityId, memberDid)
 
     // Write membership request to member's repo (first half of two-way handshake)
     let memberRecordUri: string | null = null
@@ -121,10 +68,7 @@ export default class CommunityMembershipsController {
         }),
       }) as { uri: string; cid: string }
       memberRecordUri = memberRecord.uri
-
-      db.prepare(
-        'UPDATE community_memberships SET membership_record_uri = ? WHERE community_id = ? AND member_did = ?'
-      ).run(memberRecordUri, communityId, memberDid)
+      updateMembershipUris(communityId, memberDid, { membershipRecordUri: memberRecordUri })
     } catch {
       // Best-effort: member's PDS might not be accessible
     }
@@ -132,10 +76,7 @@ export default class CommunityMembershipsController {
     return ctx.response.status(201).send({
       message: 'Membership request submitted. Awaiting admin approval.',
       membership: {
-        communityId,
-        memberDid,
-        status: 'pending',
-        joinedAt: now,
+        ...membership,
         memberRecordUri,
       },
     })
@@ -156,14 +97,8 @@ export default class CommunityMembershipsController {
       throw appError('Only admins can approve memberships', 403, 'NOT_ADMIN')
     }
 
-    const db = getDb()
-    const result = db
-      .prepare(
-        "UPDATE community_memberships SET status = 'active', joined_at = ? WHERE community_id = ? AND member_did = ? AND status = 'pending'"
-      )
-      .run(now, communityId, memberDid)
-
-    if (result.changes === 0) {
+    const approved = approveMembership(communityId, memberDid)
+    if (!approved) {
       throw appError('Pending membership not found', 404, 'MEMBERSHIP_NOT_FOUND')
     }
 
@@ -198,11 +133,8 @@ export default class CommunityMembershipsController {
       // Best-effort: member's PDS might not be accessible
     }
 
-    // Update URIs in local DB
     if (groupRecordUri || memberRecordUri) {
-      db.prepare(
-        'UPDATE community_memberships SET group_record_uri = ?, membership_record_uri = ? WHERE community_id = ? AND member_did = ?'
-      ).run(groupRecordUri, memberRecordUri, communityId, memberDid)
+      updateMembershipUris(communityId, memberDid, { groupRecordUri, membershipRecordUri: memberRecordUri })
     }
 
     return ctx.response.send({
@@ -232,14 +164,8 @@ export default class CommunityMembershipsController {
       throw appError('Only admins can reject memberships', 403, 'NOT_ADMIN')
     }
 
-    const db = getDb()
-    const result = db
-      .prepare(
-        "DELETE FROM community_memberships WHERE community_id = ? AND member_did = ? AND status = 'pending'"
-      )
-      .run(communityId, memberDid)
-
-    if (result.changes === 0) {
+    const rejected = rejectMembership(communityId, memberDid)
+    if (!rejected) {
       throw appError('Pending membership not found', 404, 'MEMBERSHIP_NOT_FOUND')
     }
 
@@ -249,21 +175,14 @@ export default class CommunityMembershipsController {
   async leave(ctx: HttpContext) {
     const communityId = ctx.params.id as string
     const memberDid = await getSessionDid(ctx)
-    const now = nowIso()
 
     const community = getCommunity(communityId)
     if (!community) {
       throw appError('Community not found', 404, 'COMMUNITY_NOT_FOUND')
     }
 
-    const db = getDb()
-    const result = db
-      .prepare(
-        "UPDATE community_memberships SET status = 'left', left_at = ? WHERE community_id = ? AND member_did = ? AND status = 'active'"
-      )
-      .run(now, communityId, memberDid)
-
-    if (result.changes === 0) {
+    const left = leaveMembership(communityId, memberDid)
+    if (!left) {
       throw appError('Active membership not found', 404, 'MEMBERSHIP_NOT_FOUND')
     }
 
