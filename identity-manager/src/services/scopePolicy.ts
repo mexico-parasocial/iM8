@@ -13,9 +13,9 @@
  * │ spark       │ atproto                                                    │
  * │             │ Base identity access. Anonymous mode. No PDS writes.       │
  * ├─────────────┼────────────────────────────────────────────────────────────┤
- * │ public      │ atproto                                                    │
- * │ (orbit)     │ Base identity. Profile read for cross-app discovery.       │
- * │             │ (Future: rpc:app.bsky.actor.* for profile sync)            │
+ * │ public      │ atproto + rpc:com.atproto.repo.applyWrites                │
+ * │ (orbit)     │ Base identity. Can publish posts and read profile.         │
+ * │             │ (Future: rpc:app.bsky.feed.* for timeline interactions)    │
  * ├─────────────┼────────────────────────────────────────────────────────────┤
  * │ civic       │ atproto                                                    │
  * │ (signal)    │ Base identity. Civic verification. No social writes.       │
@@ -38,7 +38,7 @@ const SCOPE_BASE = 'atproto' as const
  * profile sync, civic writes, etc.).
  */
 export const SURFACE_SCOPES: Record<ProofBrokerSurfaceId, string> = {
-  public: SCOPE_BASE,
+  public: `${SCOPE_BASE} rpc:com.atproto.repo.applyWrites rpc:app.bsky.actor.getProfile`,
   civic: SCOPE_BASE,
   dating: SCOPE_BASE,
 }

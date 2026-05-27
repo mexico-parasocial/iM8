@@ -1,6 +1,6 @@
 import { NodeOAuthClient, JoseKey } from '@atproto/oauth-client-node'
 import { OAuthResolverError } from '@atproto/oauth-client-node'
-import type { NodeSavedState, NodeSavedSession } from '@atproto/oauth-client-node'
+import type { NodeSavedState, NodeSavedSession, OAuthSession } from '@atproto/oauth-client-node'
 import env from '#start/env'
 import { getDb } from '../db/connection.js'
 import { MAX_OAUTH_SCOPE, scopeForSurface } from './scopePolicy.js'
@@ -202,7 +202,7 @@ export async function completeOAuthCallback(params: URLSearchParams): Promise<{ 
   }
 }
 
-export async function restoreOAuthSession(did: string): Promise<unknown | null> {
+export async function restoreOAuthSession(did: string): Promise<OAuthSession | null> {
   const client = await getOAuthClient()
   try {
     return await client.restore(did)

@@ -74,6 +74,8 @@ router
         router.put('/karma/revelation', '#controllers/karma_controller.updateRevelation')
 
         router.get('/ledger', '#controllers/ledger_controller.index')
+
+        router.post('/posts', '#controllers/posts_controller.store')
       })
       .use(middleware.auth())
   })
