@@ -1,4 +1,0 @@
--- Migration 010: Document suspended status for proof_artifacts and grants
--- No DDL changes needed; status columns already accept free-form TEXT.
--- Valid statuses for proof_artifacts are now: pending, active, suspended, revoked, expired.
--- Valid statuses for grants are now: pending, approved, suspended, revoked, expired.

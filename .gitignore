@@ -26,7 +26,7 @@ build/
 .watchman-cookie-*
 
 # Embedded repos (submodules)
-identity-manager/zkp/circomlib/
+Muvis/zkp/circomlib/
 
 # Unused reference projects (not part of published m8-app)
 pds-moover-main/
