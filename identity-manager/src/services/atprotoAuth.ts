@@ -3,6 +3,7 @@ import { OAuthResolverError } from '@atproto/oauth-client-node'
 import type { NodeSavedState, NodeSavedSession } from '@atproto/oauth-client-node'
 import env from '#start/env'
 import { getDb } from '../db/connection.js'
+import { MAX_OAUTH_SCOPE, scopeForSurface } from './scopePolicy.js'
 
 export class OAuthInitiateError extends Error {
   constructor(
@@ -118,7 +119,7 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
     client_name: 'M8 Identity Manager',
     client_uri: env.get('SERVICE_URL'),
     redirect_uris: [`${env.get('SERVICE_URL')}/v1/sessions/oauth/callback`] as [string, ...string[]],
-    scope: 'atproto transition:generic',
+    scope: MAX_OAUTH_SCOPE,
     grant_types: ['authorization_code', 'refresh_token'] as ['authorization_code', 'refresh_token'],
     response_types: ['code'] as ['code'],
     token_endpoint_auth_method: (keyset ? 'private_key_jwt' : 'none') as 'private_key_jwt' | 'none',
@@ -138,12 +139,16 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
   return oauthClientInstance
 }
 
-export async function initiateOAuthLogin(handleOrDid: string): Promise<{ url: string; state: string }> {
+export async function initiateOAuthLogin(
+  handleOrDid: string,
+  requestedScope?: string,
+): Promise<{ url: string; state: string }> {
   const client = await getOAuthClient()
+  const scope = requestedScope || scopeForSurface()
 
   try {
     const url = await client.authorize(handleOrDid, {
-      scope: 'atproto transition:generic',
+      scope,
     })
 
     // Extract state from URL for our own session tracking

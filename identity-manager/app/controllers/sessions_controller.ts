@@ -18,10 +18,12 @@ import {
   getAnonymousProfile,
 } from '../../src/services/anonymousProfileService.js'
 import { classifyIdentifier, applyHandleDomain } from '../../src/services/identifierValidation.js'
+import { isValidSurface, scopeForSurface } from '../../src/services/scopePolicy.js'
 import { getSessionId, t, validateBody } from '#support/http'
 
 const startSessionSchema = z.object({
   identifier: z.string().min(1).max(256),
+  surface: z.enum(['public', 'civic', 'dating']).optional(),
 })
 
 export default class SessionsController {
@@ -39,6 +41,14 @@ export default class SessionsController {
       })
     }
 
+    // Validate surface if provided
+    if (body.surface && !isValidSurface(body.surface)) {
+      return ctx.response.status(422).send({
+        error: `Invalid surface: ${body.surface}. Must be one of: public, civic, dating`,
+        code: 'INVALID_SURFACE',
+      })
+    }
+
     let normalizedIdentifier = classification.normalized
 
     // Apply handle domain suffix for bare usernames
@@ -47,6 +57,7 @@ export default class SessionsController {
       normalizedIdentifier = applyHandleDomain(normalizedIdentifier, handleDomain)
     }
 
+    const requestedScope = scopeForSurface(body.surface)
     const devTokenBootstrap = assertDemoPathAllowed(Features.AuthDevTokenBootstrap)
 
     // ─── Initiate OAuth ────────────────────────────────────────────────────
@@ -54,7 +65,7 @@ export default class SessionsController {
     let oauthError: { message: string; code: string; status: number } | null = null
 
     try {
-      oauth = await initiateOAuthLogin(normalizedIdentifier)
+      oauth = await initiateOAuthLogin(normalizedIdentifier, requestedScope)
     } catch (err) {
       if (err instanceof OAuthInitiateError) {
         oauthError = { message: err.message, code: err.code, status: err.status }
@@ -90,6 +101,7 @@ export default class SessionsController {
         identifier: normalizedIdentifier,
         state: oauthLogin.state,
         oauthUrl: oauthLogin.url,
+        scope: requestedScope,
       })
 
       return ctx.response.status(202).send({
@@ -107,7 +119,7 @@ export default class SessionsController {
       })
     }
 
-    const result = await createSession({ identifier: normalizedIdentifier })
+    const result = await createSession({ identifier: normalizedIdentifier, surface: body.surface })
     result.attempt.authUrl = oauth?.url ?? result.attempt.authUrl
 
     return ctx.response.send({

@@ -312,12 +312,14 @@ export type ProofBrokerSession = {
   paraStatus: ProofBrokerParaProviderStatus
   activePersonaId: string
   activeSurfaceId: ProofBrokerSurfaceId
+  oauthScope: string
   createdAt: string
   updatedAt: string
 }
 
 export type ProofBrokerSessionStartInput = {
   identifier: string
+  surface?: ProofBrokerSurfaceId
 }
 
 export type ProofBrokerSessionStartAttempt = {

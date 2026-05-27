@@ -8,6 +8,7 @@ export type OAuthLoginAttempt = {
   state: string
   identifier: string
   oauthUrl: string
+  scope: string
   status: 'pending' | 'completed' | 'expired' | 'failed'
   createdAt: string
   expiresAt: string
@@ -28,6 +29,7 @@ function mapAttempt(row: Record<string, unknown>): OAuthLoginAttempt {
     state: row.state as string,
     identifier: row.identifier as string,
     oauthUrl: row.oauth_url as string,
+    scope: (row.scope as string) || 'atproto',
     status: row.status as OAuthLoginAttempt['status'],
     createdAt: row.created_at as string,
     expiresAt: row.expires_at as string,
@@ -43,6 +45,7 @@ export function createOAuthLoginAttempt(input: {
   identifier: string
   state: string
   oauthUrl: string
+  scope?: string
 }): OAuthLoginAttempt {
   const id = `oauth-attempt-${randomUUID()}`
   const createdAt = nowIso()
@@ -50,15 +53,16 @@ export function createOAuthLoginAttempt(input: {
 
   getDb().prepare(`
     INSERT INTO oauth_login_attempts
-      (id, state, identifier, oauth_url, status, created_at, expires_at)
-    VALUES (?, ?, ?, ?, 'pending', ?, ?)
-  `).run(id, input.state, input.identifier, input.oauthUrl, createdAt, expiresAt)
+      (id, state, identifier, oauth_url, scope, status, created_at, expires_at)
+    VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)
+  `).run(id, input.state, input.identifier, input.oauthUrl, input.scope || 'atproto', createdAt, expiresAt)
 
   return {
     id,
     state: input.state,
     identifier: input.identifier,
     oauthUrl: input.oauthUrl,
+    scope: input.scope || 'atproto',
     status: 'pending',
     createdAt,
     expiresAt,

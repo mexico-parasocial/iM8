@@ -3,6 +3,7 @@ import env from '#start/env'
 import { getDb } from '../db/connection.js'
 import { resolveHandleToDid, resolvePdsEndpoint } from './didResolver.js'
 import { PROOF_BROKER_CLAIM_TYPES } from '../types/index.js'
+import { scopeForSurface } from './scopePolicy.js'
 import type {
   ProofBrokerSession,
   ProofBrokerSessionStartInput,
@@ -22,6 +23,7 @@ function nowIso() {
 export async function createSession(input: ProofBrokerSessionStartInput): Promise<ProofBrokerSessionStartResponse> {
   const db = getDb()
   const identifier = input.identifier.trim()
+  const oauthScope = scopeForSurface(input.surface)
 
   // Real ATProto handle/DID resolution
   let did: string
@@ -61,9 +63,9 @@ export async function createSession(input: ProofBrokerSessionStartInput): Promis
   }
 
   db.prepare(`
-    INSERT INTO sessions (session_id, did, handle, display_name, authorization_server, authenticated_at, pds_safety_json, active_persona_id, active_surface_id, created_at, updated_at, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
-  `).run(sessionId, did, handle, handle, authServer, now, JSON.stringify(pdsSafety), 'orbit', 'public', now, now)
+    INSERT INTO sessions (session_id, did, handle, display_name, authorization_server, authenticated_at, pds_safety_json, active_persona_id, active_surface_id, oauth_scope, created_at, updated_at, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+  `).run(sessionId, did, handle, handle, authServer, now, JSON.stringify(pdsSafety), 'orbit', 'public', oauthScope, now, now)
 
   const paraStatus = {
     providerId: 'para.identity' as const,
@@ -254,6 +256,7 @@ export function buildSession(
     authorizationServer: row.authorization_server as string,
     authenticatedAt: row.authenticated_at as string,
     status: (row.status as ProofBrokerSession['status'] | undefined) ?? 'active',
+    oauthScope: (row.oauth_scope as string) || 'atproto',
     pdsSafety,
     personas,
     surfaces,
