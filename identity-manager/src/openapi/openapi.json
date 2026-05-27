@@ -885,7 +885,7 @@
         "tags": ["Civic Voting"],
         "summary": "Issue an m8 one-person-one-vote nullifier proof for a civic subject.",
         "security": [{ "bearerAuth": [] }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["subjectUri", "subjectType"], "properties": { "subjectUri": { "type": "string" }, "subjectType": { "type": "string", "enum": ["cabildeo", "policy", "matter", "governance"] }, "aliasDid": { "type": "string" } } } } } },
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["subjectUri", "subjectType"], "properties": { "subjectUri": { "type": "string" }, "subjectType": { "type": "string", "enum": ["cabildeo", "policy", "matter", "governance", "raq_axis", "raq_proposal", "community_proposal", "community_deliberation", "open_question_reply"] }, "aliasDid": { "type": "string" } } } } } },
         "responses": {
           "200": { "description": "Civic vote proof.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
           "401": { "$ref": "#/components/responses/Unauthorized" },

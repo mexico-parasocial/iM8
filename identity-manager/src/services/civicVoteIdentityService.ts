@@ -1,7 +1,16 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { getDb } from '../db/connection.js'
 
-export type CivicVoteSubjectType = 'cabildeo' | 'policy' | 'matter' | 'governance'
+export type CivicVoteSubjectType =
+  | 'cabildeo'
+  | 'policy'
+  | 'matter'
+  | 'governance'
+  | 'raq_axis'
+  | 'raq_proposal'
+  | 'community_proposal'
+  | 'community_deliberation'
+  | 'open_question_reply'
 
 export interface CivicVoteProof {
   subjectUri: string

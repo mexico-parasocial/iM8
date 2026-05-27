@@ -6,7 +6,17 @@ import {
   linkCivicVoteAlias,
 } from '../../src/services/civicVoteIdentityService.js'
 
-const subjectTypeSchema = z.enum(['cabildeo', 'policy', 'matter', 'governance'])
+const subjectTypeSchema = z.enum([
+  'cabildeo',
+  'policy',
+  'matter',
+  'governance',
+  'raq_axis',
+  'raq_proposal',
+  'community_proposal',
+  'community_deliberation',
+  'open_question_reply',
+])
 
 const proofSchema = z
   .object({
