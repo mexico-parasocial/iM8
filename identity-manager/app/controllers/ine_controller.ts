@@ -132,31 +132,41 @@ export default class IneController {
     const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
 
     const grantId = `grant-ine-${randomUUID()}`
-    db.prepare(`
-      INSERT INTO grants
-      (id, session_id, app_id, app_name, app_kind, surface, requested_claims_json, proof_mode, status, reason, requested_at, issued_at, expires_at, review_note)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      grantId, sessionId, 'para.identity', 'PARA Identity', 'Verifier', 'civic',
-      JSON.stringify([{ type: 'has_para_verification', disclosure: 'proof-only' }]),
-      'proof-only', 'approved', $t('ine.grantReason'), new Date().toISOString(),
-      new Date().toISOString(), expiresAt,
-      $t('ine.reviewNote'),
-    )
-
     const proofArtifactId = `proof-ine-${randomUUID()}`
+    const issuedAt = new Date().toISOString()
 
-    db.prepare(`
-      INSERT INTO proof_artifacts
-      (id, session_id, grant_id, request_id, claim_type, outcome, statement, audience_app_id, audience_app_name, surface, status, issued_at, expires_at, revocation_hash, commitment, proof_schema_version, circuit_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      proofArtifactId, sessionId, grantId, 'ine-verification', 'has_para_verification', 'verified',
-      `${$t('ine.statement')}: ${extracted.fullName} (${extracted.curp.slice(0, 4)}****)`,
-      'para.identity', 'PARA Identity', 'civic', 'active', new Date().toISOString(),
-      expiresAt,
-      revocationHash, commitment, PROOF_SCHEMA_VERSION, CIRCUIT_ID,
-    )
+    try {
+      db.transaction(() => {
+        db.prepare(`
+          INSERT INTO grants
+          (id, session_id, app_id, app_name, app_kind, surface, requested_claims_json, proof_mode, status, reason, requested_at, issued_at, expires_at, review_note)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          grantId, sessionId, 'para.identity', 'PARA Identity', 'Verifier', 'civic',
+          JSON.stringify([{ type: 'has_para_verification', disclosure: 'proof-only' }]),
+          'proof-only', 'approved', $t('ine.grantReason'), issuedAt,
+          issuedAt, expiresAt,
+          $t('ine.reviewNote'),
+        )
+
+        db.prepare(`
+          INSERT INTO proof_artifacts
+          (id, session_id, grant_id, request_id, claim_type, outcome, statement, audience_app_id, audience_app_name, surface, status, issued_at, expires_at, revocation_hash, commitment, proof_schema_version, circuit_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          proofArtifactId, sessionId, grantId, 'ine-verification', 'has_para_verification', 'verified',
+          `${$t('ine.statement')}: ${extracted.fullName} (${extracted.curp.slice(0, 4)}****)`,
+          'para.identity', 'PARA Identity', 'civic', 'active', issuedAt,
+          expiresAt,
+          revocationHash, commitment, PROOF_SCHEMA_VERSION, CIRCUIT_ID,
+        )
+      })()
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('UNIQUE constraint failed')) {
+        return ctx.response.status(409).send({ error: 'Commitment already registered', code: 'COMMITMENT_ALREADY_REGISTERED' })
+      }
+      throw error
+    }
 
     const session = hydrateSession(sessionId)
     const credential = createIssuerSignedCredential({

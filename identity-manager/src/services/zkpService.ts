@@ -1,27 +1,20 @@
 import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'node:path'
+import { getVerifiedZkpArtifactPath } from './zkpArtifacts.js'
 
 // @ts-expect-error — no ESM types available for snarkjs
 import { groth16 } from 'snarkjs'
 // @ts-expect-error — no ESM types available for circomlibjs
 import { buildPoseidon } from 'circomlibjs'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-
-const PROJECT_ROOT = join(__dirname, '..', '..')
-const ZKP_OUT = join(PROJECT_ROOT, 'zkp', 'out')
-
 // ─── IneAgeProof artifacts ────────────────────────────────────────────────
-const AGE_WASM = join(ZKP_OUT, 'ine_age_proof_js', 'ine_age_proof.wasm')
-const AGE_ZKEY = join(ZKP_OUT, 'ine_age_proof_final.zkey')
-const AGE_VKEY = join(ZKP_OUT, 'ine_age_proof_vkey.json')
+const AGE_WASM = () => getVerifiedZkpArtifactPath('ine_age_proof_wasm')
+const AGE_ZKEY = () => getVerifiedZkpArtifactPath('ine_age_proof_zkey')
+const AGE_VKEY = () => getVerifiedZkpArtifactPath('ine_age_proof_vkey')
 
 // ─── NullifierProof artifacts ─────────────────────────────────────────────
-const NULL_WASM = join(ZKP_OUT, 'nullifier_proof_js', 'nullifier_proof.wasm')
-const NULL_ZKEY = join(ZKP_OUT, 'nullifier_proof_final.zkey')
-const NULL_VKEY = join(ZKP_OUT, 'nullifier_proof_vkey.json')
+const NULL_WASM = () => getVerifiedZkpArtifactPath('nullifier_proof_wasm')
+const NULL_ZKEY = () => getVerifiedZkpArtifactPath('nullifier_proof_zkey')
+const NULL_VKEY = () => getVerifiedZkpArtifactPath('nullifier_proof_vkey')
 
 let _poseidon: Awaited<ReturnType<typeof buildPoseidon>> | null = null
 
@@ -99,8 +92,8 @@ export async function generateAgeProof(input: AgeProofInput): Promise<AgeProofRe
       currentYear: input.currentYear,
       ageThreshold: input.ageThreshold,
     },
-    AGE_WASM,
-    AGE_ZKEY,
+    AGE_WASM(),
+    AGE_ZKEY(),
   )
 
   const commitment = publicSignals[0] as string
@@ -111,7 +104,7 @@ export async function generateAgeProof(input: AgeProofInput): Promise<AgeProofRe
  * Verify a Groth16 age proof.
  */
 export async function verifyAgeProof(proof: unknown, publicSignals: string[]): Promise<boolean> {
-  const vkey = loadVkey(AGE_VKEY)
+  const vkey = loadVkey(AGE_VKEY())
   return groth16.verify(vkey, publicSignals, proof)
 }
 
@@ -128,8 +121,8 @@ export async function generateNullifierProof(input: NullifierProofInput): Promis
       currentYear: input.currentYear,
       ageThreshold: input.ageThreshold,
     },
-    NULL_WASM,
-    NULL_ZKEY,
+    NULL_WASM(),
+    NULL_ZKEY(),
   )
 
   // publicSignals: [commitment, nullifier, communityId, currentYear, ageThreshold]
@@ -142,7 +135,7 @@ export async function generateNullifierProof(input: NullifierProofInput): Promis
  * Verify a Groth16 nullifier proof.
  */
 export async function verifyNullifierProof(proof: unknown, publicSignals: string[]): Promise<boolean> {
-  const vkey = loadVkey(NULL_VKEY)
+  const vkey = loadVkey(NULL_VKEY())
   return groth16.verify(vkey, publicSignals, proof)
 }
 

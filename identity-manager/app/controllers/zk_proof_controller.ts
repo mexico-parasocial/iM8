@@ -4,11 +4,11 @@ import { fileURLToPath } from 'node:url'
 import type { HttpContext } from '@adonisjs/core/http'
 import { getDb } from '../../src/db/connection.js'
 import { verifyAgeProof, verifyNullifierProof } from '../../src/services/zkpService.js'
+import { getZkpArtifactDigestHeader, readVerifiedZkpArtifact } from '../../src/services/zkpArtifacts.js'
 import { getSessionId } from '#support/http'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
-const ZKP_DIR = join(__dirname, '..', '..', '..', 'zkp', 'out')
 const PROVER_HTML = join(__dirname, '..', '..', '..', 'zkp', 'prover', 'prover.html')
 
 export default class ZkProofController {
@@ -81,10 +81,17 @@ export default class ZkProofController {
     }
 
     const { randomUUID } = await import('node:crypto')
-    db.prepare(`
-      INSERT INTO nullifiers (id, nullifier, community_id, commitment, session_id, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(`nullifier-${randomUUID()}`, nullifier, body.communityId, commitment, sessionId, new Date().toISOString())
+    try {
+      db.prepare(`
+        INSERT INTO nullifiers (id, nullifier, community_id, commitment, session_id, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(`nullifier-${randomUUID()}`, nullifier, body.communityId, commitment, sessionId, new Date().toISOString())
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('UNIQUE constraint failed')) {
+        return ctx.response.status(400).send({ valid: false, reason: 'nullifier_already_used' })
+      }
+      throw error
+    }
 
     return ctx.response.send({ valid: true, commitment, nullifier })
   }
@@ -95,22 +102,34 @@ export default class ZkProofController {
   }
 
   zkpProverWasm({ response }: HttpContext) {
-    const wasm = readFileSync(join(ZKP_DIR, 'ine_age_proof_js', 'ine_age_proof.wasm'))
-    return response.header('content-type', 'application/wasm').send(wasm)
+    const wasm = readVerifiedZkpArtifact('ine_age_proof_wasm')
+    return response
+      .header('content-type', 'application/wasm')
+      .header('digest', getZkpArtifactDigestHeader('ine_age_proof_wasm'))
+      .send(wasm)
   }
 
   zkpProverZkey({ response }: HttpContext) {
-    const zkey = readFileSync(join(ZKP_DIR, 'ine_age_proof_final.zkey'))
-    return response.header('content-type', 'application/octet-stream').send(zkey)
+    const zkey = readVerifiedZkpArtifact('ine_age_proof_zkey')
+    return response
+      .header('content-type', 'application/octet-stream')
+      .header('digest', getZkpArtifactDigestHeader('ine_age_proof_zkey'))
+      .send(zkey)
   }
 
   nullifierProverWasm({ response }: HttpContext) {
-    const wasm = readFileSync(join(ZKP_DIR, 'nullifier_proof_js', 'nullifier_proof.wasm'))
-    return response.header('content-type', 'application/wasm').send(wasm)
+    const wasm = readVerifiedZkpArtifact('nullifier_proof_wasm')
+    return response
+      .header('content-type', 'application/wasm')
+      .header('digest', getZkpArtifactDigestHeader('nullifier_proof_wasm'))
+      .send(wasm)
   }
 
   nullifierProverZkey({ response }: HttpContext) {
-    const zkey = readFileSync(join(ZKP_DIR, 'nullifier_proof_final.zkey'))
-    return response.header('content-type', 'application/octet-stream').send(zkey)
+    const zkey = readVerifiedZkpArtifact('nullifier_proof_zkey')
+    return response
+      .header('content-type', 'application/octet-stream')
+      .header('digest', getZkpArtifactDigestHeader('nullifier_proof_zkey'))
+      .send(zkey)
   }
 }

@@ -32,6 +32,10 @@ export default defineConfig({
     'src/db/migrations/**/*.sql',
     'src/i18n/locales/**/*.json',
     'src/openapi/openapi.json',
+    'zkp/artifact-manifest.json',
+    'zkp/prover/prover.html',
     'zkp/out/**/*.json',
+    'zkp/out/**/*.wasm',
+    'zkp/out/**/*.zkey',
   ],
 })
