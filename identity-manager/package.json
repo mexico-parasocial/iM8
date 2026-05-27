@@ -5,7 +5,7 @@
   "type": "module",
   "main": "build/bin/server.js",
   "scripts": {
-    "build": "node ace build && cp -r src/i18n/locales build/src/i18n/locales",
+    "build": "node ace build",
     "start": "node --enable-source-maps build/bin/server.js",
     "dev": "node ace serve --watch",
     "test": "NODE_ENV=test node --test build/tests/**/*.test.js",

@@ -1,7 +1,8 @@
 import { defineConfig } from '@adonisjs/core/bodyparser'
+import type { BodyParserConfig } from '@adonisjs/bodyparser/types'
 import env from '#start/env'
 
-export default defineConfig({
+const bodyParserConfig: BodyParserConfig = defineConfig({
   allowedMethods: ['POST', 'PUT', 'PATCH', 'DELETE'],
   form: {
     convertEmptyStringsToNull: true,
@@ -21,3 +22,5 @@ export default defineConfig({
     types: ['multipart/form-data'],
   },
 })
+
+export default bodyParserConfig
