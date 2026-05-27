@@ -1,4 +1,0 @@
-portal.eurosky.tech {
-	tls support@eurosky.tech
-	reverse_proxy http://localhost:4075
-}
