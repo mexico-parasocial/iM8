@@ -26,6 +26,7 @@
     { "name": "Issuers" },
     { "name": "Karma" },
     { "name": "Ledger" },
+    { "name": "Communities" },
     { "name": "System" }
   ],
   "components": {
@@ -394,6 +395,10 @@
       "ValidationFailed": {
         "description": "Request body failed validation.",
         "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ValidationErrorResponse" } } }
+      },
+      "RateLimited": {
+        "description": "Rate limit exceeded.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
       }
     }
   },
@@ -599,6 +604,64 @@
         "responses": {
           "200": { "description": "Para provider status.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ParaProviderStatus" } } } },
           "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/v1/posts": {
+      "post": {
+        "tags": ["Posts"],
+        "summary": "Publish a public post through the authenticated PDS session.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["text"],
+                "properties": {
+                  "text": { "type": "string", "minLength": 1, "maxLength": 3000 },
+                  "surface": { "type": "string", "enum": ["public", "civic", "dating"] },
+                  "replyTo": {
+                    "type": "object",
+                    "required": ["uri", "cid"],
+                    "properties": {
+                      "uri": { "type": "string" },
+                      "cid": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Published post.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "post": {
+                      "type": "object",
+                      "properties": {
+                        "uri": { "type": "string" },
+                        "cid": { "type": "string" },
+                        "text": { "type": "string" },
+                        "surface": { "type": "string", "enum": ["public"] },
+                        "publishedAt": { "type": "string", "format": "date-time" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Unsupported surface.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "description": "Session does not have write scope.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "422": { "$ref": "#/components/responses/ValidationFailed" }
         }
       }
     },
@@ -1029,8 +1092,305 @@
           "401": { "$ref": "#/components/responses/Unauthorized" }
         }
       }
+    },
+    "/v1/communities": {
+      "get": {
+        "tags": ["Communities"],
+        "summary": "List communities.",
+        "parameters": [
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["pending_admins", "active", "dissolved"] } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } }
+        ],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Communities list.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "post": {
+        "tags": ["Communities"],
+        "summary": "Create a new community.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
+        "responses": {
+          "201": { "description": "Created community.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "422": { "$ref": "#/components/responses/ValidationFailed" }
+        }
+      }
+    },
+    "/v1/communities/{id}": {
+      "get": {
+        "tags": ["Communities"],
+        "summary": "Get community details.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Community details.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "description": "Community not found.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/v1/communities/{id}/admins": {
+      "get": {
+        "tags": ["Communities"],
+        "summary": "List community admins.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Admin list.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "description": "Community not found.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      },
+      "post": {
+        "tags": ["Communities"],
+        "summary": "Propose adding a new admin.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
+        "responses": {
+          "202": { "description": "Admin addition proposed.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "description": "Not an admin.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "404": { "description": "Community not found.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/v1/communities/{id}/bootstrap-admins": {
+      "post": {
+        "tags": ["Communities"],
+        "summary": "One-time pending community admin bootstrap.",
+        "description": "Available only before community activation. Once used, future admin changes must go through governance actions.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["adminDids"],
+                "properties": {
+                  "adminDids": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Bootstrap completed.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "description": "Not an active admin.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "409": { "description": "Bootstrap already used or community already active.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "422": { "$ref": "#/components/responses/ValidationFailed" },
+          "429": { "$ref": "#/components/responses/RateLimited" }
+        }
+      }
+    },
+    "/v1/communities/{id}/admins/{did}": {
+      "delete": {
+        "tags": ["Communities"],
+        "summary": "Propose removing an admin.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "did", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "202": { "description": "Admin removal proposed.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "description": "Not an admin.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "404": { "description": "Community not found.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/v1/communities/{id}/actions": {
+      "get": {
+        "tags": ["Communities"],
+        "summary": "List community actions.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["pending", "approved", "rejected", "executed", "failed"] } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } }
+        ],
+        "responses": {
+          "200": { "description": "Actions list.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "description": "Community not found.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      },
+      "post": {
+        "tags": ["Communities"],
+        "summary": "Propose a governance action.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
+        "responses": {
+          "201": { "description": "Action proposed.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "description": "Not an admin.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "404": { "description": "Community not found.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "422": { "$ref": "#/components/responses/ValidationFailed" }
+        }
+      }
+    },
+    "/v1/communities/{id}/actions/{actionId}": {
+      "get": {
+        "tags": ["Communities"],
+        "summary": "Get action details with votes.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "actionId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Action details.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "description": "Action not found.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/v1/communities/{id}/actions/{actionId}/vote": {
+      "post": {
+        "tags": ["Communities"],
+        "summary": "Vote irreversibly on a governance action.",
+        "description": "The signature is an Ed25519 signature over the canonical community vote payload. One admin DID can vote once per action.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "actionId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["vote", "signature", "signedAt", "nonce"],
+                "properties": {
+                  "vote": { "type": "string", "enum": ["approve", "reject"] },
+                  "signature": { "type": "string", "description": "Base64url Ed25519 signature over the canonical vote payload." },
+                  "signedAt": { "type": "string", "format": "date-time" },
+                  "nonce": { "type": "string", "description": "128-bit random nonce encoded as base64url." },
+                  "keyId": { "type": "string", "description": "Optional DID verification method id referenced by assertionMethod or authentication." }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Vote recorded and action executed.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
+          "202": { "description": "Vote recorded, awaiting more approvals.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "description": "Not an admin, unknown voting key, or invalid vote signature.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "404": { "description": "Action not found.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "409": { "description": "Already voted or action not pending.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "503": { "description": "DID resolution failed.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "422": { "$ref": "#/components/responses/ValidationFailed" }
+        }
+      }
+    },
+    "/v1/communities/{id}/memberships": {
+      "get": {
+        "tags": ["Communities"],
+        "summary": "List community memberships.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["pending", "active", "suspended", "left"] } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } }
+        ],
+        "responses": {
+          "200": { "description": "Memberships list.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "description": "Community not found.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      },
+      "post": {
+        "tags": ["Communities"],
+        "summary": "Request membership in a community.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "201": { "description": "Membership request submitted.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "description": "Community not found.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "409": { "description": "Membership already exists.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/v1/communities/{id}/memberships/{did}/approve": {
+      "post": {
+        "tags": ["Communities"],
+        "summary": "Approve a pending membership.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "did", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Membership approved.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "description": "Not an admin.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "404": { "description": "Community or membership not found.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/v1/communities/{id}/memberships/{did}/reject": {
+      "post": {
+        "tags": ["Communities"],
+        "summary": "Reject a pending membership.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "did", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Membership rejected.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "description": "Not an admin.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "404": { "description": "Community or membership not found.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/v1/communities/{id}/memberships/leave": {
+      "post": {
+        "tags": ["Communities"],
+        "summary": "Leave a community.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Left community.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "description": "Community or membership not found.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/.well-known/did.json": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Resolve a did:web DID document for a community.",
+        "parameters": [{ "name": "community", "in": "query", "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "DID document (application/did+json).", "content": { "application/json": { "schema": { "type": "object" } } } },
+          "404": { "description": "DID document not found.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
     }
   },
+
   "x-m8-types": {
     "package": "@para/m8-types",
     "status": "unresolved",

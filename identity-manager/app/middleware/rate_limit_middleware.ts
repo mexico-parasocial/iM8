@@ -41,19 +41,64 @@ function getClientIp(ctx: HttpContext): string {
   )
 }
 
-function getRateLimitKey(ctx: HttpContext): string {
-  const ip = getClientIp(ctx)
-  const method = ctx.request.method()
-  const path = ctx.request.url()
-  return `${ip}:${method}:${path}`
+type RateLimitCategory = 'auth' | 'community_read' | 'community_mutation' | 'community_vote' | 'general'
+
+function getPath(ctx: HttpContext): string {
+  return ctx.request.url().split('?')[0]
 }
 
-function isAuthEndpoint(path: string): boolean {
-  return (
+function getRateLimitCategory(ctx: HttpContext): RateLimitCategory {
+  const path = getPath(ctx)
+  const method = ctx.request.method().toUpperCase()
+
+  if (path.startsWith('/v1/communities')) {
+    if (method === 'POST' && /\/communities\/[^/]+\/actions\/[^/]+\/vote$/.test(path)) {
+      return 'community_vote'
+    }
+    if (method === 'GET') {
+      return 'community_read'
+    }
+    return 'community_mutation'
+  }
+
+  if (
     path.includes('/sessions/') ||
     path.includes('/identity/ine/') ||
     path.includes('/identity/revoke')
-  )
+  ) {
+    return 'auth'
+  }
+
+  return 'general'
+}
+
+function getRateLimitKey(ctx: HttpContext): string {
+  const ip = getClientIp(ctx)
+  const method = ctx.request.method()
+  const category = getRateLimitCategory(ctx)
+  const path = category === 'general' ? ctx.request.url() : category
+  return `${ip}:${method}:${path}`
+}
+
+function getLimitForCategory(category: RateLimitCategory, limits: {
+  maxRequests: number
+  authMaxRequests: number
+  communityReadMaxRequests: number
+  communityMutationMaxRequests: number
+  communityVoteMaxRequests: number
+}) {
+  switch (category) {
+    case 'auth':
+      return limits.authMaxRequests
+    case 'community_read':
+      return limits.communityReadMaxRequests
+    case 'community_mutation':
+      return limits.communityMutationMaxRequests
+    case 'community_vote':
+      return limits.communityVoteMaxRequests
+    case 'general':
+      return limits.maxRequests
+  }
 }
 
 export default class RateLimitMiddleware {
@@ -65,6 +110,10 @@ export default class RateLimitMiddleware {
     const windowMs = env.get('RATE_LIMIT_WINDOW_MS')
     const maxRequests = env.get('RATE_LIMIT_MAX')
     const authMaxRequests = env.get('RATE_LIMIT_AUTH_MAX')
+    const communityReadMaxRequests = env.get('RATE_LIMIT_COMMUNITY_READ_MAX')
+    const communityMutationMaxRequests = env.get('RATE_LIMIT_COMMUNITY_MUTATION_MAX')
+    const communityVoteMaxRequests = env.get('RATE_LIMIT_COMMUNITY_VOTE_MAX')
+    const category = getRateLimitCategory(ctx)
     const key = getRateLimitKey(ctx)
     const now = Date.now()
 
@@ -74,7 +123,13 @@ export default class RateLimitMiddleware {
       store.set(key, entry)
     }
 
-    const limit = isAuthEndpoint(ctx.request.url()) ? authMaxRequests : maxRequests
+    const limit = getLimitForCategory(category, {
+      maxRequests,
+      authMaxRequests,
+      communityReadMaxRequests,
+      communityMutationMaxRequests,
+      communityVoteMaxRequests,
+    })
 
     if (entry.count >= limit) {
       recordAbuse({
@@ -85,7 +140,7 @@ export default class RateLimitMiddleware {
         userAgent: ctx.request.header('user-agent') ?? 'unknown',
         requestId: ctx.request.id() ?? 'unknown',
         sessionId: null,
-        detail: `limit=${limit} window=${windowMs}ms`,
+        detail: `category=${category} limit=${limit} window=${windowMs}ms`,
       })
 
       return ctx.response.status(429).send({

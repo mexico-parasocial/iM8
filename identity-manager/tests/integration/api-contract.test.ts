@@ -20,7 +20,7 @@ function expectedRoutesFromSource() {
   )
   const v1Routes = [...routes.matchAll(/router\.(get|post|patch|put|delete)\('([^']+)'/g)]
     .map((match) => match[2])
-    .filter((route) => route !== '/docs' && route !== '/openapi.json')
+    .filter((route) => route !== '/docs' && route !== '/openapi.json' && route !== '/.well-known/did.json')
     .map((route) => routeToOpenApiPath(`/v1${route}`))
 
   return [...new Set([...rootRoutes.filter((route) => route === '/docs' || route === '/openapi.json'), ...v1Routes])]

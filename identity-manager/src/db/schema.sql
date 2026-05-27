@@ -295,3 +295,83 @@ CREATE INDEX IF NOT EXISTS idx_person_aliases_did ON person_aliases(did);
 CREATE INDEX IF NOT EXISTS idx_person_aliases_session ON person_aliases(session_id);
 CREATE INDEX IF NOT EXISTS idx_civic_vote_nullifiers_subject ON civic_vote_nullifiers(subject_type, subject_uri);
 CREATE INDEX IF NOT EXISTS idx_civic_vote_nullifiers_person ON civic_vote_nullifiers(person_id);
+
+CREATE TABLE IF NOT EXISTS communities (
+  id TEXT PRIMARY KEY,
+  did TEXT UNIQUE NOT NULL,
+  handle TEXT UNIQUE,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  manifesto_cid TEXT,
+  political_compass_x REAL,
+  political_compass_y REAL,
+  ruleset_cid TEXT,
+  pds_host TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'pending_admins',
+  created_by_did TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS community_admins (
+  community_id TEXT NOT NULL,
+  admin_did TEXT NOT NULL,
+  added_by_did TEXT,
+  added_at TEXT NOT NULL DEFAULT (datetime('now')),
+  status TEXT NOT NULL DEFAULT 'active',
+  PRIMARY KEY (community_id, admin_did),
+  FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS community_memberships (
+  community_id TEXT NOT NULL,
+  member_did TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  membership_record_uri TEXT,
+  group_record_uri TEXT,
+  joined_at TEXT,
+  left_at TEXT,
+  PRIMARY KEY (community_id, member_did),
+  FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS community_actions (
+  id TEXT PRIMARY KEY,
+  community_id TEXT NOT NULL,
+  action_type TEXT NOT NULL,
+  impact_level TEXT NOT NULL,
+  payload TEXT NOT NULL DEFAULT '{}',
+  proposed_by_did TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  required_approvals INTEGER NOT NULL,
+  current_approvals INTEGER NOT NULL DEFAULT 0,
+  repo_commit_cid TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  executed_at TEXT,
+  failed_reason TEXT,
+  FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS community_action_votes (
+  action_id TEXT NOT NULL,
+  admin_did TEXT NOT NULL,
+  vote TEXT NOT NULL,
+  vote_signature TEXT NOT NULL,
+  voted_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (action_id, admin_did),
+  FOREIGN KEY (action_id) REFERENCES community_actions(id) ON DELETE CASCADE
+);
+
+-- Community indexes
+CREATE INDEX IF NOT EXISTS idx_communities_did ON communities(did);
+CREATE INDEX IF NOT EXISTS idx_communities_status ON communities(status);
+CREATE INDEX IF NOT EXISTS idx_communities_created_by ON communities(created_by_did);
+CREATE INDEX IF NOT EXISTS idx_community_admins_community ON community_admins(community_id);
+CREATE INDEX IF NOT EXISTS idx_community_admins_did ON community_admins(admin_did);
+CREATE INDEX IF NOT EXISTS idx_community_memberships_community ON community_memberships(community_id);
+CREATE INDEX IF NOT EXISTS idx_community_memberships_member ON community_memberships(member_did);
+CREATE INDEX IF NOT EXISTS idx_community_memberships_status ON community_memberships(status);
+CREATE INDEX IF NOT EXISTS idx_community_actions_community ON community_actions(community_id);
+CREATE INDEX IF NOT EXISTS idx_community_actions_status ON community_actions(status);
+CREATE INDEX IF NOT EXISTS idx_community_actions_pending ON community_actions(status) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS idx_community_action_votes_action ON community_action_votes(action_id);

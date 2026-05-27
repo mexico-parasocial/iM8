@@ -1,6 +1,8 @@
 import router from '@adonisjs/core/services/router'
 import { middleware } from '#start/kernel'
 
+router.get('/.well-known/did.json', '#controllers/did_controller.webDid')
+
 router.get('/docs', '#controllers/docs_controller.scalar')
 router.get('/openapi.json', '#controllers/docs_controller.openapi')
 
@@ -76,6 +78,26 @@ router
         router.get('/ledger', '#controllers/ledger_controller.index')
 
         router.post('/posts', '#controllers/posts_controller.store')
+
+        // Community governance routes
+        router.get('/communities', '#controllers/communities_controller.index')
+        router.post('/communities', '#controllers/communities_controller.store')
+        router.get('/communities/:id', '#controllers/communities_controller.show')
+        router.get('/communities/:id/admins', '#controllers/communities_controller.admins')
+        router.post('/communities/:id/bootstrap-admins', '#controllers/communities_controller.bootstrapAdmins')
+        router.post('/communities/:id/admins', '#controllers/communities_controller.addAdmin')
+        router.delete('/communities/:id/admins/:did', '#controllers/communities_controller.removeAdmin')
+
+        router.get('/communities/:id/actions', '#controllers/community_actions_controller.index')
+        router.get('/communities/:id/actions/:actionId', '#controllers/community_actions_controller.show')
+        router.post('/communities/:id/actions', '#controllers/community_actions_controller.store')
+        router.post('/communities/:id/actions/:actionId/vote', '#controllers/community_actions_controller.vote')
+
+        router.get('/communities/:id/memberships', '#controllers/community_memberships_controller.index')
+        router.post('/communities/:id/memberships', '#controllers/community_memberships_controller.store')
+        router.post('/communities/:id/memberships/:did/approve', '#controllers/community_memberships_controller.approve')
+        router.post('/communities/:id/memberships/:did/reject', '#controllers/community_memberships_controller.reject')
+        router.post('/communities/:id/memberships/leave', '#controllers/community_memberships_controller.leave')
       })
       .use(middleware.auth())
   })
