@@ -1,7 +1,18 @@
 import { NodeOAuthClient, JoseKey } from '@atproto/oauth-client-node'
+import { OAuthResolverError } from '@atproto/oauth-client-node'
 import type { NodeSavedState, NodeSavedSession } from '@atproto/oauth-client-node'
 import env from '#start/env'
 import { getDb } from '../db/connection.js'
+
+export class OAuthInitiateError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string,
+    public readonly status = 400,
+  ) {
+    super(message)
+  }
+}
 
 // ─── OAuth State & Session Storage (SQLite-backed) ─────────────────────────
 
@@ -129,13 +140,47 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
 
 export async function initiateOAuthLogin(handleOrDid: string): Promise<{ url: string; state: string }> {
   const client = await getOAuthClient()
-  const url = await client.authorize(handleOrDid, {
-    scope: 'atproto transition:generic',
-  })
 
-  // Extract state from URL for our own session tracking
-  const state = url.searchParams.get('state') ?? `state-${Date.now()}`
-  return { url: url.toString(), state }
+  try {
+    const url = await client.authorize(handleOrDid, {
+      scope: 'atproto transition:generic',
+    })
+
+    // Extract state from URL for our own session tracking
+    const state = url.searchParams.get('state') ?? `state-${Date.now()}`
+    return { url: url.toString(), state }
+  } catch (err) {
+    if (err instanceof OAuthResolverError) {
+      throw new OAuthInitiateError(
+        err.message || 'Failed to resolve identity',
+        'IDENTITY_RESOLUTION_FAILED',
+        400,
+      )
+    }
+
+    if (err instanceof Error) {
+      if (err.message.includes('timeout') || err.message.includes('ETIMEDOUT')) {
+        throw new OAuthInitiateError(
+          'Identity resolution timed out. Please try again.',
+          'IDENTITY_RESOLUTION_TIMEOUT',
+          504,
+        )
+      }
+      if (err.message.includes('Network') || err.message.includes('fetch')) {
+        throw new OAuthInitiateError(
+          'Network error connecting to identity provider. Please try again.',
+          'NETWORK_ERROR',
+          503,
+        )
+      }
+    }
+
+    throw new OAuthInitiateError(
+      'Unable to start OAuth authorization. Please try again.',
+      'OAUTH_INITIATE_FAILED',
+      503,
+    )
+  }
 }
 
 export async function completeOAuthCallback(params: URLSearchParams): Promise<{ did: string; session: unknown }> {

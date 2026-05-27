@@ -1,8 +1,9 @@
 import { z } from 'zod'
 import type { HttpContext } from '@adonisjs/core/http'
+import env from '#start/env'
 import { getDb } from '../../src/db/connection.js'
 import { Features, assertDemoPathAllowed } from '../../src/services/features.js'
-import { completeOAuthCallback, initiateOAuthLogin } from '../../src/services/atprotoAuth.js'
+import { completeOAuthCallback, initiateOAuthLogin, OAuthInitiateError } from '../../src/services/atprotoAuth.js'
 import {
   completeOAuthLoginAttempt,
   createOAuthLoginAttempt,
@@ -16,6 +17,7 @@ import {
   deleteAnonymousProfile,
   getAnonymousProfile,
 } from '../../src/services/anonymousProfileService.js'
+import { classifyIdentifier, applyHandleDomain } from '../../src/services/identifierValidation.js'
 import { getSessionId, t, validateBody } from '#support/http'
 
 const startSessionSchema = z.object({
@@ -27,20 +29,53 @@ export default class SessionsController {
     const body = validateBody(ctx, startSessionSchema)
     if (!body) return
 
-    const devTokenBootstrap = assertDemoPathAllowed(Features.AuthDevTokenBootstrap)
+    // ─── Validate and normalize identifier ─────────────────────────────────
+    const classification = classifyIdentifier(body.identifier)
 
-    let oauth: { url: string; state: string } | null = null
-    try {
-      oauth = await initiateOAuthLogin(body.identifier)
-    } catch {
-      oauth = null
+    if (classification.kind === 'invalid') {
+      return ctx.response.status(422).send({
+        error: classification.error ?? 'Invalid identifier',
+        code: 'INVALID_IDENTIFIER',
+      })
     }
 
-    if (!devTokenBootstrap && !oauth) {
-      return ctx.response.status(503).send({
-        error: 'OAuth authorization is unavailable',
-        code: 'OAUTH_UNAVAILABLE',
-      })
+    let normalizedIdentifier = classification.normalized
+
+    // Apply handle domain suffix for bare usernames
+    const handleDomain = env.get('HANDLE_DOMAIN')
+    if (handleDomain && classification.error === 'INCOMPLETE_HANDLE') {
+      normalizedIdentifier = applyHandleDomain(normalizedIdentifier, handleDomain)
+    }
+
+    const devTokenBootstrap = assertDemoPathAllowed(Features.AuthDevTokenBootstrap)
+
+    // ─── Initiate OAuth ────────────────────────────────────────────────────
+    let oauth: { url: string; state: string } | null = null
+    let oauthError: { message: string; code: string; status: number } | null = null
+
+    try {
+      oauth = await initiateOAuthLogin(normalizedIdentifier)
+    } catch (err) {
+      if (err instanceof OAuthInitiateError) {
+        oauthError = { message: err.message, code: err.code, status: err.status }
+      } else {
+        oauthError = {
+          message: 'OAuth authorization is unavailable',
+          code: 'OAUTH_UNAVAILABLE',
+          status: 503,
+        }
+      }
+    }
+
+    if (oauthError) {
+      // If OAuth failed and dev bootstrap is not available, return the error
+      if (!devTokenBootstrap) {
+        return ctx.response.status(oauthError.status).send({
+          error: oauthError.message,
+          code: oauthError.code,
+        })
+      }
+      // Dev bootstrap is on — we'll fall through to create a dev session
     }
 
     if (!devTokenBootstrap) {
@@ -52,7 +87,7 @@ export default class SessionsController {
         })
       }
       const attempt = createOAuthLoginAttempt({
-        identifier: body.identifier,
+        identifier: normalizedIdentifier,
         state: oauthLogin.state,
         oauthUrl: oauthLogin.url,
       })
@@ -72,7 +107,7 @@ export default class SessionsController {
       })
     }
 
-    const result = await createSession(body)
+    const result = await createSession({ identifier: normalizedIdentifier })
     result.attempt.authUrl = oauth?.url ?? result.attempt.authUrl
 
     return ctx.response.send({

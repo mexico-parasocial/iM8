@@ -49,6 +49,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   })),
   PLC_URL: zodEnv(z.string().url().default('https://plc.directory')),
   PDS_URL: zodEnv(z.string().url().default('https://bsky.social')),
+  HANDLE_DOMAIN: zodEnv(z.string().optional()),
   PRIVATE_KEYS: zodEnv(z.string().optional()),
   COOKIE_SECRET: zodEnv(z.string().min(16).default(() => {
     if (process.env.NODE_ENV === 'production') {
