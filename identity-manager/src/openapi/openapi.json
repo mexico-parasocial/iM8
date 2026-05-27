@@ -20,6 +20,7 @@
     { "name": "Anonymous" },
     { "name": "Device Trust" },
     { "name": "Identity" },
+    { "name": "Civic Voting" },
     { "name": "INE" },
     { "name": "ZKP" },
     { "name": "Issuers" },
@@ -876,6 +877,33 @@
           "200": { "description": "Revocation result.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
           "400": { "description": "Invalid state transition.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
           "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/v1/identity/civic-vote-proof": {
+      "post": {
+        "tags": ["Civic Voting"],
+        "summary": "Issue an m8 one-person-one-vote nullifier proof for a civic subject.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["subjectUri", "subjectType"], "properties": { "subjectUri": { "type": "string" }, "subjectType": { "type": "string", "enum": ["cabildeo", "policy", "matter", "governance"] }, "aliasDid": { "type": "string" } } } } } },
+        "responses": {
+          "200": { "description": "Civic vote proof.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "description": "Alias is not active for this person.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "422": { "$ref": "#/components/responses/ValidationFailed" }
+        }
+      }
+    },
+    "/v1/identity/civic-vote-aliases": {
+      "post": {
+        "tags": ["Civic Voting"],
+        "summary": "Link an authorized pseudoidentity DID to the current private person root.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["did"], "properties": { "did": { "type": "string" }, "handle": { "type": "string" } } } } } },
+        "responses": {
+          "200": { "description": "Linked alias.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GenericObject" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "422": { "$ref": "#/components/responses/ValidationFailed" }
         }
       }
     },

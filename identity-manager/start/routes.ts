@@ -66,6 +66,8 @@ router
         router.post('/identity/ine/zkp-verify', '#controllers/zk_proof_controller.zkpVerify')
         router.post('/identity/revoke', '#controllers/revocation_controller.revoke')
         router.post('/identity/ine/zkp-nullifier', '#controllers/zk_proof_controller.zkpNullifier')
+        router.post('/identity/civic-vote-proof', '#controllers/civic_vote_identity_controller.issueProof')
+        router.post('/identity/civic-vote-aliases', '#controllers/civic_vote_identity_controller.linkAlias')
 
         router.post('/karma/earn', '#controllers/karma_controller.earn')
         router.get('/karma/me', '#controllers/karma_controller.me')
