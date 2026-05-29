@@ -1,33 +1,46 @@
-# Environment variables
-.env
-.env.local
-.env.*.local
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
-# OS files
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-logs/
-
-# Dependencies
+# dependencies
 node_modules/
 
-# Build outputs
+# Expo
+.expo/
 dist/
-build/
+web-build/
+expo-env.d.ts
 
-# IDE
-.idea/
-.vscode/
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
 
-# Watchman
-.watchman-cookie-*
+# Metro
+.metro-health-check*
 
-# Embedded repos (submodules)
-Muvis/zkp/circomlib/
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
 
-# Unused reference projects (not part of published m8-app)
-pds-moover-main/
-eurosky-portal-main/
+# macOS
+.DS_Store
+*.pem
+.watchman-cookie*
+
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+# generated native folders
+/ios
+/android
+
+# local broker data
+/server/data/
+/server/

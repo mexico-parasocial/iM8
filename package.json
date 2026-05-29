@@ -1,0 +1,52 @@
+{
+  "name": "im8",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start --dev-client",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "~6.1.2",
+    "@react-native-async-storage/async-storage": "^3.0.2",
+    "expo": "~54.0.33",
+    "expo-blur": "~15.0.8",
+    "expo-build-properties": "^55.0.14",
+    "expo-dev-client": "^56.0.16",
+    "expo-local-authentication": "~17.0.8",
+    "expo-status-bar": "~3.0.9",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-gesture-handler": "~2.28.0",
+    "react-native-qrcode-svg": "^6.3.21",
+    "react-native-reanimated": "~3.19.1",
+    "react-native-safe-area-context": "^5.8.0",
+    "react-native-svg": "15.12.1",
+    "react-native-web": "^0.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "@types/react": "~19.1.0",
+    "babel-preset-expo": "~54.0.10",
+    "patch-package": "^8.0.1",
+    "tsx": "^4.21.0",
+    "typescript": "~5.9.2"
+  },
+  "pnpm": {
+    "patchedDependencies": {
+      "react-native@0.81.5": "patches/react-native@0.81.5.patch"
+    }
+  },
+  "private": true,
+  "overrides": {
+    "glob": "^13.0.0",
+    "inflight": "^1.0.6",
+    "rimraf": "^5.0.0",
+    "text-encoding": "^0.7.0",
+    "uuid": "^9.0.0"
+  }
+}
