@@ -31,7 +31,6 @@ import type {
   IdentitySession,
   ParaProviderStatus,
   ProofArtifact,
-  VerifyClaimResult,
 } from '../../types'
 
 export function clone<T>(value: T): T {
@@ -241,6 +240,30 @@ export function extractPendingRequest(payload: unknown): ClaimRequest {
 
   const record = payload as Record<string, unknown>
   const request = record.request as ProofBrokerClaimRequest | undefined
+  const grant = record.grant as ProofBrokerGrant | undefined
+  if (!request && !grant) {
+    throw new Error('Broker response missing claim request')
+  }
+
+  if (!request && grant) {
+    return {
+      id: grant.id,
+      appId: grant.appId,
+      appName: grant.appName,
+      appKind: grant.appKind,
+      surface: grant.surface,
+      requestedClaims: grant.requestedClaims.map((claim) => claim.type),
+      proofMode: 'proof-only',
+      status: mapRequestStatus(grant.status),
+      audience: grant.appName,
+      expiryPreference: grant.expiresAt ?? 'No expiry',
+      requestedAt: grant.requestedAt,
+      reason: grant.reason,
+      verifier: grant.issuerId === 'para.identity' ? 'PARA verifier' : 'm8 broker',
+      expiresAt: grant.expiresAt ?? undefined,
+    }
+  }
+
   if (!request) {
     throw new Error('Broker response missing claim request')
   }

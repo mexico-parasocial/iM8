@@ -377,6 +377,17 @@ function PersonaCard({
       <Text style={consoleStyles.cardTitle}>{persona.name}</Text>
       <Text style={consoleStyles.cardMeta}>{persona.role}</Text>
       <Text style={consoleStyles.cardBodyText}>{persona.oneLine}</Text>
+      {persona.galleryPlan ? (
+        <View style={styles.galleryPlan}>
+          <Icon name="grid" size={16} color={tokens.success} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.galleryPlanTitle}>Instagram gallery ready</Text>
+            <Text style={styles.galleryPlanText}>
+              {persona.galleryPlan.embedType} · up to {persona.galleryPlan.maxItems} images
+            </Text>
+          </View>
+        </View>
+      ) : null}
       <View style={consoleStyles.surfaceStateRow}>
         {(Object.keys(SURFACE_META) as SurfaceId[]).map((surface) => (
           <View key={surface} style={consoleStyles.surfaceState}>
@@ -465,5 +476,25 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.5,
+  },
+  galleryPlan: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 12,
+    padding: 10,
+    backgroundColor: tokens.success + '14',
+    borderWidth: 1,
+    borderColor: tokens.success + '40',
+  },
+  galleryPlanTitle: {
+    color: tokens.text,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  galleryPlanText: {
+    color: tokens.muted,
+    fontSize: 11,
+    marginTop: 2,
   },
 })

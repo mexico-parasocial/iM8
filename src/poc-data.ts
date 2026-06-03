@@ -236,6 +236,16 @@ export function buildClaimCatalog(): ClaimDescriptor[] {
       learns: 'The app learns only a yes/no or bounded match result, never the full values graph.',
     },
     {
+      type: 'joined_during_founding_period',
+      label: 'Founding-period membership',
+      learns: 'The app learns whether the membership satisfies a founding-period rule, never the raw registry.',
+    },
+    {
+      type: 'has_continuous_party_membership_30d',
+      label: '30-day party membership',
+      learns: 'The app learns whether continuous membership is at least 30 days, never the source record.',
+    },
+    {
       type: 'is_age_eligible',
       label: 'Age eligible',
       learns: 'The app learns whether the age gate passed, not the date of birth.',

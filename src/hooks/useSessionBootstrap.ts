@@ -21,6 +21,7 @@ import {
   type SocialProvider,
 } from '../types'
 import { buildPublicPersona } from '../poc-data'
+import { buildInstagramGalleryPlan } from '../services/instagramGallery'
 
 export function useSessionBootstrap() {
   const [session, setSession] = useState<IdentitySession | null>(null)
@@ -184,6 +185,9 @@ export function useSessionBootstrap() {
       ? session.personas.find((persona) => persona.id === session.publicPersonaId)
       : session.personas.find((persona) => persona.kind === 'public')
     const personaId = existingPublicPersona?.id ?? 'public-primary'
+    const galleryPlan = provider === 'instagram'
+      ? buildInstagramGalleryPlan(cleanHandle)
+      : undefined
     const nextLinks = [
       ...(session.publicLinks ?? []).filter((link) => !(link.provider === provider && link.status === 'linked')),
       {
@@ -193,6 +197,7 @@ export function useSessionBootstrap() {
         personaId,
         linkedAt: 'Today',
         status: 'linked' as const,
+        galleryPlan,
       },
     ]
     const nextActiveProviders = Array.from(
@@ -203,6 +208,7 @@ export function useSessionBootstrap() {
       id: personaId,
       name: existingPublicPersona?.name ?? cleanHandle,
       handle: existingPublicPersona?.handle ?? `@${cleanHandle}`,
+      galleryPlan: galleryPlan ?? existingPublicPersona?.galleryPlan,
     }
     const nextPersonas = existingPublicPersona
       ? session.personas.map((persona) => persona.id === personaId ? nextPublicPersona : persona)

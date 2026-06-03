@@ -8,6 +8,8 @@ export type ClaimType =
   | 'is_civic_eligible'
   | 'has_para_verification'
   | 'has_party_affiliation_match'
+  | 'joined_during_founding_period'
+  | 'has_continuous_party_membership_30d'
   | 'is_age_eligible'
   | 'has_backup_coverage'
 
@@ -99,6 +101,46 @@ export type SocialLink = {
   personaId: string
   linkedAt: string
   status: SocialLinkStatus
+  galleryPlan?: InstagramGalleryPlan
+}
+
+export type AtprotoBlobRef = {
+  $type?: 'blob'
+  ref: { $link: string }
+  mimeType: string
+  size: number
+}
+
+export type InstagramGalleryPlan = {
+  embedType: 'app.bsky.embed.gallery'
+  sourceProvider: 'instagram'
+  sourceHandle: string
+  status: 'planned' | 'ready' | 'published'
+  maxItems: number
+  postStrategy: 'profile-gallery'
+  summary: string
+}
+
+export type InstagramGalleryImageInput = {
+  blob: AtprotoBlobRef
+  alt: string
+  aspectRatio?: {
+    width: number
+    height: number
+  }
+}
+
+export type AppBskyEmbedGallery = {
+  $type: 'app.bsky.embed.gallery'
+  items: Array<{
+    $type: 'app.bsky.embed.gallery#image'
+    image: AtprotoBlobRef
+    alt: string
+    aspectRatio?: {
+      width: number
+      height: number
+    }
+  }>
 }
 
 export type PersonaKind = 'anonymous' | 'public'
@@ -115,6 +157,7 @@ export type Persona = {
   kind: PersonaKind
   createdBy: PersonaCreatedBy
   linkedProviders?: SocialProvider[]
+  galleryPlan?: InstagramGalleryPlan
   surfaceStates: Record<SurfaceId, SurfaceState>
   signals: Signal[]
 }
@@ -466,6 +509,7 @@ export type Command = {
 export type StartSessionRequest = {
   identifier: string
   provider?: IdentityProvider
+  surface?: SurfaceId
 }
 
 export type StartSessionResponse = {

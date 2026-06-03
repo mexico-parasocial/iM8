@@ -6,6 +6,8 @@ const paraClaims: ClaimType[] = [
   'has_para_verification',
   'is_age_eligible',
   'has_party_affiliation_match',
+  'joined_during_founding_period',
+  'has_continuous_party_membership_30d',
 ]
 
 export function buildParaProviderStatus(handle: string): ParaProviderStatus {
@@ -50,6 +52,16 @@ export function getParaClaimCatalog() {
       type: 'has_party_affiliation_match' as const,
       label: 'Party affiliation match',
       learns: 'A bounded match result only, never the full values payload or source account history.',
+    },
+    {
+      type: 'joined_during_founding_period' as const,
+      label: 'Founding-period membership',
+      learns: 'Whether the party membership satisfies a founding-period rule, not the raw membership file.',
+    },
+    {
+      type: 'has_continuous_party_membership_30d' as const,
+      label: '30-day party membership',
+      learns: 'Whether continuous membership is at least 30 days, not the original registry record.',
     },
   ]
 }

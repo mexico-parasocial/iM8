@@ -35,11 +35,15 @@ import {
 
 type BrokerRequestInit = RequestInit & {
   token?: string | null
+  skipRefresh?: boolean
 }
 
-const SESSION_TOKEN_KEY = 'm8_broker_session_token'
+const ACCESS_TOKEN_KEY = 'm8_broker_access_token'
+const REFRESH_TOKEN_KEY = 'm8_broker_refresh_token'
+const LEGACY_SESSION_TOKEN_KEY = 'm8_broker_session_token'
 
-let currentSessionToken: string | null = null
+let currentAccessToken: string | null = null
+let currentRefreshToken: string | null = null
 let cachedSession: IdentitySession | null = null
 
 function getDefaultBrokerBaseUrl() {
@@ -51,62 +55,118 @@ function getDefaultBrokerBaseUrl() {
 
 function getBrokerBaseUrl() {
   const configured = process.env.EXPO_PUBLIC_M8_BROKER_URL?.trim()
-  return configured && configured.length > 0
+  const baseUrl = configured && configured.length > 0
     ? configured
     : getDefaultBrokerBaseUrl()
+  const trimmed = baseUrl.replace(/\/+$/, '')
+  return /\/v\d+$/i.test(trimmed) ? trimmed : `${trimmed}/v1`
 }
 
-async function loadPersistedSessionToken() {
-  if (currentSessionToken) {
-    return currentSessionToken
+async function loadPersistedAccessToken() {
+  if (currentAccessToken) {
+    return currentAccessToken
   }
 
-  const token = await AsyncStorage.getItem(SESSION_TOKEN_KEY)
-  currentSessionToken = token
+  const token =
+    (await AsyncStorage.getItem(ACCESS_TOKEN_KEY)) ??
+    (await AsyncStorage.getItem(LEGACY_SESSION_TOKEN_KEY))
+  currentAccessToken = token
   return token
 }
 
-async function persistSessionToken(token: string | null) {
-  currentSessionToken = token
+async function loadPersistedRefreshToken() {
+  if (currentRefreshToken) {
+    return currentRefreshToken
+  }
 
-  if (token) {
-    await AsyncStorage.setItem(SESSION_TOKEN_KEY, token)
+  const token = await AsyncStorage.getItem(REFRESH_TOKEN_KEY)
+  currentRefreshToken = token
+  return token
+}
+
+async function persistTokenBundle(tokens: {
+  accessToken?: string | null
+  refreshToken?: string | null
+} | null) {
+  currentAccessToken = tokens?.accessToken ?? null
+  currentRefreshToken = tokens?.refreshToken ?? null
+
+  if (tokens?.accessToken) {
+    await AsyncStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken)
   } else {
-    await AsyncStorage.removeItem(SESSION_TOKEN_KEY)
+    await AsyncStorage.removeItem(ACCESS_TOKEN_KEY)
+    await AsyncStorage.removeItem(LEGACY_SESSION_TOKEN_KEY)
+  }
+
+  if (tokens?.refreshToken) {
+    await AsyncStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken)
+  } else {
+    await AsyncStorage.removeItem(REFRESH_TOKEN_KEY)
   }
 }
 
-function readSessionTokenFromResponse(response: Response, payload: unknown) {
-  const fromHeader = response.headers.get('x-m8-session-id')
-  if (fromHeader) return fromHeader
-
+function readTokenBundleFromPayload(payload: unknown) {
   if (!payload || typeof payload !== 'object') {
     return null
   }
 
   const record = payload as Record<string, unknown>
-  if (typeof record.sessionId === 'string') return record.sessionId
-  if (typeof record.sessionToken === 'string') return record.sessionToken
-
-  const session = record.session
+  const tokens = record.tokens
   if (
-    session &&
-    typeof session === 'object' &&
-    typeof (session as { sessionId?: string }).sessionId === 'string'
+    tokens &&
+    typeof tokens === 'object' &&
+    typeof (tokens as { accessToken?: string }).accessToken === 'string'
   ) {
-    return (session as { sessionId: string }).sessionId
+    return tokens as { accessToken: string; refreshToken?: string | null }
   }
 
-  const attempt = record.attempt
   if (
-    attempt &&
-    typeof attempt === 'object' &&
-    typeof (attempt as { sessionId?: string }).sessionId === 'string'
+    typeof record.accessToken === 'string' ||
+    typeof record.refreshToken === 'string'
   ) {
-    return (attempt as { sessionId: string }).sessionId
+    return {
+      accessToken: record.accessToken as string | undefined,
+      refreshToken: record.refreshToken as string | undefined,
+    }
   }
 
   return null
+}
+
+async function refreshBrokerAccessToken() {
+  const refreshToken = await loadPersistedRefreshToken()
+  if (!refreshToken) return false
+
+  const response = await fetch(`${getBrokerBaseUrl()}/sessions/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken }),
+  })
+  const text = await response.text()
+  const payload = parseJsonPayload(text)
+
+  if (!response.ok) {
+    await persistTokenBundle(null)
+    return false
+  }
+
+  const tokens = readTokenBundleFromPayload(payload)
+  if (!tokens?.accessToken) {
+    await persistTokenBundle(null)
+    return false
+  }
+
+  await persistTokenBundle(tokens)
+  return true
+}
+
+function parseJsonPayload(text: string) {
+  if (!text) return null
+  try {
+    return JSON.parse(text) as unknown
+  } catch {
+    return text
+  }
 }
 
 async function requestJson<T>(
@@ -116,9 +176,8 @@ async function requestJson<T>(
   const headers = new Headers(init.headers)
   headers.set('Content-Type', 'application/json')
 
-  const token = init.token ?? (await loadPersistedSessionToken())
+  const token = init.token ?? (await loadPersistedAccessToken())
   if (token) {
-    headers.set('x-m8-session-id', token)
     headers.set('Authorization', `Bearer ${token}`)
   }
 
@@ -128,10 +187,14 @@ async function requestJson<T>(
   })
 
   const text = await response.text()
-  const payload = text ? (JSON.parse(text) as unknown) : null
-  const nextToken = readSessionTokenFromResponse(response, payload)
-  if (nextToken) {
-    await persistSessionToken(nextToken)
+  const payload = parseJsonPayload(text)
+  const tokens = readTokenBundleFromPayload(payload)
+  if (tokens?.accessToken) {
+    await persistTokenBundle(tokens)
+  }
+
+  if (response.status === 401 && !init.skipRefresh && await refreshBrokerAccessToken()) {
+    return requestJson<T>(path, { ...init, skipRefresh: true })
   }
 
   if (!response.ok) {
@@ -155,7 +218,7 @@ export async function postSessionStart(
   input: StartSessionRequest
 ): Promise<StartSessionResponse> {
   const response = await requestJson<ProofBrokerSessionStartResponse>(
-    '/session/start',
+    '/sessions/start',
     {
       method: 'POST',
       body: JSON.stringify(input),
@@ -163,17 +226,21 @@ export async function postSessionStart(
     }
   )
 
-  cacheSession(mapCurrentSession(response.session))
+  if (response.session) {
+    cacheSession(mapCurrentSession(response.session))
+  }
+
+  const attempt = response.attempt
 
   return {
     identity: {
-      did: response.attempt.did,
-      handle: response.attempt.handle,
-      authorizationServer: response.attempt.authorizationServer,
-      phaseLabel: response.attempt.phaseLabel,
+      did: attempt.did ?? '',
+      handle: attempt.handle ?? attempt.identifier ?? input.identifier,
+      authorizationServer: attempt.authorizationServer ?? '',
+      phaseLabel: attempt.phaseLabel,
       provider: 'bsky',
     },
-    authUrl: response.attempt.authUrl,
+    authUrl: response.oauthUrl ?? attempt.authUrl ?? '',
     sessionStub: {
       broker: 'm8',
       proofMode: 'proof-only',
@@ -185,7 +252,7 @@ export async function getCurrentSession(): Promise<IdentitySession> {
   const response = await requestJson<
     | ProofBrokerSession
     | { session: ProofBrokerSession; ledger?: IdentitySession['consentLedger'] }
-  >('/session/current')
+  >('/sessions/me')
   const sessionPayload = 'session' in response ? response.session : response
   const mapped = attachLedger(mapCurrentSession(sessionPayload), response)
   cacheSession(mapped)
@@ -193,7 +260,7 @@ export async function getCurrentSession(): Promise<IdentitySession> {
 }
 
 export async function restoreCurrentSession(): Promise<IdentitySession | null> {
-  const token = await loadPersistedSessionToken()
+  const token = await loadPersistedAccessToken()
   if (!token) {
     return null
   }
@@ -201,7 +268,7 @@ export async function restoreCurrentSession(): Promise<IdentitySession | null> {
   try {
     return await getCurrentSession()
   } catch {
-    await persistSessionToken(null)
+    await persistTokenBundle(null)
     cacheSession(null)
     return null
   }
@@ -211,8 +278,10 @@ export async function postGrantRequest(
   input: GrantRequestInput
 ): Promise<ClaimRequest> {
   const response = await requestJson<
-    ProofBrokerClaimRequest | { request: ProofBrokerClaimRequest; session?: ProofBrokerSession }
-  >('/grants/request', {
+    | ProofBrokerClaimRequest
+    | { request: ProofBrokerClaimRequest; session?: ProofBrokerSession }
+    | { grant: ProofBrokerGrant; session?: ProofBrokerSession }
+  >('/grants', {
     method: 'POST',
     body: JSON.stringify(toContractGrantRequest(input)),
   })
@@ -253,15 +322,52 @@ export async function postGrantRevoke(id: string): Promise<AppGrant> {
 }
 
 export async function postClaimVerify(id: string): Promise<VerifyClaimResult[]> {
-  const response = await requestJson<{ proofs: VerifyClaimResult[] }>(
-    '/claims/verify',
+  const request = cachedSession?.pendingRequests.find((item) => item.id === id)
+  const claimType = request?.requestedClaims[0]
+
+  if (!request || !claimType) {
+    throw new Error('Claim request not found for verification')
+  }
+
+  const response = await requestJson<{
+    proofId: string
+    outcome: string
+    statement: string
+    reference: string | null
+  }>(
+    `/claims/${encodeURIComponent(id)}/verify`,
     {
       method: 'POST',
-      body: JSON.stringify({ requestId: id }),
+      body: JSON.stringify({
+        claimType,
+        audienceAppId: request.appId,
+        audienceAppName: request.appName,
+        surface: request.surface,
+        proofMode: 'proof-only',
+        verifierId: request.verifier === 'PARA verifier' ? 'para.identity' : 'm8.broker',
+        reason: request.reason,
+      }),
     }
   )
 
-  return response.proofs
+  return [
+    {
+      artifact: {
+        id: response.proofId,
+        claimType,
+        label: claimType,
+        issuer: request.verifier,
+        verifier: 'm8 broker',
+        audienceAppId: request.appId,
+        proofRef: response.reference ?? '',
+        summary: response.statement,
+        issuedAt: 'Now',
+        expiresAt: request.expiresAt ?? 'No expiry',
+        status: response.outcome === 'not-verified' ? 'Expired' : 'Active',
+      },
+      detail: response.statement,
+    },
+  ]
 }
 
 export async function getParaProviderStatus(): Promise<ParaProviderStatus> {
@@ -290,7 +396,7 @@ export function getCachedSession() {
 }
 
 export async function clearPersistedSession() {
-  await persistSessionToken(null)
+  await persistTokenBundle(null)
   cacheSession(null)
   await clearLocalSession()
 }

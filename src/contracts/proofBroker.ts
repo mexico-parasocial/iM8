@@ -11,6 +11,8 @@ export type ProofBrokerClaimType =
   | 'is_civic_eligible'
   | 'has_para_verification'
   | 'has_party_affiliation_match'
+  | 'joined_during_founding_period'
+  | 'has_continuous_party_membership_30d'
   | 'is_age_eligible'
   | 'has_backup_coverage'
 
@@ -151,22 +153,34 @@ export type ProofBrokerSession = {
 
 export type ProofBrokerSessionStartInput = {
   identifier: string
+  surface?: ProofBrokerSurfaceId
 }
 
 export type ProofBrokerSessionStartAttempt = {
-  sessionId: string
-  did: string
-  handle: string
-  authorizationServer: string
-  authUrl: string
+  attemptId?: string
+  sessionId?: string
+  identifier?: string
+  did?: string
+  handle?: string
+  authorizationServer?: string
+  authUrl?: string
   phaseLabel: string
   startedAt: string
-  resolvedAt: string
+  resolvedAt?: string
+  expiresAt?: string
+}
+
+export type ProofBrokerTokenBundle = {
+  accessToken: string
+  refreshToken: string
+  expiresIn: number
 }
 
 export type ProofBrokerSessionStartResponse = {
   attempt: ProofBrokerSessionStartAttempt
-  session: ProofBrokerSession
+  session: ProofBrokerSession | null
+  tokens?: ProofBrokerTokenBundle | null
+  oauthUrl?: string | null
 }
 
 export type ProofBrokerGrantRequestInput = {
@@ -217,6 +231,8 @@ export function proofBrokerClaimLabel(claimType: ProofBrokerClaimType) {
   if (claimType === 'is_civic_eligible') return 'Civic eligible'
   if (claimType === 'has_para_verification') return 'PARA verification'
   if (claimType === 'has_party_affiliation_match') return 'Party affiliation match'
+  if (claimType === 'joined_during_founding_period') return 'Founding-period membership'
+  if (claimType === 'has_continuous_party_membership_30d') return '30-day party membership'
   if (claimType === 'has_backup_coverage') return 'Backup coverage'
   return 'Age eligible'
 }
