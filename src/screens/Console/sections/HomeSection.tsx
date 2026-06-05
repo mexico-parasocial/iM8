@@ -5,6 +5,7 @@ import {
   Metric,
   NotificationCard,
   SectionHeading,
+  StatusPill,
 } from '../../../components/m8/ConsolePrimitives'
 import { Icon } from '../../../components/m8/Icon'
 import type { AppGrant, ClaimRequest, IdentitySession, Persona } from '../../../types'
@@ -21,7 +22,7 @@ export function HomeSection({
   onApproveGrant,
   onDismissNotification,
   onGoToIdentity,
-  onGoToSafety,
+  onGoToSettings,
   onRevokeGrant,
   pendingRequests,
   session,
@@ -33,7 +34,7 @@ export function HomeSection({
   onApproveGrant: (id: string) => Promise<void>
   onDismissNotification: (id: string) => void
   onGoToIdentity: () => void
-  onGoToSafety: () => void
+  onGoToSettings: () => void
   onRevokeGrant: (id: string) => Promise<void>
   pendingRequests: ClaimRequest[]
   session: IdentitySession
@@ -44,9 +45,29 @@ export function HomeSection({
     : session.personas.find((persona) => persona.kind === 'public')
   const pendingRequestCount = pendingRequests.length
   const activeGrantCount = grants.filter((grant) => grant.status === 'Active').length
+  const activePersonaIndex = Math.max(0, session.personas.findIndex((persona) => persona.id === activePersona?.id)) + 1
 
   return (
     <View style={consoleStyles.stack}>
+      <View style={styles.identityCard}>
+        <View style={consoleStyles.rowBetween}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.identityEyebrow}>iM8 account</Text>
+            <Text style={styles.identityName}>{session.verifiedDisplayName ?? session.displayName}</Text>
+            <Text style={styles.identityHandle}>{session.handle}</Text>
+          </View>
+          <View style={styles.identityNumber}>
+            <Text style={styles.identityNumberText}>{activePersonaIndex}</Text>
+          </View>
+        </View>
+        <View style={styles.identityFooter}>
+          <Text style={styles.identityMeta}>
+            {activePersona?.name ?? 'No card selected'} · {activePersona?.kind === 'public' ? 'Public identity' : 'Anonymous identity'}
+          </Text>
+          <StatusPill label={isVerified ? 'Verified' : 'Private'} tone={isVerified ? 'success' : 'neutral'} />
+        </View>
+      </View>
+
       <View style={consoleStyles.heroCard}>
         <Text style={styles.eyebrow}>Dashboard</Text>
         <Text style={styles.heroTitle}>Your private root is the authority.</Text>
@@ -85,10 +106,10 @@ export function HomeSection({
         </DashboardCard>
 
         <DashboardCard
-          action="Open Safety"
+          action="Open Settings"
           icon="shieldCheck"
           meta={activeLinks.length > 0 ? `${activeLinks.length} linked` : 'No public link'}
-          onPress={onGoToSafety}
+          onPress={onGoToSettings}
           title="Public exposure"
         >
           <Text style={styles.cardBody}>
@@ -201,6 +222,58 @@ const styles = StyleSheet.create({
   },
   grid: {
     gap: 10,
+  },
+  identityCard: {
+    borderRadius: 16,
+    padding: 14,
+    gap: 12,
+    backgroundColor: tokens.surface,
+    borderWidth: 1,
+    borderColor: tokens.glassBorder,
+  },
+  identityEyebrow: {
+    color: tokens.accentSoft,
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  identityName: {
+    color: tokens.text,
+    fontSize: 20,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  identityHandle: {
+    color: tokens.muted,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  identityNumber: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.accentTransparent,
+    borderWidth: 1,
+    borderColor: tokens.accentBorder,
+  },
+  identityNumberText: {
+    color: tokens.accentSoft,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  identityFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  identityMeta: {
+    flex: 1,
+    color: tokens.muted,
+    fontSize: 12,
+    fontWeight: '700',
   },
   card: {
     borderRadius: 16,

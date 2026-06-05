@@ -1,5 +1,5 @@
 export type SurfaceId = 'public' | 'civic' | 'dating'
-export type SectionId = 'home' | 'grants' | 'providers' | 'safety' | 'civic'
+export type SectionId = 'home' | 'grants' | 'providers' | 'settings' | 'civic'
 export type Visibility = 'Public' | 'Trusted only' | 'Private'
 export type SurfaceState = 'Live' | 'Limited' | 'Muted'
 

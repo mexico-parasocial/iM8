@@ -26,7 +26,7 @@ export const sections: { id: SectionId; label: string }[] = [
   { id: 'home', label: 'Home' },
   { id: 'grants', label: 'Grants' },
   { id: 'providers', label: 'Providers' },
-  { id: 'safety', label: 'Safety' },
+  { id: 'settings', label: 'Settings' },
 ]
 
 export function buildPersonas(handle: string): Persona[] {
@@ -532,5 +532,5 @@ export function sectionTitle(section: SectionId | 'mybase') {
   if (section === 'grants') return 'Grant review'
   if (section === 'providers') return 'Providers and apps'
   if (section === 'mybase') return 'MyBase'
-  return 'Trust and safety'
+  return 'Settings'
 }

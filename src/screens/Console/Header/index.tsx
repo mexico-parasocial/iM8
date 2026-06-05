@@ -1,5 +1,5 @@
 import {useState} from 'react'
-import {View, Pressable, Text, StyleSheet, Platform} from 'react-native'
+import {View, Pressable, Text, StyleSheet} from 'react-native'
 import {useSafeAreaInsets} from 'react-native-safe-area-context'
 import {Icon} from '../../../components/m8/Icon'
 import {tokens} from '../../../theme'
@@ -13,12 +13,6 @@ const personaColor: Record<string, string> = {
   public: tokens.success,
 }
 
-const SECTION_LABELS: Record<string, string> = {
-  dashboard: 'Dashboard',
-  identity: 'Wallet',
-  safety: 'Safety',
-}
-
 const severityTint: Record<string, { border: string; bg: string; text: string }> = {
   danger: { border: tokens.danger + '50', bg: tokens.danger + '12', text: tokens.danger },
   warning: { border: tokens.warning + '50', bg: tokens.warning + '12', text: tokens.warning },
@@ -27,25 +21,21 @@ const severityTint: Record<string, { border: string; bg: string; text: string }>
 }
 
 export function ConsoleHeader({
-  activeSection,
   notifications,
   badgeCount,
   hasDanger,
   personas,
   activePersonaId,
   onSelectPersona,
-  onShowSettings,
   onDismissNotification,
   onMarkNotificationsRead,
 }: {
-  activeSection: string
   notifications: NotificationItem[]
   badgeCount: number
   hasDanger: boolean
   personas: Persona[]
   activePersonaId: string
   onSelectPersona: (id: string) => void
-  onShowSettings?: () => void
   onDismissNotification?: (id: string) => void
   onMarkNotificationsRead?: () => void
 }) {
@@ -67,7 +57,37 @@ export function ConsoleHeader({
 
       {/* Header bar */}
       <View style={[styles.bar, {height: headerFullHeight, paddingTop: topOffset}]}>
-        {/* Bell */}
+        <View style={styles.side}>
+          <Text style={styles.wordmark}>
+            <Text style={styles.wordmarkI}>i</Text>M8
+          </Text>
+        </View>
+
+        {/* Center: numbered identity selector */}
+        <View style={styles.center}>
+          <View style={styles.dotRow}>
+            {personas.map((p, index) => {
+              const active = p.id === activePersonaId
+              const pColor = personaColor[p.kind] ?? tokens.accent
+              return (
+                <Pressable
+                  key={p.id}
+                  onPress={() => onSelectPersona(p.id)}
+                  style={[
+                    styles.dot,
+                    {backgroundColor: pColor + '30'},
+                    active && {borderColor: pColor + '90'},
+                  ]}>
+                  <Text style={[styles.dotText, {color: pColor}]}>
+                    {index + 1}
+                  </Text>
+                </Pressable>
+              )
+            })}
+          </View>
+        </View>
+
+        {/* Notifications */}
         <View style={styles.side}>
           <Pressable
             onPress={() => {
@@ -91,41 +111,6 @@ export function ConsoleHeader({
                 </Text>
               </View>
             )}
-          </Pressable>
-        </View>
-
-        {/* Center: title + persona dots */}
-        <View style={styles.center}>
-          <Text style={styles.title}>{SECTION_LABELS[activeSection] ?? 'Console'}</Text>
-          <View style={styles.dotRow}>
-            {personas.map(p => {
-              const active = p.id === activePersonaId
-              const pColor = personaColor[p.kind] ?? tokens.accent
-              return (
-                <Pressable
-                  key={p.id}
-                  onPress={() => onSelectPersona(p.id)}
-                  style={[
-                    styles.dot,
-                    {backgroundColor: pColor + '30'},
-                    active && {borderColor: pColor + '90'},
-                  ]}>
-                  <Text style={[styles.dotText, {color: pColor}]}>
-                    {p.kind === 'public' ? 'P' : p.name.charAt(0).toUpperCase()}
-                  </Text>
-                </Pressable>
-              )
-            })}
-          </View>
-        </View>
-
-        {/* Settings */}
-        <View style={styles.side}>
-          <Pressable
-            onPress={onShowSettings}
-            style={styles.iconButton}
-            hitSlop={8}>
-            <Icon name="settingsGear" size={22} color={tokens.muted} />
           </Pressable>
         </View>
       </View>
@@ -222,15 +207,18 @@ const styles = StyleSheet.create({
   },
   center: {
     flex: 1,
-    alignItems: Platform.OS === 'ios' ? 'center' : 'flex-start',
+    alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
   },
-  title: {
+  wordmark: {
     color: tokens.text,
-    fontSize: 17,
-    fontWeight: '600',
-    letterSpacing: 0,
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+  },
+  wordmarkI: {
+    color: tokens.accentSoft,
+    fontStyle: 'italic',
   },
   dotRow: {
     flexDirection: 'row',
@@ -238,16 +226,16 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   dot: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
     borderColor: 'transparent',
   },
   dotText: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '800',
   },
   iconButton: {
@@ -293,7 +281,7 @@ const styles = StyleSheet.create({
   },
   dropdown: {
     position: 'absolute',
-    left: 12,
+    left: 18,
     right: 12,
     zIndex: 11,
     backgroundColor: tokens.surfaceRaised,

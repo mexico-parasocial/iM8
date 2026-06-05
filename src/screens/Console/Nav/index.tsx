@@ -12,7 +12,7 @@ const SECTIONS: {
 }[] = [
   { id: 'dashboard', label: 'Dash', icon: 'home', iconActive: 'homeFilled' },
   { id: 'identity', label: 'Wallet', icon: 'person', iconActive: 'personFilled' },
-  { id: 'safety', label: 'Safety', icon: 'shieldCheck', iconActive: 'shieldCheckFilled' },
+  { id: 'settings', label: 'Settings', icon: 'settingsGear', iconActive: 'settingsGearFilled' },
 ]
 
 export function BottomNav({

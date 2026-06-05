@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Text, View } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import Animated from 'react-native-reanimated'
@@ -10,25 +9,19 @@ import { useNotificationEngine } from '../hooks/useNotifications'
 import { BiometricGateModal, useBiometricGate } from '../components/m8/BiometricGate'
 import { IneVerificationModal } from '../components/m8/IneVerificationModal'
 import { SurfaceBuilderModal } from '../components/m8/SurfaceBuilderModal'
-import { StatusPill } from '../components/m8/ConsolePrimitives'
-import { tokens } from '../theme'
 import type {
   GrantRequestInput,
   IdentitySession,
   IneVerificationRecord,
   NewSurfaceInput,
-  RenameStatus,
   SocialProvider,
 } from '../types'
-import { SafetySection } from './Console/sections/SafetySection'
+import { SettingsSection } from './Console/sections/SafetySection'
 import { HomeSection } from './Console/sections/HomeSection'
 import { IdentitySection } from './Console/sections/IdentitySection'
-import { SettingsSheet } from '../components/m8/SettingsSheet'
-import { hapticMedium } from '../utils/haptics'
 import { getRenameStatus } from './Console/constants'
-import { consoleStyles } from './Console/styles'
 
-type ConsoleSectionId = 'dashboard' | 'identity' | 'safety'
+type ConsoleSectionId = 'dashboard' | 'identity' | 'settings'
 
 export function ConsoleScreen({
   onApproveGrant,
@@ -68,7 +61,6 @@ export function ConsoleScreen({
   const [customSurfaces, setCustomSurfaces] = useState<NewSurfaceInput[]>([])
   const [showBiometricGate, setShowBiometricGate] = useState(false)
   const [showIneModal, setShowIneModal] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
   const [renameInput, setRenameInput] = useState(session.verifiedDisplayName ?? session.displayName)
   const [savingName, setSavingName] = useState(false)
   const [requestingPara, setRequestingPara] = useState(false)
@@ -96,7 +88,7 @@ export function ConsoleScreen({
   }, [activeSection])
 
   useEffect(() => {
-    if (activeSection === 'safety' && biometricEnabled) {
+    if (activeSection === 'settings' && biometricEnabled) {
       setShowBiometricGate(true)
     }
   }, [activeSection, biometricEnabled])
@@ -169,17 +161,12 @@ export function ConsoleScreen({
         }}
         header={
           <ConsoleHeader
-            activeSection={activeSection}
             notifications={notifications}
             badgeCount={badgeCount}
             hasDanger={hasDanger}
             personas={session.personas}
             activePersonaId={activePersonaId}
             onSelectPersona={setActivePersonaId}
-            onShowSettings={() => {
-              hapticMedium()
-              setShowSettings(true)
-            }}
             onDismissNotification={dismissNotification}
             onMarkNotificationsRead={markNotificationsRead}
           />
@@ -191,14 +178,6 @@ export function ConsoleScreen({
           />
         }
       >
-        <TopStatus
-          badgeCount={badgeCount}
-          hasDanger={hasDanger}
-          isVerified={isVerified}
-          renameStatus={renameStatus}
-          session={session}
-        />
-
         {activeSection === 'dashboard' && (
           <HomeSection
             activePersona={activePersona}
@@ -208,7 +187,7 @@ export function ConsoleScreen({
             onApproveGrant={onApproveGrant}
             onDismissNotification={dismissNotification}
             onGoToIdentity={() => setActiveSection('identity')}
-            onGoToSafety={() => setActiveSection('safety')}
+            onGoToSettings={() => setActiveSection('settings')}
             onRevokeGrant={onRevokeGrant}
             pendingRequests={session.pendingRequests}
             session={session}
@@ -244,31 +223,25 @@ export function ConsoleScreen({
           />
         )}
 
-        {activeSection === 'safety' && (
-          <SafetySection
+        {activeSection === 'settings' && (
+          <SettingsSection
             session={session}
             activePersona={activePersona}
+            biometricEnabled={biometricEnabled}
+            darkMode={darkMode}
             onLinkPublicSocial={onLinkPublicSocial}
+            onSignOut={onSignOut}
+            onToggleBiometric={(value) => {
+              void toggleBiometric(value)
+            }}
+            onToggleDarkMode={(value) => {
+              setDarkMode(value)
+              void AsyncStorage.setItem('@m8/dark-mode', String(value))
+            }}
             onUnlinkPublicSocial={onUnlinkPublicSocial}
-            theme={tokens}
           />
         )}
       </ConsoleLayout>
-
-      <SettingsSheet
-        visible={showSettings}
-        onClose={() => setShowSettings(false)}
-        darkMode={darkMode}
-        onToggleDarkMode={(value) => {
-          setDarkMode(value)
-          void AsyncStorage.setItem('@m8/dark-mode', String(value))
-        }}
-        biometricEnabled={biometricEnabled}
-        onToggleBiometric={(value) => {
-          void toggleBiometric(value)
-        }}
-        onSignOut={onSignOut}
-      />
 
       <SurfaceBuilderModal
         visible={showSurfaceBuilder}
@@ -299,42 +272,5 @@ export function ConsoleScreen({
         }}
       />
     </>
-  )
-}
-
-function TopStatus({
-  badgeCount,
-  hasDanger,
-  isVerified,
-  renameStatus,
-  session,
-}: {
-  badgeCount: number
-  hasDanger: boolean
-  isVerified: boolean
-  renameStatus: RenameStatus
-  session: IdentitySession
-}) {
-  return (
-    <View style={consoleStyles.topStatus}>
-      <View>
-        <Text style={consoleStyles.appMark}>iM8 identity</Text>
-        <Text style={consoleStyles.screenTitle}>{session.verifiedDisplayName ?? session.displayName}</Text>
-        <Text style={consoleStyles.screenSubtle}>{session.handle}</Text>
-      </View>
-      <View style={consoleStyles.statusPills}>
-        <StatusPill
-          label={isVerified ? 'Verified' : 'Private'}
-          tone={isVerified ? 'success' : 'neutral'}
-        />
-        <StatusPill
-          label={renameStatus === 'available' ? 'Name ready' : renameStatus === 'used' ? 'Named' : 'Rename locked'}
-          tone={renameStatus === 'available' ? 'warning' : renameStatus === 'used' ? 'success' : 'neutral'}
-        />
-        {badgeCount > 0 ? (
-          <StatusPill label={`${badgeCount} request${badgeCount > 1 ? 's' : ''}`} tone={hasDanger ? 'danger' : 'warning'} />
-        ) : null}
-      </View>
-    </View>
   )
 }
