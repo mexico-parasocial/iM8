@@ -6,6 +6,7 @@ import { ConsoleLayout } from './Console/ConsoleLayout'
 import { ConsoleHeader } from './Console/Header'
 import { BottomNav } from './Console/Nav'
 import { useNotificationEngine } from '../hooks/useNotifications'
+import type { DeepLinkRoute } from '../hooks/useDeepLink'
 import { BiometricGateModal, useBiometricGate } from '../components/m8/BiometricGate'
 import { IneVerificationModal } from '../components/m8/IneVerificationModal'
 import { SurfaceBuilderModal } from '../components/m8/SurfaceBuilderModal'
@@ -37,6 +38,8 @@ export function ConsoleScreen({
   onUnlinkPublicSocial,
   onUpdateDisplayName,
   session,
+  incomingRoute,
+  onRouteHandled,
 }: {
   onApproveGrant: (id: string) => Promise<void>
   onApprovePolicyChange: (requestId: string, adminDid: string) => Promise<void>
@@ -51,6 +54,8 @@ export function ConsoleScreen({
   onUnlinkPublicSocial: (id: string) => Promise<void>
   onUpdateDisplayName: (displayName: string) => Promise<void>
   session: IdentitySession
+  incomingRoute?: DeepLinkRoute | null
+  onRouteHandled?: () => void
 }) {
   const isVerified = session.ineVerification?.status === 'verified'
   const renameStatus = getRenameStatus(session, isVerified)
@@ -102,6 +107,26 @@ export function ConsoleScreen({
       setActivePersonaId(session.personas[0]?.id ?? '')
     }
   }, [activePersonaId, session.personas])
+
+  useEffect(() => {
+    if (!incomingRoute) return
+    switch (incomingRoute) {
+      case 'verification':
+        setShowIneModal(true)
+        break
+      case 'identity':
+        setActiveSection('identity')
+        break
+      case 'settings':
+        setActiveSection('settings')
+        break
+      case 'wallet':
+      default:
+        setActiveSection('dashboard')
+        break
+    }
+    onRouteHandled?.()
+  }, [incomingRoute, onRouteHandled])
 
   const activePersona = useMemo(
     () => session.personas.find((p) => p.id === activePersonaId) ?? session.personas[0],

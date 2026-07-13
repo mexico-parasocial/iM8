@@ -1,8 +1,10 @@
+import {useEffect, useState} from 'react'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { AuthScreen } from './src/screens/AuthScreen'
 import { ConsoleScreen } from './src/screens/ConsoleScreen'
 import { useSessionBootstrap } from './src/hooks/useSessionBootstrap'
+import { useDeepLink, type DeepLinkRoute } from './src/hooks/useDeepLink'
 
 export default function App() {
   const {
@@ -27,9 +29,28 @@ export default function App() {
     updateDisplayName,
   } = useSessionBootstrap()
 
+  const {route, clear} = useDeepLink()
+  const [pendingRoute, setPendingRoute] = useState<DeepLinkRoute>(null)
+
+  useEffect(() => {
+    if (!route) return
+    if (!session) {
+      setPendingRoute(route)
+    }
+  }, [route, session])
+
+  const incomingRoute = session ? route ?? pendingRoute : null
+
+  const handleRouteHandled = () => {
+    clear()
+    setPendingRoute(null)
+  }
+
   const screen = session ? (
     <ConsoleScreen
       session={session}
+      incomingRoute={incomingRoute}
+      onRouteHandled={handleRouteHandled}
       onApproveGrant={approveGrantRequest}
       onApprovePolicyChange={approvePolicyChange}
       onApplyPolicyChange={applyPolicyChange}
