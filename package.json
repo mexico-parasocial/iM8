@@ -3,19 +3,19 @@
   "version": "1.0.0",
   "main": "index.ts",
   "private": true,
-  "packageManager": "pnpm@10.33.2",
+  "packageManager": "pnpm@11.11.0",
   "engines": {
-    "node": ">=24.15.0"
+    "node": ">=24.18.0"
   },
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
-      "version": "^10.33.2",
-      "onFail": "warn"
+      "version": "11.11.0",
+      "onFail": "error"
     },
     "runtime": {
       "name": "node",
-      "version": "^24.15.0",
+      "version": "^24.18.0",
       "onFail": "warn"
     }
   },
@@ -74,17 +74,5 @@
     "tsx": "^4.21.0",
     "typescript": "~5.9.2",
     "typescript-eslint": "^8"
-  },
-  "pnpm": {
-    "patchedDependencies": {
-      "react-native@0.81.5": "patches/react-native@0.81.5.patch"
-    }
-  },
-  "overrides": {
-    "glob": "^13.0.0",
-    "inflight": "^1.0.6",
-    "rimraf": "^5.0.0",
-    "text-encoding": "^0.7.0",
-    "uuid": "^9.0.0"
   }
 }
