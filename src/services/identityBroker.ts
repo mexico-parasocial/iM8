@@ -2,12 +2,10 @@ import {
   clearPersistedSession,
   getCachedSession,
   getCurrentSession,
-  getParaProviderStatus,
   restoreCurrentSession,
   createNativeSession,
   restoreNativeSession,
   persistSessionSnapshot,
-  postClaimVerify,
   postGrantApprove,
   postGrantRequest,
   postGrantRevoke,
@@ -18,9 +16,6 @@ import {
   type GrantRequestInput,
   type IdentityProvider,
   type IdentitySession,
-  type ParaProviderStatus,
-  type StartSessionResponse,
-  type VerifyClaimResult,
 } from '../types'
 
 export async function prepareIdentitySession(input: string, provider: IdentityProvider = 'bsky'): Promise<BrokerAttempt> {
@@ -37,10 +32,6 @@ export async function beginIdentitySession(_attempt: BrokerAttempt): Promise<Ide
   return getCurrentSession()
 }
 
-export async function startIdentitySession(input: string, provider: IdentityProvider = 'bsky'): Promise<StartSessionResponse> {
-  return postSessionStart({ identifier: input, provider })
-}
-
 export async function requestGrant(input: GrantRequestInput) {
   return postGrantRequest(input)
 }
@@ -51,14 +42,6 @@ export async function approveGrant(id: string) {
 
 export async function revokeGrant(id: string) {
   return postGrantRevoke(id)
-}
-
-export async function verifyClaimRequest(id: string): Promise<VerifyClaimResult[]> {
-  return postClaimVerify(id)
-}
-
-export async function readParaProviderStatus(): Promise<ParaProviderStatus> {
-  return getParaProviderStatus()
 }
 
 export async function createNativeIdentity(handle: string): Promise<IdentitySession> {
@@ -81,6 +64,24 @@ export async function restoreIdentitySession(): Promise<IdentitySession | null> 
   }
 
   return restoreCurrentSession()
+}
+
+/**
+ * Re-reads the session from its source of truth: the broker for
+ * broker-backed sessions, the persisted native snapshot for local ones.
+ * Falls back to the current session if the source is unreachable.
+ */
+export async function refreshIdentitySession(current: IdentitySession): Promise<IdentitySession> {
+  const local = await restoreNativeSession()
+  if (local) {
+    return local
+  }
+
+  try {
+    return await getCurrentSession()
+  } catch {
+    return current
+  }
 }
 
 export function clearIdentitySession() {

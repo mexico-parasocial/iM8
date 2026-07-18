@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import { secureGet, secureSet, secureDelete } from './secureStorage'
 import {
   buildPersonas,
   buildCommunityAdmins,
@@ -17,7 +17,6 @@ import {
   buildConsentPolicy,
   buildPdsSafetyPolicy,
   buildProofLifecycleCopy,
-  buildSafetyActions,
   buildSafetySnapshot,
 } from './trustPolicy'
 import { buildParaProviderStatus } from './paraAdapter'
@@ -77,18 +76,17 @@ export function buildLocalSession(handle: string): IdentitySession {
     consentLedger: buildConsentLedger(),
     providers: buildLocalProviders(fullHandle),
     integrations: buildIntegrations(),
-    safetyActions: buildSafetyActions(),
     surfaceTemplates: buildSurfaceTemplates(),
     commands: buildCommandDeck(),
   }
 }
 
 export async function saveLocalSession(session: IdentitySession): Promise<void> {
-  await AsyncStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(session))
+  await secureSet(LOCAL_SESSION_KEY, JSON.stringify(session))
 }
 
 export async function loadLocalSession(): Promise<IdentitySession | null> {
-  const raw = await AsyncStorage.getItem(LOCAL_SESSION_KEY)
+  const raw = await secureGet(LOCAL_SESSION_KEY)
   if (!raw) return null
   try {
     const session = JSON.parse(raw) as IdentitySession
@@ -99,7 +97,7 @@ export async function loadLocalSession(): Promise<IdentitySession | null> {
 }
 
 export async function clearLocalSession(): Promise<void> {
-  await AsyncStorage.removeItem(LOCAL_SESSION_KEY)
+  await secureDelete(LOCAL_SESSION_KEY)
 }
 
 function ensureLocalGovernanceState(session: IdentitySession): IdentitySession {

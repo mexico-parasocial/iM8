@@ -5,7 +5,6 @@ import {
   type PdsSafetyPolicy,
   type PdsSafetySnapshot,
   type ProofLifecycleCopy,
-  type SafetyAction,
 } from '../types'
 
 export function buildSafetySnapshot(handle: string): PdsSafetySnapshot {
@@ -33,32 +32,6 @@ export function buildSafetySnapshot(handle: string): PdsSafetySnapshot {
     source: 'pdsmoover.network',
     lastBackup: '6 hours ago',
   }
-}
-
-export function buildSafetyActions(): SafetyAction[] {
-  return [
-    {
-      title: 'Review backup enrollment',
-      detail: 'Confirm the account is enrolled in PDS MOOver before relying on long-lived grants.',
-      urgency: 'Now',
-      onPress: () => {},
-      cta: 'Review',
-    },
-    {
-      title: 'Check proof expiry windows',
-      detail: 'Short-lived proofs reduce blast radius when a partner app or provider becomes risky.',
-      urgency: 'Soon',
-      onPress: () => {},
-      cta: 'Check',
-    },
-    {
-      title: 'Audit stale grants',
-      detail: 'Revoke or expire claims that no longer support a current app relationship.',
-      urgency: 'Optional',
-      onPress: () => {},
-      cta: 'Audit',
-    },
-  ]
 }
 
 export function buildConsentLedger(): ConsentLedgerEntry[] {

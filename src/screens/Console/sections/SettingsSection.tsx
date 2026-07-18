@@ -5,9 +5,9 @@ import { cardStyle } from '../../../components/m8/Card'
 import { buttonStyle, buttonTextStyle } from '../../../components/m8/Button'
 import { rowStyle, rowStyles } from '../../../components/m8/Row'
 import { pillStyle, pillTextStyle } from '../../../components/m8/Pill'
-import { MiniStat, CoreRow, EmptyState } from '../../../components/m8/ConsolePrimitives'
+import { EmptyState } from '../../../components/m8/ConsolePrimitives'
 import { Icon } from '../../../components/m8/Icon'
-import type { IdentitySession, Persona, SafetyAction, ConsentLedgerEntry, SocialLink, SocialProvider } from '../../../types'
+import type { IdentitySession, Persona, ConsentLedgerEntry, SocialLink, SocialProvider } from '../../../types'
 import { tokens } from '../../../theme'
 import { hapticLight, hapticMedium } from '../../../utils/haptics'
 
@@ -15,21 +15,17 @@ export function SettingsSection({
   session,
   activePersona,
   biometricEnabled,
-  darkMode,
   onLinkPublicSocial,
   onSignOut,
   onToggleBiometric,
-  onToggleDarkMode,
   onUnlinkPublicSocial,
 }: {
   session: IdentitySession
   activePersona: Persona | undefined
   biometricEnabled: boolean
-  darkMode: boolean
   onLinkPublicSocial: (provider: SocialProvider, handle: string) => Promise<void>
   onSignOut: () => void
   onToggleBiometric: (value: boolean) => void
-  onToggleDarkMode: (value: boolean) => void
   onUnlinkPublicSocial: (id: string) => Promise<void>
 }) {
   const activePublicLinks = (session.publicLinks ?? []).filter((link) => link.status === 'linked')
@@ -113,32 +109,6 @@ export function SettingsSection({
       </View>
 
       <View style={styles.listCard}>
-        <Text style={styles.listTitle}>Safety actions</Text>
-        {session.safetyActions.map((action) => (
-          <SafetyActionRow key={action.title} action={action} />
-        ))}
-      </View>
-
-      <View style={styles.listCard}>
-        <Text style={styles.listTitle}>Appearance</Text>
-        <SettingsRow
-          icon="moon"
-          label="Dark mode"
-          control={
-            <Switch
-              value={darkMode}
-              onValueChange={(value) => {
-                hapticLight()
-                onToggleDarkMode(value)
-              }}
-              trackColor={{ false: tokens.stroke, true: tokens.accent }}
-              thumbColor={darkMode ? tokens.text : tokens.muted}
-            />
-          }
-        />
-      </View>
-
-      <View style={styles.listCard}>
         <Text style={styles.listTitle}>Security</Text>
         <SettingsRow
           icon="shieldCheck"
@@ -218,8 +188,6 @@ export function SettingsSection({
     </View>
   )
 }
-
-export const SafetySection = SettingsSection
 
 const SOCIAL_PROVIDERS: { id: SocialProvider; label: string; placeholder: string }[] = [
   { id: 'instagram', label: 'Instagram', placeholder: 'instagram_handle' },
@@ -313,22 +281,6 @@ function PublicLinkComposer({
   )
 }
 
-function SafetyActionRow({ action }: { action: SafetyAction }) {
-  return (
-    <View style={rowStyle('default')}>
-      <View style={rowStyles.text}>
-        <Text style={rowStyles.title}>{action.title}</Text>
-        <Text style={rowStyles.detail}>{action.detail}</Text>
-      </View>
-      <View style={pillStyle(action.urgency === 'Now' ? 'danger' : action.urgency === 'Soon' ? 'warning' : 'muted')}>
-        <Text style={pillTextStyle(action.urgency === 'Now' ? 'danger' : action.urgency === 'Soon' ? 'warning' : 'muted')}>
-          {action.urgency}
-        </Text>
-      </View>
-    </View>
-  )
-}
-
 function LedgerRow({ entry }: { entry: ConsentLedgerEntry }) {
   return (
     <View style={rowStyle('default')}>
@@ -356,7 +308,7 @@ function SettingsRow({
 }: {
   control: ReactNode
   detail?: string
-  icon: 'moon' | 'shieldCheck'
+  icon: 'shieldCheck'
   label: string
 }) {
   return (

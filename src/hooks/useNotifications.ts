@@ -15,7 +15,7 @@ export type NotificationItem = {
   source: 'system' | 'user'
 }
 
-export function useNotificationEngine(
+export function useNotifications(
   session: IdentitySession,
   onReviewGrants: () => void
 ) {

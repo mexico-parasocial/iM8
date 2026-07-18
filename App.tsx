@@ -20,6 +20,7 @@ export default function App() {
     linkPublicSocial,
     saveIneVerification,
     rejectPolicyChange,
+    reloadSession,
     revokeExistingGrant,
     session,
     signIn,
@@ -63,6 +64,7 @@ export default function App() {
       onSignOut={signOut}
       onUnlinkPublicSocial={unlinkPublicSocial}
       onUpdateDisplayName={updateDisplayName}
+      onRefreshSession={reloadSession}
     />
   ) : (
     <AuthScreen

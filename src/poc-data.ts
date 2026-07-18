@@ -8,26 +8,12 @@ import {
   type Persona,
   type PolicyChangeRequest,
   type ProofArtifact,
-  type SectionId,
   type SignalProvider,
   type SurfaceId,
   type SurfaceTemplate,
   type SocialProvider,
 } from './types'
 import { generateAnonymousHandleFromText } from './services/identityNames'
-
-export const surfaces: { id: SurfaceId; label: string }[] = [
-  { id: 'public', label: 'Public' },
-  { id: 'civic', label: 'Civic' },
-  { id: 'dating', label: 'Dating' },
-]
-
-export const sections: { id: SectionId; label: string }[] = [
-  { id: 'home', label: 'Home' },
-  { id: 'grants', label: 'Grants' },
-  { id: 'providers', label: 'Providers' },
-  { id: 'settings', label: 'Settings' },
-]
 
 export function buildPersonas(handle: string): Persona[] {
   const handleRoot = handle.startsWith('@') ? handle.slice(1).split('.')[0] : handle.split('.')[0]
@@ -525,12 +511,4 @@ export function buildCommandDeck(): Record<SurfaceId, Command[]> {
       },
     ],
   }
-}
-
-export function sectionTitle(section: SectionId | 'mybase') {
-  if (section === 'home') return 'Proof broker'
-  if (section === 'grants') return 'Grant review'
-  if (section === 'providers') return 'Providers and apps'
-  if (section === 'mybase') return 'MyBase'
-  return 'Settings'
 }

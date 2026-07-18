@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import type { ReactNode } from 'react'
 import {
+  consoleStyles,
   EmptyCard,
   Metric,
   NotificationCard,
@@ -11,7 +12,6 @@ import { Icon } from '../../../components/m8/Icon'
 import type { AppGrant, ClaimRequest, IdentitySession, Persona } from '../../../types'
 import type { NotificationItem } from '../../../hooks/useNotifications'
 import { tokens } from '../../../theme'
-import { consoleStyles } from '../styles'
 import { GrantCard, RequestCard } from './RequestsSection'
 
 export function HomeSection({

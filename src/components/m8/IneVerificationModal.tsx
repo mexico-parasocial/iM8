@@ -144,7 +144,7 @@ export function IneVerificationModal({
             </View>
             <Text style={styles.stepDetailTitle}>Scan your INE</Text>
             <Text style={styles.stepDetailBody}>
-              We need both sides of your INE (Instituto Nacional Electoral) credential. The data is processed on your device and encrypted.
+              We need both sides of your INE (Instituto Nacional Electoral) credential. Demo simulation — no document is scanned and no data leaves this device.
             </Text>
             <View style={styles.bulletList}>
               <Text style={styles.bullet}>• Front side: photo, name, CURP</Text>

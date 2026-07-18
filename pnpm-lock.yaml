@@ -241,6 +241,9 @@ importers:
       expo-local-authentication:
         specifier: ~16.0.0
         version: 16.0.5(expo@54.0.34)
+      expo-secure-store:
+        specifier: ^15.0.8
+        version: 15.0.8(expo@54.0.34)
       expo-splash-screen:
         specifier: ~31.0.13
         version: 31.0.13(expo@54.0.34)(typescript@5.9.3)
@@ -278,6 +281,9 @@ importers:
         specifier: ^0.21.0
         version: 0.21.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
     devDependencies:
+      '@eslint/js':
+        specifier: ^10.0.1
+        version: 10.0.1(eslint@9.39.4(supports-color@8.1.1))
       '@types/node':
         specifier: ^25.5.2
         version: 25.9.1
@@ -1038,6 +1044,15 @@ packages:
   '@eslint/eslintrc@3.3.5':
     resolution: {integrity: sha512-4IlJx0X0qftVsN5E+/vGujTRIFtwuLbNsVUe7TO6zYPDR1O6nFwvwhIKEKSrl6dZchmYBITazxKoUYOjdtjlRg==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+
+  '@eslint/js@10.0.1':
+    resolution: {integrity: sha512-zeR9k5pd4gxjZ0abRoIaxdc7I3nDktoXZk2qOv9gCNWx3mVwEn32VRhyLaRsDiJjTs0xq/T8mfPtyuXu7GWBcA==}
+    engines: {node: ^20.19.0 || ^22.13.0 || >=24}
+    peerDependencies:
+      eslint: ^10.0.0
+    peerDependenciesMeta:
+      eslint:
+        optional: true
 
   '@eslint/js@9.39.4':
     resolution: {integrity: sha512-nE7DEIchvtiFTwBw4Lfbu59PG+kCofhjsKaCWzxTpt4lfRjRMqG6uMBzKXuEcyXhOHoUp9riAm7/aWYGhXZ9cw==}
@@ -2771,6 +2786,11 @@ packages:
     peerDependencies:
       react: '*'
       react-native: '*'
+
+  expo-secure-store@15.0.8:
+    resolution: {integrity: sha512-lHnzvRajBu4u+P99+0GEMijQMFCOYpWRO4dWsXSuMt77+THPIGjzNvVKrGSl6mMrLsfVaKL8BpwYZLGlgA+zAw==}
+    peerDependencies:
+      expo: '*'
 
   expo-server@1.0.7:
     resolution: {integrity: sha512-mcmyML3oXcqFUXUxtdtCL1O00ztNI2v76d+MdniXRUgHNxIcHZ05zo+DqBaOOT6LQnPk4vA4YHqQl7iGUfRb3g==}
@@ -6008,6 +6028,10 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@eslint/js@10.0.1(eslint@9.39.4(supports-color@8.1.1))':
+    optionalDependencies:
+      eslint: 9.39.4(supports-color@8.1.1)
+
   '@eslint/js@9.39.4': {}
 
   '@eslint/object-schema@2.1.7': {}
@@ -8683,6 +8707,10 @@ snapshots:
       invariant: 2.2.4
       react: 19.1.0
       react-native: 0.81.5(patch_hash=2656ac6deb71b92a4df4af4593d13ace6a5740936432e5e7e8ef32bc3cd05194)(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1)
+
+  expo-secure-store@15.0.8(expo@54.0.34):
+    dependencies:
+      expo: 54.0.34(@babel/core@7.29.7)(@expo/metro-runtime@6.1.2)(graphql@16.8.1)(react-native@0.81.5(patch_hash=2656ac6deb71b92a4df4af4593d13ace6a5740936432e5e7e8ef32bc3cd05194)(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1)(typescript@5.9.3)
 
   expo-server@1.0.7: {}
 

@@ -18,7 +18,7 @@ const slides = [
     id: '1',
     icon: 'shieldCheck' as const,
     title: 'Private civic\nroot.',
-    body: 'Civic Id manager by PARA. iM8 starts private, then lets you prove only what each civic action needs.',
+    body: 'Civic identity manager by PARA. iM8 starts private, then lets you prove only what each civic action needs.',
   },
   {
     id: '2',

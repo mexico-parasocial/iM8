@@ -1,5 +1,5 @@
 import { SvgXml } from 'react-native-svg'
-import { colors, type ColorToken } from '../../theme'
+import { colors } from '../../theme'
 
 const RAW: Record<string, string> = {
   // Navigation & actions

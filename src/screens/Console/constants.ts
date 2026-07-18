@@ -15,6 +15,8 @@ export const CLAIM_LABELS: Record<string, string> = {
   has_party_affiliation_match: 'Party affiliation match',
   is_age_eligible: 'Age eligible',
   has_backup_coverage: 'Backup coverage',
+  joined_during_founding_period: 'Founding-period membership',
+  has_continuous_party_membership_30d: '30-day party membership',
 }
 
 export function getRenameStatus(session: IdentitySession, isVerified: boolean): RenameStatus {

@@ -4,6 +4,7 @@ import { cardStyle } from '../../../components/m8/Card'
 import { buttonStyle, buttonTextStyle } from '../../../components/m8/Button'
 import { Icon } from '../../../components/m8/Icon'
 import {
+  consoleStyles,
   Metric,
   SectionHeading,
   SimpleRow,
@@ -23,7 +24,6 @@ import type {
   SurfaceTemplate,
 } from '../../../types'
 import { SURFACE_META } from '../constants'
-import { consoleStyles } from '../styles'
 import { ParaSection } from './ParaSection'
 
 export function IdentitySection({

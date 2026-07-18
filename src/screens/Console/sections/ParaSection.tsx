@@ -1,6 +1,7 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import { buttonStyle, buttonTextStyle } from '../../../components/m8/Button'
 import {
+  consoleStyles,
   EmptyCard,
   Metric,
   SectionHeading,
@@ -12,7 +13,6 @@ import {
 import { tokens } from '../../../theme'
 import type { AdminApproval, CommunityAdmin, IdentitySession, PolicyChangeRequest, ProofArtifact } from '../../../types'
 import { CLAIM_LABELS } from '../constants'
-import { consoleStyles } from '../styles'
 
 export function ParaSection({
   embedded = false,

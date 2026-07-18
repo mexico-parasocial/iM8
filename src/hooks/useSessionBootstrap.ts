@@ -5,6 +5,7 @@ import {
   approveGrant,
   beginIdentitySession,
   prepareIdentitySession,
+  refreshIdentitySession,
   requestGrant,
   revokeGrant,
   restoreIdentitySession,
@@ -62,6 +63,15 @@ export function useSessionBootstrap() {
     const nextSession = await beginIdentitySession(fallbackAttempt)
     const hydratedSession = preservePublicIdentityState(nextSession, session)
 
+    startTransition(() => {
+      setSession(hydratedSession)
+    })
+  }
+
+  async function reloadSession() {
+    if (!session) return
+    const next = await refreshIdentitySession(session)
+    const hydratedSession = preservePublicIdentityState(next, session)
     startTransition(() => {
       setSession(hydratedSession)
     })
@@ -354,6 +364,7 @@ export function useSessionBootstrap() {
     createLocalIdentity,
     error,
     isLoading: status !== 'idle',
+    reloadSession,
     saveIneVerification,
     createPublicPersona,
     linkPublicSocial,

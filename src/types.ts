@@ -1,5 +1,4 @@
 export type SurfaceId = 'public' | 'civic' | 'dating'
-export type SectionId = 'home' | 'grants' | 'providers' | 'settings' | 'civic'
 export type Visibility = 'Public' | 'Trusted only' | 'Private'
 export type SurfaceState = 'Live' | 'Limited' | 'Muted'
 
@@ -21,10 +20,6 @@ export type GrantStatus =
   | 'Pending approval'
   | 'Revoked'
   | 'Expired'
-  | 'pending'
-  | 'approved'
-  | 'revoked'
-  | 'expired'
 export type GrantState = 'Live' | 'Needs review' | 'Paused'
 export type ClaimRequestStatus =
   | 'Pending'
@@ -32,17 +27,10 @@ export type ClaimRequestStatus =
   | 'Rejected'
   | 'Revoked'
   | 'Expired'
-  | 'pending'
-  | 'approved'
-  | 'rejected'
 export type ProofStatus =
   | 'Active'
   | 'Revoked'
   | 'Expired'
-  | 'pending'
-  | 'active'
-  | 'revoked'
-  | 'expired'
 export type ProviderTrustLevel = 'Trusted' | 'Scoped' | 'Core' | 'Experimental' | 'Degraded'
 export type LedgerAction = 'Requested' | 'Approved' | 'Revoked' | 'Expired' | 'Verified'
 export type ParaPolicyRecord = 'com.para.identity'
@@ -283,14 +271,6 @@ export type ParaBrokerSnapshot = {
   providers: ParaProviderProfile[]
 }
 
-export type SafetyAction = {
-  title: string
-  detail: string
-  urgency: 'Now' | 'Soon' | 'Optional'
-  onPress: () => void
-  cta: string
-}
-
 export type ConsentPolicyRule = {
   title: string
   detail: string
@@ -384,7 +364,6 @@ export type IdentitySession = {
   grants: AppGrant[]
   providers: SignalProvider[]
   integrations: Integration[]
-  safetyActions: SafetyAction[]
   surfaceTemplates: SurfaceTemplate[]
   commands: Record<SurfaceId, Command[]>
   ineVerification?: IneVerificationRecord

@@ -19,10 +19,10 @@ import {
 } from '../../poc-data'
 import {
   buildClaimCatalog,
+  buildConsentLedger,
   buildConsentPolicy,
   buildPdsSafetyPolicy,
   buildProofLifecycleCopy,
-  buildSafetyActions,
 } from '../trustPolicy'
 import type {
   AppGrant,
@@ -188,10 +188,9 @@ export function mapCurrentSession(
       expiresAt: proof.expiresAt ?? 'No expiry',
       status: mapProofStatus(proof.status),
     })),
-    consentLedger: session.claimRequests.length >= 0 ? [] : [],
+    consentLedger: buildConsentLedger(),
     providers,
     integrations: buildIntegrations(),
-    safetyActions: buildSafetyActions(),
     surfaceTemplates: buildSurfaceTemplates(),
     commands: buildCommandDeck(),
   }

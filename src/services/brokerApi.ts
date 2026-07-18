@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import { secureGet, secureSet, secureDelete } from './secureStorage'
 import { Platform } from 'react-native'
 import type {
   ProofBrokerSession,
@@ -68,8 +68,8 @@ async function loadPersistedAccessToken() {
   }
 
   const token =
-    (await AsyncStorage.getItem(ACCESS_TOKEN_KEY)) ??
-    (await AsyncStorage.getItem(LEGACY_SESSION_TOKEN_KEY))
+    (await secureGet(ACCESS_TOKEN_KEY)) ??
+    (await secureGet(LEGACY_SESSION_TOKEN_KEY))
   currentAccessToken = token
   return token
 }
@@ -79,7 +79,7 @@ async function loadPersistedRefreshToken() {
     return currentRefreshToken
   }
 
-  const token = await AsyncStorage.getItem(REFRESH_TOKEN_KEY)
+  const token = await secureGet(REFRESH_TOKEN_KEY)
   currentRefreshToken = token
   return token
 }
@@ -92,16 +92,16 @@ async function persistTokenBundle(tokens: {
   currentRefreshToken = tokens?.refreshToken ?? null
 
   if (tokens?.accessToken) {
-    await AsyncStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken)
+    await secureSet(ACCESS_TOKEN_KEY, tokens.accessToken)
   } else {
-    await AsyncStorage.removeItem(ACCESS_TOKEN_KEY)
-    await AsyncStorage.removeItem(LEGACY_SESSION_TOKEN_KEY)
+    await secureDelete(ACCESS_TOKEN_KEY)
+    await secureDelete(LEGACY_SESSION_TOKEN_KEY)
   }
 
   if (tokens?.refreshToken) {
-    await AsyncStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken)
+    await secureSet(REFRESH_TOKEN_KEY, tokens.refreshToken)
   } else {
-    await AsyncStorage.removeItem(REFRESH_TOKEN_KEY)
+    await secureDelete(REFRESH_TOKEN_KEY)
   }
 }
 

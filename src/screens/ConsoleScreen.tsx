@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { StatusBar } from 'expo-status-bar'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import Animated from 'react-native-reanimated'
 import { ConsoleLayout } from './Console/ConsoleLayout'
 import { ConsoleHeader } from './Console/Header'
 import { BottomNav } from './Console/Nav'
-import { useNotificationEngine } from '../hooks/useNotifications'
+import { useNotifications } from '../hooks/useNotifications'
 import type { DeepLinkRoute } from '../hooks/useDeepLink'
 import { BiometricGateModal, useBiometricGate } from '../components/m8/BiometricGate'
 import { IneVerificationModal } from '../components/m8/IneVerificationModal'
@@ -17,7 +16,7 @@ import type {
   NewSurfaceInput,
   SocialProvider,
 } from '../types'
-import { SettingsSection } from './Console/sections/SafetySection'
+import { SettingsSection } from './Console/sections/SettingsSection'
 import { HomeSection } from './Console/sections/HomeSection'
 import { IdentitySection } from './Console/sections/IdentitySection'
 import { getRenameStatus } from './Console/constants'
@@ -37,6 +36,7 @@ export function ConsoleScreen({
   onSignOut,
   onUnlinkPublicSocial,
   onUpdateDisplayName,
+  onRefreshSession,
   session,
   incomingRoute,
   onRouteHandled,
@@ -53,6 +53,7 @@ export function ConsoleScreen({
   onSignOut: () => void
   onUnlinkPublicSocial: (id: string) => Promise<void>
   onUpdateDisplayName: (displayName: string) => Promise<void>
+  onRefreshSession: () => Promise<void>
   session: IdentitySession
   incomingRoute?: DeepLinkRoute | null
   onRouteHandled?: () => void
@@ -69,7 +70,6 @@ export function ConsoleScreen({
   const [renameInput, setRenameInput] = useState(session.verifiedDisplayName ?? session.displayName)
   const [savingName, setSavingName] = useState(false)
   const [requestingPara, setRequestingPara] = useState(false)
-  const [darkMode, setDarkMode] = useState(false)
   const scrollRef = useRef<Animated.ScrollView>(null)
   const { unlock, enabled: biometricEnabled, toggleEnabled: toggleBiometric } = useBiometricGate()
 
@@ -79,14 +79,7 @@ export function ConsoleScreen({
     hasDanger,
     dismissNotification,
     markNotificationsRead,
-  } = useNotificationEngine(session, () => setActiveSection('dashboard'))
-
-  useEffect(() => {
-    AsyncStorage.getItem('@m8/dark-mode').then((val) => {
-      if (val === 'true') setDarkMode(true)
-    })
-
-  }, [])
+  } = useNotifications(session, () => setActiveSection('dashboard'))
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false })
@@ -121,6 +114,8 @@ export function ConsoleScreen({
         setActiveSection('settings')
         break
       case 'wallet':
+        setActiveSection('identity')
+        break
       default:
         setActiveSection('dashboard')
         break
@@ -182,7 +177,7 @@ export function ConsoleScreen({
         refreshing={refreshing}
         onRefresh={() => {
           setRefreshing(true)
-          setTimeout(() => setRefreshing(false), 900)
+          void onRefreshSession().finally(() => setRefreshing(false))
         }}
         header={
           <ConsoleHeader
@@ -235,7 +230,7 @@ export function ConsoleScreen({
             onRequestParaGrant={requestParaStarterGrant}
             onSelectPersona={setActivePersonaId}
             onShowSurfaceBuilder={() => setShowSurfaceBuilder(true)}
-            onSkipRename={() => setActiveSection('identity')}
+            onSkipRename={() => setActiveSection('dashboard')}
             onStartVerification={() => setShowIneModal(true)}
             personas={session.personas}
             proofArtifacts={session.proofArtifacts}
@@ -253,15 +248,10 @@ export function ConsoleScreen({
             session={session}
             activePersona={activePersona}
             biometricEnabled={biometricEnabled}
-            darkMode={darkMode}
             onLinkPublicSocial={onLinkPublicSocial}
             onSignOut={onSignOut}
             onToggleBiometric={(value) => {
               void toggleBiometric(value)
-            }}
-            onToggleDarkMode={(value) => {
-              setDarkMode(value)
-              void AsyncStorage.setItem('@m8/dark-mode', String(value))
             }}
             onUnlinkPublicSocial={onUnlinkPublicSocial}
           />

@@ -10,7 +10,6 @@ type HapticsModule = {
 let Haptics: HapticsModule | null = null
 
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   Haptics = require('expo-haptics') as HapticsModule
 } catch {
   // expo-haptics not installed — fall back to Vibration API

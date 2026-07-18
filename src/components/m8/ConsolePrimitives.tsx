@@ -16,7 +16,7 @@ export function EmptyState({ icon, title, detail }: { icon: IconName; title: str
 
 export function ListRow({ detail, meta, title }: { detail: string; meta: string; title: string }) {
   return (
-    <View style={styles.row}>
+    <View style={consoleStyles.row}>
       <View style={{ flex: 1 }}>
         <Text style={{ color: tokens.text, fontSize: 14, fontWeight: '700' }}>{title}</Text>
         <Text style={{ color: tokens.muted, fontSize: 12, marginTop: 2 }}>{detail}</Text>
@@ -28,7 +28,7 @@ export function ListRow({ detail, meta, title }: { detail: string; meta: string;
 
 export function CoreRow({ label, value }: { label: string; value: string }) {
   return (
-    <View style={styles.coreRow}>
+    <View style={consoleStyles.coreRow}>
       <Text style={{ color: tokens.muted, fontSize: 12 }}>{label}</Text>
       <Text style={{ color: tokens.text, fontSize: 12, fontWeight: '700', flexShrink: 1, textAlign: 'right' }}>{value}</Text>
     </View>
@@ -36,22 +36,22 @@ export function CoreRow({ label, value }: { label: string; value: string }) {
 }
 
 export function MiniStat({ label, value, tone }: { label: string; value: string; tone?: 'neutral' | 'success' | 'warning' | 'danger' }) {
-  const toneColor = tone === 'success' ? tokens.success : tone === 'warning' ? tokens.warning : tone === 'danger' ? tokens.danger : tokens.text
+  const color = toneColor(tone ?? 'neutral')
   return (
-    <View style={styles.miniStat}>
+    <View style={consoleStyles.miniStat}>
       <Text style={{ color: tokens.muted, fontSize: 11 }}>{label}</Text>
-      <Text style={{ color: toneColor, fontSize: 15, fontWeight: '700', marginTop: 2 }}>{value}</Text>
+      <Text style={{ color: tone === undefined ? tokens.text : color, fontSize: 15, fontWeight: '700', marginTop: 2 }}>{value}</Text>
     </View>
   )
 }
 
 export function StatRow({ stats }: { stats: { label: string; value: string; tone?: 'neutral' | 'success' | 'warning' | 'danger' }[] }) {
   return (
-    <View style={styles.statRow}>
+    <View style={consoleStyles.statRow}>
       {stats.map((stat, i) => (
         <View key={stat.label} style={{ flexDirection: 'row', alignItems: 'center' }}>
           <MiniStat label={stat.label} value={stat.value} tone={stat.tone} />
-          {i < stats.length - 1 && <View style={styles.divider} />}
+          {i < stats.length - 1 && <View style={consoleStyles.divider} />}
         </View>
       ))}
     </View>
@@ -68,21 +68,21 @@ export function toneColor(tone: string) {
 export function StatusPill({ label, tone }: { label: string; tone: 'neutral' | 'success' | 'warning' | 'danger' }) {
   const tc = toneColor(tone)
   return (
-    <View style={[styles.statusPill, { borderColor: tc + '60', backgroundColor: tc + '15' }]}>
-      <Text style={[styles.statusPillText, { color: tc }]}>{label}</Text>
+    <View style={[consoleStyles.statusPill, { borderColor: tc + '60', backgroundColor: tc + '15' }]}>
+      <Text style={[consoleStyles.statusPillText, { color: tc }]}>{label}</Text>
     </View>
   )
 }
 
 export function SectionHero({ body, eyebrow, icon, title }: { body: string; eyebrow: string; icon: IconName; title: string }) {
   return (
-    <View style={styles.heroCard}>
-      <View style={styles.heroIcon}>
+    <View style={consoleStyles.heroCard}>
+      <View style={consoleStyles.heroIcon}>
         <Icon name={icon} size={24} color={tokens.accentSoft} />
       </View>
-      <Text style={styles.eyebrow}>{eyebrow}</Text>
-      <Text style={styles.heroTitle}>{title}</Text>
-      <Text style={styles.heroBody}>{body}</Text>
+      <Text style={consoleStyles.eyebrow}>{eyebrow}</Text>
+      <Text style={consoleStyles.heroTitle}>{title}</Text>
+      <Text style={consoleStyles.heroBody}>{body}</Text>
     </View>
   )
 }
@@ -90,40 +90,40 @@ export function SectionHero({ body, eyebrow, icon, title }: { body: string; eyeb
 export function SectionHeading({ detail, title }: { detail: string; title: string }) {
   return (
     <View style={{ gap: 3 }}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      <Text style={styles.sectionBody}>{detail}</Text>
+      <Text style={consoleStyles.sectionTitle}>{title}</Text>
+      <Text style={consoleStyles.sectionBody}>{detail}</Text>
     </View>
   )
 }
 
 export function SimpleRow({ detail, icon, meta, title }: { detail: string; icon: IconName; meta: string; title: string }) {
   return (
-    <View style={styles.simpleRow}>
+    <View style={consoleStyles.simpleRow}>
       <Icon name={icon} size={18} color={tokens.accentSoft} />
       <View style={{ flex: 1 }}>
-        <Text style={styles.rowTitle}>{title}</Text>
-        <Text style={styles.rowDetail}>{detail}</Text>
+        <Text style={consoleStyles.rowTitle}>{title}</Text>
+        <Text style={consoleStyles.rowDetail}>{detail}</Text>
       </View>
-      <Text style={styles.rowMeta}>{meta}</Text>
+      <Text style={consoleStyles.rowMeta}>{meta}</Text>
     </View>
   )
 }
 
 export function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <View style={styles.metric}>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricValue} numberOfLines={1}>{value}</Text>
+    <View style={consoleStyles.metric}>
+      <Text style={consoleStyles.metricLabel}>{label}</Text>
+      <Text style={consoleStyles.metricValue} numberOfLines={1}>{value}</Text>
     </View>
   )
 }
 
 export function ClaimChips({ claims }: { claims: string[] }) {
   return (
-    <View style={styles.claimRow}>
+    <View style={consoleStyles.claimRow}>
       {claims.map((claim) => (
-        <View key={claim} style={styles.claimChip}>
-          <Text style={styles.claimText}>{CLAIM_LABELS[claim] ?? claim}</Text>
+        <View key={claim} style={consoleStyles.claimChip}>
+          <Text style={consoleStyles.claimText}>{CLAIM_LABELS[claim] ?? claim}</Text>
         </View>
       ))}
     </View>
@@ -132,19 +132,19 @@ export function ClaimChips({ claims }: { claims: string[] }) {
 
 export function SimpleFact({ label, value }: { label: string; value: string }) {
   return (
-    <View style={styles.factRow}>
-      <Text style={styles.factLabel}>{label}</Text>
-      <Text style={styles.factValue}>{value}</Text>
+    <View style={consoleStyles.factRow}>
+      <Text style={consoleStyles.factLabel}>{label}</Text>
+      <Text style={consoleStyles.factValue}>{value}</Text>
     </View>
   )
 }
 
 export function EmptyCard({ body, icon, title }: { body: string; icon: IconName; title: string }) {
   return (
-    <View style={styles.emptyCard}>
+    <View style={consoleStyles.emptyCard}>
       <Icon name={icon} size={28} color={tokens.muted} />
-      <Text style={styles.cardTitle}>{title}</Text>
-      <Text style={styles.cardBodyText}>{body}</Text>
+      <Text style={consoleStyles.cardTitle}>{title}</Text>
+      <Text style={consoleStyles.cardBodyText}>{body}</Text>
     </View>
   )
 }
@@ -157,28 +157,40 @@ export function NotificationCard({
   onDismissNotification: (id: string) => void
 }) {
   return (
-    <View style={styles.notificationCard}>
+    <View style={consoleStyles.notificationCard}>
       <Icon name={notification.icon} size={18} color={toneColor(notification.severity)} />
       <View style={{ flex: 1 }}>
-        <Text style={styles.rowTitle}>{notification.title}</Text>
-        {notification.body ? <Text style={styles.rowDetail}>{notification.body}</Text> : null}
-        <Text style={styles.rowMeta}>{notification.time}</Text>
+        <Text style={consoleStyles.rowTitle}>{notification.title}</Text>
+        {notification.body ? <Text style={consoleStyles.rowDetail}>{notification.body}</Text> : null}
+        <Text style={consoleStyles.rowMeta}>{notification.time}</Text>
       </View>
       {notification.action ? (
-        <Pressable onPress={notification.action.onPress} style={styles.textButton}>
-          <Text style={styles.textButtonLabel}>{notification.action.label}</Text>
+        <Pressable onPress={notification.action.onPress} style={consoleStyles.textButton}>
+          <Text style={consoleStyles.textButtonLabel}>{notification.action.label}</Text>
         </Pressable>
       ) : null}
       {notification.source === 'user' ? (
-        <Pressable onPress={() => onDismissNotification(notification.id)} style={styles.textButton}>
-          <Text style={styles.textButtonLabel}>Dismiss</Text>
+        <Pressable onPress={() => onDismissNotification(notification.id)} style={consoleStyles.textButton}>
+          <Text style={consoleStyles.textButtonLabel}>Dismiss</Text>
         </Pressable>
       ) : null}
     </View>
   )
 }
 
-const styles = StyleSheet.create({
+/**
+ * Single style source for console UI. Sections and primitives both consume
+ * this sheet — do not fork per-screen copies (the old Console/styles.ts was
+ * merged here).
+ */
+export const consoleStyles = StyleSheet.create({
+  // Layout
+  stack: {
+    gap: 14,
+  },
+  listBlock: {
+    gap: 8,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -197,33 +209,22 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surfaceTransparent,
     marginBottom: 6,
   },
-  miniStat: {
-    alignItems: 'flex-start',
-  },
-  statRow: {
+  rowBetween: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
     marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: tokens.glassBorder,
   },
-  divider: {
-    width: StyleSheet.hairlineWidth,
-    height: 24,
-    backgroundColor: tokens.glassBorder,
-    marginHorizontal: 14,
+  disabled: {
+    opacity: 0.5,
   },
-  statusPill: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  statusPillText: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
+
+  // Hero & headings
   heroCard: {
     borderRadius: 18,
     padding: 18,
@@ -240,6 +241,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: tokens.surfaceTransparent,
     marginBottom: 4,
+  },
+  topStatus: {
+    gap: 12,
+  },
+  appMark: {
+    color: tokens.accent,
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  screenTitle: {
+    color: tokens.text,
+    fontSize: 28,
+    lineHeight: 33,
+    fontWeight: '800',
+  },
+  screenSubtle: {
+    color: tokens.muted,
+    fontSize: 13,
+    marginTop: 2,
   },
   eyebrow: {
     color: tokens.accentSoft,
@@ -269,10 +291,164 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
   },
+
+  // Pills & status
+  statusPills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  statusPill: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+
+  // Metrics
+  metricRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  metric: {
+    flex: 1,
+    borderRadius: 14,
+    padding: 12,
+    backgroundColor: tokens.surface,
+    borderWidth: 1,
+    borderColor: tokens.glassBorder,
+  },
+  metricLabel: {
+    color: tokens.muted,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  metricValue: {
+    color: tokens.text,
+    fontSize: 15,
+    fontWeight: '800',
+    marginTop: 3,
+  },
+  miniStat: {
+    alignItems: 'flex-start',
+  },
+  statRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: tokens.glassBorder,
+  },
+  divider: {
+    width: StyleSheet.hairlineWidth,
+    height: 24,
+    backgroundColor: tokens.glassBorder,
+    marginHorizontal: 14,
+  },
+
+  // Cards & rows
+  personaCard: {
+    borderRadius: 18,
+    padding: 16,
+    backgroundColor: tokens.surface,
+    borderWidth: 1,
+    borderColor: tokens.glassBorder,
+    gap: 8,
+  },
+  avatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: tokens.surfaceRaised,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    color: tokens.text,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  cardTitle: {
+    color: tokens.text,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  cardMeta: {
+    color: tokens.accentSoft,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  cardBodyText: {
+    color: tokens.muted,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  receiptCard: {
+    borderRadius: 16,
+    padding: 14,
+    gap: 8,
+    backgroundColor: tokens.surface,
+    borderWidth: 1,
+    borderColor: tokens.glassBorder,
+  },
   simpleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    borderRadius: 16,
+    padding: 13,
+    backgroundColor: tokens.surface,
+    borderWidth: 1,
+    borderColor: tokens.glassBorder,
+  },
+  surfaceCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 16,
+    padding: 13,
+    backgroundColor: tokens.surface,
+    borderWidth: 1,
+    borderColor: tokens.glassBorder,
+  },
+  surfaceIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  surfaceStateRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 2,
+  },
+  surfaceState: {
+    flex: 1,
+    borderRadius: 12,
+    padding: 8,
+    backgroundColor: tokens.surfaceTransparent,
+  },
+  surfaceStateLabel: {
+    color: tokens.muted,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  surfaceStateValue: {
+    color: tokens.text,
+    fontSize: 12,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  notificationCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
     borderRadius: 16,
     padding: 13,
     backgroundColor: tokens.surface,
@@ -297,25 +473,42 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     maxWidth: 92,
   },
-  metric: {
-    flex: 1,
-    borderRadius: 14,
-    padding: 12,
+  emptyCard: {
+    alignItems: 'center',
+    borderRadius: 16,
+    padding: 18,
+    gap: 8,
     backgroundColor: tokens.surface,
     borderWidth: 1,
     borderColor: tokens.glassBorder,
   },
-  metricLabel: {
-    color: tokens.muted,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  metricValue: {
+
+  // Inputs & buttons
+  input: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: tokens.stroke,
+    backgroundColor: tokens.surfaceRaised,
     color: tokens.text,
-    fontSize: 15,
-    fontWeight: '800',
-    marginTop: 3,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontSize: 16,
+    marginTop: 8,
   },
+  fullButton: {
+    marginTop: 10,
+    minHeight: 46,
+  },
+  textButton: {
+    paddingVertical: 4,
+  },
+  textButtonLabel: {
+    color: tokens.accentSoft,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  // Claims & facts
   claimRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -350,41 +543,38 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'right',
   },
-  emptyCard: {
-    alignItems: 'center',
-    borderRadius: 16,
-    padding: 18,
-    gap: 8,
-    backgroundColor: tokens.surface,
-    borderWidth: 1,
-    borderColor: tokens.glassBorder,
-  },
-  cardTitle: {
-    color: tokens.text,
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  cardBodyText: {
-    color: tokens.muted,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  notificationCard: {
+
+  // Progress rail
+  progressRail: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    borderRadius: 16,
-    padding: 13,
-    backgroundColor: tokens.surface,
+    gap: 8,
+    marginTop: 8,
+  },
+  progressStep: {
+    flex: 1,
+    gap: 6,
+    alignItems: 'center',
+  },
+  progressDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: tokens.surfaceRaised,
     borderWidth: 1,
-    borderColor: tokens.glassBorder,
+    borderColor: tokens.stroke,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  textButton: {
-    paddingVertical: 4,
+  progressDotDone: {
+    backgroundColor: tokens.accent,
+    borderColor: tokens.accent,
   },
-  textButtonLabel: {
-    color: tokens.accentSoft,
-    fontSize: 12,
+  progressLabel: {
+    color: tokens.muted,
+    fontSize: 11,
     fontWeight: '800',
+  },
+  progressLabelDone: {
+    color: tokens.text,
   },
 })
