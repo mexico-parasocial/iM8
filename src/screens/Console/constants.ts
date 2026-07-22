@@ -1,6 +1,19 @@
 import { tokens } from '../../theme'
-import type { SurfaceId, IdentitySession, RenameStatus } from '../../types'
+import type { SurfaceId, IdentitySession, Persona, RenameStatus } from '../../types'
 import type { IconName } from '../../components/m8/Icon'
+
+// Sentinel persona id for the header's "+ Public" slot when no public persona exists yet.
+export const PUBLIC_SLOT_ID = 'public-slot'
+
+// Short friendly label for header segments and the dashboard badge.
+// Persona `name` is the raw handle; `role` carries the human descriptor.
+export function personaLabel(persona: Persona, index: number): string {
+  if (persona.kind === 'public') return 'Public'
+  const role = persona.role.toLowerCase()
+  if (role.includes('civic')) return 'Main'
+  if (role.includes('independent') || role.includes('isolated')) return 'Alt'
+  return `Anon ${index + 1}`
+}
 
 export const SURFACE_META: Record<SurfaceId, { label: string; color: string; icon: IconName }> = {
   public: { label: 'Public', color: tokens.success, icon: 'globe' },

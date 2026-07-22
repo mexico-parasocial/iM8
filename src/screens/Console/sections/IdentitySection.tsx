@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { cardStyle } from '../../../components/m8/Card'
 import { buttonStyle, buttonTextStyle } from '../../../components/m8/Button'
@@ -7,11 +7,15 @@ import {
   consoleStyles,
   Metric,
   SectionHeading,
-  SimpleRow,
   StatusPill,
 } from '../../../components/m8/ConsolePrimitives'
 import { UserAvatar } from '../../../components/m8/UserAvatar'
+import {
+  getAnonymousIdentities,
+  type AnonymousVoiceCard,
+} from '../../../services/brokerApi'
 import { tokens } from '../../../theme'
+import { hapticLight } from '../../../utils/haptics'
 import type {
   IdentitySession,
   NewSurfaceInput,
@@ -21,10 +25,12 @@ import type {
   RenameStatus,
   SocialProvider,
   SurfaceId,
+  SurfaceState,
   SurfaceTemplate,
 } from '../../../types'
 import { SURFACE_META } from '../constants'
 import { ParaSection } from './ParaSection'
+import { PublicLinksCard } from './PublicLinksCard'
 
 export function IdentitySection({
   activeGrantCount,
@@ -33,18 +39,16 @@ export function IdentitySection({
   customSurfaces,
   isVerified,
   onSaveName,
-  onSelectPersona,
   onCreatePublicPersona,
   onLinkPublicSocial,
-  onApprovePolicyChange,
-  onApplyPolicyChange,
-  onRejectPolicyChange,
+  onUnlinkPublicSocial,
   onRequestParaGrant,
   onShowSurfaceBuilder,
   onSkipRename,
   onStartVerification,
-  personas,
+  onUpdateSurfaceState,
   proofArtifacts,
+  publicSlotActive,
   renameInput,
   renameStatus,
   requestingPara,
@@ -58,18 +62,16 @@ export function IdentitySection({
   customSurfaces: NewSurfaceInput[]
   isVerified: boolean
   onSaveName: () => Promise<void>
-  onSelectPersona: (id: string) => void
   onCreatePublicPersona: (displayName: string) => Promise<void>
   onLinkPublicSocial: (provider: SocialProvider, handle: string) => Promise<void>
-  onApprovePolicyChange: (requestId: string, adminDid: string) => Promise<void>
-  onApplyPolicyChange: (requestId: string) => Promise<void>
-  onRejectPolicyChange: (requestId: string, adminDid: string) => Promise<void>
+  onUnlinkPublicSocial: (id: string) => Promise<void>
   onRequestParaGrant: () => Promise<void>
   onShowSurfaceBuilder: () => void
   onSkipRename: () => void
   onStartVerification: () => void
-  personas: Persona[]
+  onUpdateSurfaceState: (personaId: string, surface: SurfaceId, state: SurfaceState) => Promise<void>
   proofArtifacts: ProofArtifact[]
+  publicSlotActive: boolean
   renameInput: string
   renameStatus: RenameStatus
   requestingPara: boolean
@@ -78,8 +80,23 @@ export function IdentitySection({
   setRenameInput: (value: string) => void
 }) {
   const surfaces = [...session.surfaceTemplates, ...customSurfaces]
-  const anonymousPersonas = personas.filter((persona) => persona.kind === 'anonymous')
-  const publicPersonas = personas.filter((persona) => persona.kind === 'public')
+
+  // Live tiered voices from the broker (main voice vs burner identities).
+  // Silently absent in local demo mode where no broker session exists.
+  const [voices, setVoices] = useState<AnonymousVoiceCard[] | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    getAnonymousIdentities()
+      .then((cards) => {
+        if (!cancelled) setVoices(cards)
+      })
+      .catch(() => {
+        if (!cancelled) setVoices(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   return (
     <View style={consoleStyles.stack}>
@@ -140,85 +157,110 @@ export function IdentitySection({
         <Metric label="PARA" value={session.paraProvider.availability} />
       </View>
 
-      <View style={[cardStyle('accent'), { marginBottom: 6 }]}>
-        <View style={consoleStyles.rowBetween}>
-          <View style={{ flex: 1 }}>
-            <Text style={consoleStyles.sectionTitle}>Private civic root</Text>
-            <Text style={consoleStyles.sectionBody}>
-              Hidden authority for one vote, recovery, and proof issuance. It is not a card and never appears as a public profile.
-            </Text>
-          </View>
-          <Icon name="lock" size={22} color={tokens.accentSoft} />
-        </View>
-      </View>
-
-      <View style={[cardStyle('accent'), { marginBottom: 6 }]}>
-        <Text style={consoleStyles.sectionTitle}>One vote. Guaranteed.</Text>
-        <Text style={consoleStyles.sectionBody}>
-          No matter how many cards you create, the private root ensures you can only vote once per policy. Multiple faces, one voice, one vote.
-        </Text>
-      </View>
-
-      <View style={consoleStyles.listBlock}>
-        <SectionHeading title="Anonymous cards" detail="Separate names. No public social link unless you choose one." />
-        {anonymousPersonas.map((persona) => (
-          <PersonaCard
-            key={persona.id}
-            active={persona.id === activePersona?.id}
-            onPress={() => onSelectPersona(persona.id)}
-            persona={persona}
+      {publicSlotActive ? (
+        <View style={consoleStyles.listBlock}>
+          <SectionHeading
+            title="Public identity"
+            detail="Only created after you link a social or make one manually."
           />
-        ))}
-      </View>
-
-      <View style={consoleStyles.listBlock}>
-        <SectionHeading title="Public identity" detail="Only created after you link a social or make one manually." />
-        {publicPersonas.length > 0 ? (
-          publicPersonas.map((persona) => (
-            <PersonaCard
-              key={persona.id}
-              active={persona.id === activePersona?.id}
-              onPress={() => onSelectPersona(persona.id)}
-              persona={persona}
-            />
-          ))
-        ) : (
           <PublicIdentityEmpty
             onCreatePublicPersona={onCreatePublicPersona}
             onLinkPublicSocial={onLinkPublicSocial}
           />
-        )}
-      </View>
+        </View>
+      ) : activePersona ? (
+        <>
+          <View style={consoleStyles.listBlock}>
+            <SectionHeading
+              title={activePersona.kind === 'public' ? 'Public card' : 'Anonymous card'}
+              detail={
+                activePersona.kind === 'public'
+                  ? 'Your public face across the network. Social links attach here only.'
+                  : 'Separate names. No public social link unless you choose one.'
+              }
+            />
+            <PersonaCard
+              active
+              onCycleSurfaceState={(surface) => {
+                const order: SurfaceState[] = ['Live', 'Limited', 'Muted']
+                const current = activePersona.surfaceStates[surface]
+                const next = order[(order.indexOf(current) + 1) % order.length]
+                void onUpdateSurfaceState(activePersona.id, surface, next)
+              }}
+              persona={activePersona}
+            />
+          </View>
 
-      <View style={consoleStyles.listBlock}>
-        <SectionHeading title="Surfaces" detail="Surfaces replace the old global switcher with clear sharing contexts." />
-        {surfaces.map((surface) => (
-          <SurfaceCard key={surface.id} surface={surface} />
-        ))}
-        <Pressable onPress={onShowSurfaceBuilder} style={[buttonStyle('secondary'), consoleStyles.fullButton]}>
-          <Text style={buttonTextStyle('secondary')}>Create surface</Text>
-        </Pressable>
-      </View>
+          {activePersona.kind === 'anonymous' && voices && voices.length > 0 ? (
+            <View style={consoleStyles.listBlock}>
+              <SectionHeading
+                title="Your voices"
+                detail="The main voice can be followed and earns karma. Burner voices stay unlinkable and can never be followed."
+              />
+              {voices.map((card) => (
+                <View key={card.id} style={consoleStyles.surfaceCard}>
+                  <View
+                    style={[
+                      consoleStyles.surfaceIcon,
+                      {
+                        backgroundColor:
+                          card.tier === 'main' ? tokens.accentTransparent : tokens.surfaceRaised,
+                        borderRadius: 19,
+                      },
+                    ]}>
+                    <Icon
+                      name={card.tier === 'main' ? 'shieldCheck' : 'eyeSlash'}
+                      size={18}
+                      color={card.tier === 'main' ? tokens.accentSoft : tokens.muted}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={consoleStyles.rowTitle}>{card.displayName}</Text>
+                    <Text style={consoleStyles.rowDetail}>
+                      {card.tier === 'main'
+                        ? 'Main voice · followable'
+                        : card.burnAfter === 'post'
+                          ? 'Burner · one post, then rotates'
+                          : 'Burner · unlinkable, not followable'}
+                    </Text>
+                  </View>
+                  <Text style={consoleStyles.rowMeta}>{card.posts.length} posts</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
 
-      <ParaSection
-        embedded
-        isVerified={isVerified}
-        onApprovePolicyChange={onApprovePolicyChange}
-        onApplyPolicyChange={onApplyPolicyChange}
-        onRejectPolicyChange={onRejectPolicyChange}
-        onRequestParaGrant={onRequestParaGrant}
-        onStartVerification={onStartVerification}
-        proofArtifacts={proofArtifacts}
-        requestingPara={requestingPara}
-        session={session}
-      />
+          {activePersona.kind === 'public' ? (
+            <PublicLinksCard
+              onLinkPublicSocial={onLinkPublicSocial}
+              onUnlinkPublicSocial={onUnlinkPublicSocial}
+              session={session}
+            />
+          ) : null}
 
-      <View style={consoleStyles.listBlock}>
-        <SectionHeading title="Session record" detail="Technical details for recovery and app compatibility." />
-        <SimpleRow icon="person" title="Display name" detail={session.displayName} meta="Local" />
-        <SimpleRow icon="shield" title="DID" detail={session.did} meta="Portable" />
-        <SimpleRow icon="globe" title="Auth server" detail={session.authorizationServer} meta={session.brokerMode} />
-      </View>
+          <View style={consoleStyles.listBlock}>
+            <SectionHeading title="Surfaces" detail="Surfaces replace the old global switcher with clear sharing contexts." />
+            {surfaces.map((surface) => (
+              <SurfaceCard key={surface.id} surface={surface} />
+            ))}
+            <Pressable onPress={onShowSurfaceBuilder} style={[buttonStyle('secondary'), consoleStyles.fullButton]}>
+              <Text style={buttonTextStyle('secondary')}>Create surface</Text>
+            </Pressable>
+          </View>
+
+          {activePersona.kind === 'anonymous' ? (
+            <ParaSection
+              embedded
+              isVerified={isVerified}
+              onRequestParaGrant={onRequestParaGrant}
+              onStartVerification={onStartVerification}
+              proofArtifacts={proofArtifacts}
+              requestingPara={requestingPara}
+              session={session}
+            />
+          ) : null}
+        </>
+      ) : null}
     </View>
   )
 }
@@ -355,11 +397,13 @@ function PublicIdentityEmpty({
 
 function PersonaCard({
   active,
+  onCycleSurfaceState,
   onPress,
   persona,
 }: {
   active: boolean
-  onPress: () => void
+  onCycleSurfaceState?: (surface: SurfaceId) => void
+  onPress?: () => void
   persona: Persona
 }) {
   const kColor = kindColor(persona.kind)
@@ -389,15 +433,38 @@ function PersonaCard({
         </View>
       ) : null}
       <View style={consoleStyles.surfaceStateRow}>
-        {(Object.keys(SURFACE_META) as SurfaceId[]).map((surface) => (
-          <View key={surface} style={consoleStyles.surfaceState}>
-            <Text style={consoleStyles.surfaceStateLabel}>{SURFACE_META[surface].label}</Text>
-            <Text style={consoleStyles.surfaceStateValue}>{persona.surfaceStates[surface]}</Text>
-          </View>
-        ))}
+        {(Object.keys(SURFACE_META) as SurfaceId[]).map((surface) => {
+          const state = persona.surfaceStates[surface]
+          return (
+            <Pressable
+              key={surface}
+              disabled={!onCycleSurfaceState}
+              onPress={() => {
+                hapticLight()
+                onCycleSurfaceState?.(surface)
+              }}
+              style={consoleStyles.surfaceState}>
+              <Text style={consoleStyles.surfaceStateLabel}>{SURFACE_META[surface].label}</Text>
+              <Text style={[consoleStyles.surfaceStateValue, { color: surfaceStateColor(state) }]}>
+                {state}
+              </Text>
+            </Pressable>
+          )
+        })}
       </View>
+      {onCycleSurfaceState ? (
+        <Text style={styles.surfaceStateHint}>Tap a surface state to cycle Live → Limited → Muted.</Text>
+      ) : null}
     </Pressable>
   )
+}
+
+function surfaceStateColor(state: SurfaceState): string {
+  switch (state) {
+    case 'Live': return tokens.success
+    case 'Limited': return tokens.warning
+    case 'Muted': return tokens.muted
+  }
 }
 
 function SurfaceCard({ surface }: { surface: SurfaceTemplate | NewSurfaceInput }) {
@@ -495,6 +562,11 @@ const styles = StyleSheet.create({
   galleryPlanText: {
     color: tokens.muted,
     fontSize: 11,
+    marginTop: 2,
+  },
+  surfaceStateHint: {
+    color: tokens.muted,
+    fontSize: 10,
     marginTop: 2,
   },
 })

@@ -1,4 +1,4 @@
-import { View, Pressable, StyleSheet } from 'react-native'
+import { View, Pressable, StyleSheet, Text } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Icon, type IconName } from '../../../components/m8/Icon'
 import { tokens } from '../../../theme'
@@ -39,18 +39,25 @@ export function BottomNav({
           <Pressable
             key={section.id}
             accessibilityLabel={section.label}
+            accessibilityRole="tab"
+            accessibilityState={{selected: active}}
             onPress={() => {
               if (!active) hapticMedium()
               onSectionChange(section.id)
             }}
-            style={[styles.tab, active && styles.tabActive]}
+            style={styles.tab}
             hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
           >
-            <Icon
-              name={active ? section.iconActive : section.icon}
-              size={20}
-              color={active ? tokens.onAccent : tokens.muted}
-            />
+            <View style={[styles.iconPill, active && styles.iconPillActive]}>
+              <Icon
+                name={active ? section.iconActive : section.icon}
+                size={20}
+                color={active ? tokens.onAccent : tokens.muted}
+              />
+            </View>
+            <Text style={[styles.label, active && styles.labelActive]}>
+              {section.label}
+            </Text>
           </Pressable>
         )
       })}
@@ -82,10 +89,24 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 46,
-    borderRadius: 14,
+    gap: 3,
+    paddingVertical: 2,
   },
-  tabActive: {
+  iconPill: {
+    paddingHorizontal: 18,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  iconPillActive: {
     backgroundColor: tokens.accent,
+  },
+  label: {
+    color: tokens.muted,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  labelActive: {
+    color: tokens.accentSoft,
   },
 })

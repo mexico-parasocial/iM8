@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { StatusBar } from 'expo-status-bar'
 import Animated from 'react-native-reanimated'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { ConsoleLayout } from './Console/ConsoleLayout'
 import { ConsoleHeader } from './Console/Header'
 import { BottomNav } from './Console/Nav'
@@ -15,13 +16,18 @@ import type {
   IneVerificationRecord,
   NewSurfaceInput,
   SocialProvider,
+  SurfaceId,
+  SurfaceState,
 } from '../types'
 import { SettingsSection } from './Console/sections/SettingsSection'
 import { HomeSection } from './Console/sections/HomeSection'
 import { IdentitySection } from './Console/sections/IdentitySection'
-import { getRenameStatus } from './Console/constants'
+import { getRenameStatus, PUBLIC_SLOT_ID } from './Console/constants'
 
 type ConsoleSectionId = 'dashboard' | 'identity' | 'settings'
+
+const CONSOLE_UI_KEY = '@m8/console-ui'
+const CUSTOM_SURFACES_KEY = '@m8/custom-surfaces'
 
 export function ConsoleScreen({
   onApproveGrant,
@@ -36,6 +42,7 @@ export function ConsoleScreen({
   onSignOut,
   onUnlinkPublicSocial,
   onUpdateDisplayName,
+  onUpdateSurfaceState,
   onRefreshSession,
   session,
   incomingRoute,
@@ -53,6 +60,7 @@ export function ConsoleScreen({
   onSignOut: () => void
   onUnlinkPublicSocial: (id: string) => Promise<void>
   onUpdateDisplayName: (displayName: string) => Promise<void>
+  onUpdateSurfaceState: (personaId: string, surface: SurfaceId, state: SurfaceState) => Promise<void>
   onRefreshSession: () => Promise<void>
   session: IdentitySession
   incomingRoute?: DeepLinkRoute | null
@@ -63,6 +71,7 @@ export function ConsoleScreen({
   const [activeSection, setActiveSection] = useState<ConsoleSectionId>('dashboard')
   const [activePersonaId, setActivePersonaId] = useState(session.personas[0]?.id ?? '')
   const [refreshing, setRefreshing] = useState(false)
+  const [uiRestored, setUiRestored] = useState(false)
   const [showSurfaceBuilder, setShowSurfaceBuilder] = useState(false)
   const [customSurfaces, setCustomSurfaces] = useState<NewSurfaceInput[]>([])
   const [showBiometricGate, setShowBiometricGate] = useState(false)
@@ -81,6 +90,65 @@ export function ConsoleScreen({
     markNotificationsRead,
   } = useNotifications(session, () => setActiveSection('dashboard'))
 
+  // Restore persisted UI state (selected section/persona, custom surfaces) once on mount.
+  useEffect(() => {
+    if (uiRestored) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const [uiRaw, surfacesRaw] = await Promise.all([
+          AsyncStorage.getItem(CONSOLE_UI_KEY),
+          AsyncStorage.getItem(CUSTOM_SURFACES_KEY),
+        ])
+        if (cancelled) return
+        if (uiRaw) {
+          const parsed = JSON.parse(uiRaw) as { activeSection?: string; activePersonaId?: string }
+          // A pending deep link wins over the restored section.
+          if (
+            !incomingRoute &&
+            (parsed.activeSection === 'dashboard' ||
+              parsed.activeSection === 'identity' ||
+              parsed.activeSection === 'settings')
+          ) {
+            setActiveSection(parsed.activeSection)
+          }
+          if (parsed.activePersonaId) {
+            const hasPublic = session.personas.some((p) => p.kind === 'public')
+            const valid =
+              session.personas.some((p) => p.id === parsed.activePersonaId) ||
+              (parsed.activePersonaId === PUBLIC_SLOT_ID && !hasPublic)
+            if (valid) setActivePersonaId(parsed.activePersonaId)
+          }
+        }
+        if (surfacesRaw) {
+          const parsed = JSON.parse(surfacesRaw)
+          if (Array.isArray(parsed)) setCustomSurfaces(parsed as NewSurfaceInput[])
+        }
+      } catch {
+        // Corrupt or missing storage — keep defaults.
+      } finally {
+        if (!cancelled) setUiRestored(true)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [uiRestored, incomingRoute, session.personas])
+
+  // Persist UI state once the restore has completed.
+  useEffect(() => {
+    if (!uiRestored) return
+    void AsyncStorage.setItem(
+      CONSOLE_UI_KEY,
+      JSON.stringify({ activeSection, activePersonaId })
+    )
+  }, [uiRestored, activeSection, activePersonaId])
+
+  useEffect(() => {
+    if (!uiRestored) return
+    void AsyncStorage.setItem(CUSTOM_SURFACES_KEY, JSON.stringify(customSurfaces))
+  }, [uiRestored, customSurfaces])
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false })
   }, [activeSection])
@@ -96,6 +164,13 @@ export function ConsoleScreen({
   }, [session.displayName, session.verifiedDisplayName])
 
   useEffect(() => {
+    if (activePersonaId === PUBLIC_SLOT_ID) {
+      // The "+ Public" slot is only valid while no public persona exists;
+      // once one is created, switch to the real persona.
+      const publicPersona = session.personas.find((p) => p.kind === 'public')
+      if (publicPersona) setActivePersonaId(publicPersona.id)
+      return
+    }
     if (!session.personas.some((persona) => persona.id === activePersonaId)) {
       setActivePersonaId(session.personas[0]?.id ?? '')
     }
@@ -123,9 +198,14 @@ export function ConsoleScreen({
     onRouteHandled?.()
   }, [incomingRoute, onRouteHandled])
 
+  const isPublicSlot = activePersonaId === PUBLIC_SLOT_ID
+
   const activePersona = useMemo(
-    () => session.personas.find((p) => p.id === activePersonaId) ?? session.personas[0],
-    [activePersonaId, session.personas]
+    () =>
+      isPublicSlot
+        ? undefined
+        : session.personas.find((p) => p.id === activePersonaId) ?? session.personas[0],
+    [isPublicSlot, activePersonaId, session.personas]
   )
 
   const activeProofCount = session.proofArtifacts.filter((proof) => proof.status === 'Active').length
@@ -200,14 +280,21 @@ export function ConsoleScreen({
       >
         {activeSection === 'dashboard' && (
           <HomeSection
-            activePersona={activePersona}
+            activePersona={activePersona ?? session.personas[0]}
             grants={session.grants}
             isVerified={isVerified}
             notifications={notifications}
             onApproveGrant={onApproveGrant}
+            onApprovePolicyChange={onApprovePolicyChange}
+            onApplyPolicyChange={onApplyPolicyChange}
             onDismissNotification={dismissNotification}
             onGoToIdentity={() => setActiveSection('identity')}
-            onGoToSettings={() => setActiveSection('settings')}
+            onGoToPublic={() => {
+              const publicPersona = session.personas.find((p) => p.kind === 'public')
+              setActivePersonaId(publicPersona?.id ?? PUBLIC_SLOT_ID)
+              setActiveSection('identity')
+            }}
+            onRejectPolicyChange={onRejectPolicyChange}
             onRevokeGrant={onRevokeGrant}
             pendingRequests={session.pendingRequests}
             session={session}
@@ -224,16 +311,14 @@ export function ConsoleScreen({
             onSaveName={saveNameAndUsePara}
             onCreatePublicPersona={onCreatePublicPersona}
             onLinkPublicSocial={onLinkPublicSocial}
-            onApprovePolicyChange={onApprovePolicyChange}
-            onApplyPolicyChange={onApplyPolicyChange}
-            onRejectPolicyChange={onRejectPolicyChange}
+            onUnlinkPublicSocial={onUnlinkPublicSocial}
             onRequestParaGrant={requestParaStarterGrant}
-            onSelectPersona={setActivePersonaId}
             onShowSurfaceBuilder={() => setShowSurfaceBuilder(true)}
             onSkipRename={() => setActiveSection('dashboard')}
             onStartVerification={() => setShowIneModal(true)}
-            personas={session.personas}
+            onUpdateSurfaceState={onUpdateSurfaceState}
             proofArtifacts={session.proofArtifacts}
+            publicSlotActive={isPublicSlot}
             renameInput={renameInput}
             renameStatus={renameStatus}
             requestingPara={requestingPara}
@@ -248,12 +333,10 @@ export function ConsoleScreen({
             session={session}
             activePersona={activePersona}
             biometricEnabled={biometricEnabled}
-            onLinkPublicSocial={onLinkPublicSocial}
             onSignOut={onSignOut}
             onToggleBiometric={(value) => {
               void toggleBiometric(value)
             }}
-            onUnlinkPublicSocial={onUnlinkPublicSocial}
           />
         )}
       </ConsoleLayout>

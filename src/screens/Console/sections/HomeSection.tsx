@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import type { ReactNode } from 'react'
+import { cardStyle } from '../../../components/m8/Card'
 import {
   consoleStyles,
   EmptyCard,
@@ -12,6 +13,8 @@ import { Icon } from '../../../components/m8/Icon'
 import type { AppGrant, ClaimRequest, IdentitySession, Persona } from '../../../types'
 import type { NotificationItem } from '../../../hooks/useNotifications'
 import { tokens } from '../../../theme'
+import { personaLabel } from '../constants'
+import { GovernanceSection } from './GovernanceSection'
 import { GrantCard, RequestCard } from './RequestsSection'
 
 export function HomeSection({
@@ -20,9 +23,12 @@ export function HomeSection({
   isVerified,
   notifications,
   onApproveGrant,
+  onApprovePolicyChange,
+  onApplyPolicyChange,
   onDismissNotification,
   onGoToIdentity,
-  onGoToSettings,
+  onGoToPublic,
+  onRejectPolicyChange,
   onRevokeGrant,
   pendingRequests,
   session,
@@ -32,9 +38,12 @@ export function HomeSection({
   isVerified: boolean
   notifications: NotificationItem[]
   onApproveGrant: (id: string) => Promise<void>
+  onApprovePolicyChange: (requestId: string, adminDid: string) => Promise<void>
+  onApplyPolicyChange: (requestId: string) => Promise<void>
   onDismissNotification: (id: string) => void
   onGoToIdentity: () => void
-  onGoToSettings: () => void
+  onGoToPublic: () => void
+  onRejectPolicyChange: (requestId: string, adminDid: string) => Promise<void>
   onRevokeGrant: (id: string) => Promise<void>
   pendingRequests: ClaimRequest[]
   session: IdentitySession
@@ -45,7 +54,8 @@ export function HomeSection({
     : session.personas.find((persona) => persona.kind === 'public')
   const pendingRequestCount = pendingRequests.length
   const activeGrantCount = grants.filter((grant) => grant.status === 'Active').length
-  const activePersonaIndex = Math.max(0, session.personas.findIndex((persona) => persona.id === activePersona?.id)) + 1
+  const activePersonaIndex = session.personas.findIndex((persona) => persona.id === activePersona?.id)
+  const activePersonaBadge = activePersona ? personaLabel(activePersona, Math.max(0, activePersonaIndex)) : '–'
 
   return (
     <View style={consoleStyles.stack}>
@@ -57,7 +67,7 @@ export function HomeSection({
             <Text style={styles.identityHandle}>{session.handle}</Text>
           </View>
           <View style={styles.identityNumber}>
-            <Text style={styles.identityNumberText}>{activePersonaIndex}</Text>
+            <Text style={styles.identityNumberText}>{activePersonaBadge}</Text>
           </View>
         </View>
         <View style={styles.identityFooter}>
@@ -81,6 +91,25 @@ export function HomeSection({
         </View>
       </View>
 
+      <View style={cardStyle('accent')}>
+        <View style={consoleStyles.rowBetween}>
+          <View style={{ flex: 1 }}>
+            <Text style={consoleStyles.sectionTitle}>Private civic root</Text>
+            <Text style={consoleStyles.sectionBody}>
+              Hidden authority for one vote, recovery, and proof issuance. It is not a card and never appears as a public profile.
+            </Text>
+          </View>
+          <Icon name="lock" size={22} color={tokens.accentSoft} />
+        </View>
+      </View>
+
+      <View style={cardStyle('accent')}>
+        <Text style={consoleStyles.sectionTitle}>One vote. Guaranteed.</Text>
+        <Text style={consoleStyles.sectionBody}>
+          No matter how many cards you create, the private root ensures you can only vote once per policy. Multiple faces, one voice, one vote.
+        </Text>
+      </View>
+
       <View style={styles.grid}>
         <DashboardCard
           action="Open wallet"
@@ -101,15 +130,15 @@ export function HomeSection({
           title="Proof decisions"
         >
           <Text style={styles.cardBody}>
-            Ordinary app proof requests stay user-approved. Community governance lives in Wallet with PARA.
+            Ordinary app proof requests stay user-approved. Community governance is reviewed below.
           </Text>
         </DashboardCard>
 
         <DashboardCard
-          action="Open Settings"
+          action="Manage links"
           icon="shieldCheck"
           meta={activeLinks.length > 0 ? `${activeLinks.length} linked` : 'No public link'}
-          onPress={onGoToSettings}
+          onPress={onGoToPublic}
           title="Public exposure"
         >
           <Text style={styles.cardBody}>
@@ -155,6 +184,13 @@ export function HomeSection({
           <EmptyCard icon="check" title="Nothing pending" body="New app requests will appear here with plain-language proof details." />
         )}
       </View>
+
+      <GovernanceSection
+        onApprovePolicyChange={onApprovePolicyChange}
+        onApplyPolicyChange={onApplyPolicyChange}
+        onRejectPolicyChange={onRejectPolicyChange}
+        session={session}
+      />
 
       <View style={consoleStyles.listBlock}>
         <SectionHeading title="Grant receipts" detail="Every active or revoked permission stays visible." />
@@ -249,8 +285,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   identityNumber: {
-    width: 38,
     height: 38,
+    minWidth: 38,
+    paddingHorizontal: 10,
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
@@ -260,8 +297,10 @@ const styles = StyleSheet.create({
   },
   identityNumberText: {
     color: tokens.accentSoft,
-    fontSize: 16,
-    fontWeight: '900',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
   },
   identityFooter: {
     flexDirection: 'row',

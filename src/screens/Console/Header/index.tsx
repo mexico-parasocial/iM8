@@ -5,6 +5,7 @@ import {Icon} from '../../../components/m8/Icon'
 import {tokens} from '../../../theme'
 import type {Persona} from '../../../types'
 import type {NotificationItem} from '../../../hooks/useNotifications'
+import {personaLabel, PUBLIC_SLOT_ID} from '../constants'
 
 const HEADER_HEIGHT = 48
 
@@ -44,6 +45,8 @@ export function ConsoleHeader({
 
   const topOffset = insets.top
   const headerFullHeight = HEADER_HEIGHT + topOffset
+  const hasPublicPersona = personas.some((p) => p.kind === 'public')
+  const publicSlotActive = activePersonaId === PUBLIC_SLOT_ID
 
   return (
     <>
@@ -63,27 +66,59 @@ export function ConsoleHeader({
           </Text>
         </View>
 
-        {/* Center: numbered identity selector */}
+        {/* Center: labeled identity segments */}
         <View style={styles.center}>
-          <View style={styles.dotRow}>
+          <View style={styles.segmentRow}>
             {personas.map((p, index) => {
               const active = p.id === activePersonaId
               const pColor = personaColor[p.kind] ?? tokens.accent
+              const label = personaLabel(p, index)
               return (
                 <Pressable
                   key={p.id}
                   onPress={() => onSelectPersona(p.id)}
+                  accessibilityRole="button"
+                  accessibilityState={{selected: active}}
+                  accessibilityLabel={`Identity ${label}`}
                   style={[
-                    styles.dot,
-                    {backgroundColor: pColor + '30'},
+                    styles.segment,
+                    {backgroundColor: pColor + (active ? '30' : '14')},
                     active && {borderColor: pColor + '90'},
                   ]}>
-                  <Text style={[styles.dotText, {color: pColor}]}>
-                    {index + 1}
+                  <Text
+                    style={[
+                      styles.segmentText,
+                      {color: active ? pColor : tokens.muted},
+                    ]}>
+                    {label}
                   </Text>
                 </Pressable>
               )
             })}
+            {!hasPublicPersona && (
+              <Pressable
+                onPress={() => onSelectPersona(PUBLIC_SLOT_ID)}
+                accessibilityRole="button"
+                accessibilityState={{selected: publicSlotActive}}
+                accessibilityLabel="Create public identity"
+                style={[
+                  styles.segment,
+                  styles.segmentPlaceholder,
+                  publicSlotActive && {
+                    backgroundColor: tokens.success + '30',
+                    borderColor: tokens.success + '90',
+                    borderStyle: 'solid',
+                  },
+                ]}>
+                <Text
+                  style={[
+                    styles.segmentText,
+                    {color: publicSlotActive ? tokens.success : tokens.muted},
+                  ]}>
+                  + Public
+                </Text>
+              </Pressable>
+            )}
           </View>
         </View>
 
@@ -91,11 +126,12 @@ export function ConsoleHeader({
         <View style={styles.side}>
           <Pressable
             onPress={() => {
-              setOpen((current) => {
-                const next = !current
-                if (next) onMarkNotificationsRead?.()
-                return next
-              })
+              // Compute outside the updater: calling onMarkNotificationsRead
+              // (a parent setState) inside setOpen's updater fires during
+              // render in React 19 and triggers setState-in-render warnings.
+              const next = !open
+              setOpen(next)
+              if (next) onMarkNotificationsRead?.()
             }}
             style={[styles.iconButton, open && styles.iconButtonActive]}
             hitSlop={8}>
@@ -201,7 +237,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.glassBorderStrong,
   },
   side: {
-    width: 44,
+    width: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -212,7 +248,7 @@ const styles = StyleSheet.create({
   },
   wordmark: {
     color: tokens.text,
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '900',
     letterSpacing: 0.4,
   },
@@ -220,23 +256,27 @@ const styles = StyleSheet.create({
     color: tokens.accentSoft,
     fontStyle: 'italic',
   },
-  dotRow: {
+  segmentRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
   },
-  dot: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
+  segment: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 999,
     borderWidth: 1.5,
     borderColor: 'transparent',
   },
-  dotText: {
-    fontSize: 12,
+  segmentPlaceholder: {
+    backgroundColor: 'transparent',
+    borderStyle: 'dashed',
+    borderColor: tokens.glassBorderStrong,
+  },
+  segmentText: {
+    fontSize: 11,
     fontWeight: '800',
+    letterSpacing: 0.2,
   },
   iconButton: {
     width: 38,

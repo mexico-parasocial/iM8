@@ -66,6 +66,7 @@
     "babel-preset-expo": "~54.0.10",
     "eas-cli": "19.0.5",
     "eas-cli-local-build-plugin": "^18.13.1",
+    "oxlint": "^1.74.0",
     "patch-package": "^8.0.1",
     "tsx": "^4.21.0",
     "typescript": "~5.9.2"

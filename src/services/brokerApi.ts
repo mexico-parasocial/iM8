@@ -419,3 +419,24 @@ export async function persistSessionSnapshot(session: IdentitySession): Promise<
   }
   return clone(session)
 }
+
+export type AnonymousVoiceCard = {
+  id: string
+  displayName: string
+  avatarSeed: string
+  status: 'active' | 'archived'
+  burnAfter: 'none' | 'post'
+  tier: 'main' | 'burner'
+  posts: unknown[]
+}
+
+/**
+ * The user's anonymous voices, tiered by the server: the followable "main
+ * voice" (default profile) and unlinkable burner identities.
+ */
+export async function getAnonymousIdentities(): Promise<AnonymousVoiceCard[]> {
+  const response = await requestJson<{ identities: AnonymousVoiceCard[] }>(
+    '/anonymous/identities'
+  )
+  return response.identities
+}

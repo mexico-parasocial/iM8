@@ -1,17 +1,9 @@
 import { useState } from 'react'
-import {
-  Dimensions,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Icon } from '../components/m8/Icon'
 import { tokens } from '../theme'
-
-const { width } = Dimensions.get('window')
+import { hapticLight } from '../utils/haptics'
 
 const slides = [
   {
@@ -30,7 +22,7 @@ const slides = [
     id: '3',
     icon: 'globe' as const,
     title: 'Public only\nby choice.',
-    body: 'Instagram, X, and Bluesky stay unlinked until you decide to create a public identity. No third card appears before that moment.',
+    body: 'Instagram, X, and Bluesky stay unlinked until you decide to create a public identity from the + Public slot. No public card is created before that moment.',
   },
   {
     id: '4',
@@ -42,49 +34,54 @@ const slides = [
 
 export function OnboardingScreen({ onDone }: { onDone: () => void }) {
   const [index, setIndex] = useState(0)
+  const slide = slides[index]
+  const isLast = index === slides.length - 1
+
+  const goTo = (next: number) => {
+    hapticLight()
+    setIndex(next)
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <FlatList
-          data={slides}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onMomentumScrollEnd={(e) => {
-            const newIndex = Math.round(e.nativeEvent.contentOffset.x / width)
-            setIndex(newIndex)
-          }}
-          renderItem={({ item }) => (
-            <View style={styles.slide}>
-              <Text style={styles.brand}>iM8</Text>
-              <View style={styles.iconWrap}>
-                <Icon name={item.icon} size={48} color={tokens.accent} />
-              </View>
-              <Text style={styles.title}>{item.title}</Text>
-              <Text style={styles.body}>{item.body}</Text>
-            </View>
-          )}
-          keyExtractor={(item) => item.id}
-        />
+        <View style={styles.slide}>
+          <Text style={styles.brand}>iM8</Text>
+          <View style={styles.iconWrap}>
+            <Icon name={slide.icon} size={48} color={tokens.accent} />
+          </View>
+          <Text style={styles.title}>{slide.title}</Text>
+          <Text style={styles.body}>{slide.body}</Text>
+        </View>
 
         <View style={styles.dots}>
-          {slides.map((_, i) => (
-            <View
-              key={i}
-              style={[styles.dot, i === index && styles.dotActive]}
-            />
+          {slides.map((item, i) => (
+            <Pressable
+              key={item.id}
+              onPress={() => goTo(i)}
+              hitSlop={8}
+              accessibilityLabel={`Go to slide ${i + 1}`}
+            >
+              <View style={[styles.dot, i === index && styles.dotActive]} />
+            </Pressable>
           ))}
         </View>
 
-        <Pressable
-          onPress={onDone}
-          style={styles.button}
-        >
-          <Text style={styles.buttonText}>
-            {index === slides.length - 1 ? 'Get started' : 'Skip'}
-          </Text>
-        </Pressable>
+        <View style={styles.buttonRow}>
+          {!isLast ? (
+            <Pressable onPress={onDone} hitSlop={8} style={styles.skipButton}>
+              <Text style={styles.skipText}>Skip</Text>
+            </Pressable>
+          ) : null}
+          <Pressable
+            onPress={() => (isLast ? onDone() : goTo(index + 1))}
+            style={styles.button}
+          >
+            <Text style={styles.buttonText}>
+              {isLast ? 'Get started' : 'Next'}
+            </Text>
+          </Pressable>
+        </View>
       </View>
     </SafeAreaView>
   )
@@ -102,9 +99,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   slide: {
-    width,
-    paddingHorizontal: 24,
-    paddingTop: 120,
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'flex-start',
   },
   iconWrap: {
@@ -145,7 +141,22 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.accent,
     width: 24,
   },
+  buttonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  skipButton: {
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+  },
+  skipText: {
+    color: tokens.muted,
+    fontSize: 15,
+    fontWeight: '700',
+  },
   button: {
+    flex: 1,
     backgroundColor: tokens.accent,
     borderRadius: 16,
     paddingVertical: 16,

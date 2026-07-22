@@ -51,3 +51,7 @@ npm run typecheck
 ## Repository Boundary
 
 This repository is frontend-only. Do not add backend services, SQLite data, local broker state, generated Expo output, `node_modules`, or native build artifacts.
+
+## Storage Split
+
+Sensitive values (broker tokens, local session snapshot, identity data) go through `src/services/secureStorage.ts` (Keychain/Keystore via `expo-secure-store`, AsyncStorage fallback on dev/web). Non-sensitive prefs stay in AsyncStorage.

@@ -20,6 +20,8 @@ import {
   type IneVerificationRecord,
   type PolicyChangeRequest,
   type SocialProvider,
+  type SurfaceId,
+  type SurfaceState,
 } from '../types'
 import { buildPublicPersona } from '../poc-data'
 import { buildInstagramGalleryPlan } from '../services/instagramGallery'
@@ -180,6 +182,18 @@ export function useSessionBootstrap() {
               name: cleanName,
               oneLine: 'Verified civic identity for PARA-compatible apps',
             }
+          : persona
+      ),
+    })
+  }
+
+  async function updateSurfaceState(personaId: string, surface: SurfaceId, state: SurfaceState) {
+    if (!session) return
+    await updateSession({
+      ...session,
+      personas: session.personas.map((persona) =>
+        persona.id === personaId
+          ? { ...persona, surfaceStates: { ...persona.surfaceStates, [surface]: state } }
           : persona
       ),
     })
@@ -347,6 +361,8 @@ export function useSessionBootstrap() {
     await AsyncStorage.removeItem('@m8/dark-mode')
     await AsyncStorage.removeItem('@m8/biometric-enabled')
     await AsyncStorage.removeItem('@m8/last-background')
+    await AsyncStorage.removeItem('@m8/console-ui')
+    await AsyncStorage.removeItem('@m8/custom-surfaces')
 
     const allKeys = await AsyncStorage.getAllKeys()
     const aiCacheKeys = allKeys.filter((k) => k.startsWith('@ai_cache_'))
@@ -376,6 +392,7 @@ export function useSessionBootstrap() {
     status,
     unlinkPublicSocial,
     updateDisplayName,
+    updateSurfaceState,
   }
 }
 

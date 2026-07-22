@@ -7,7 +7,7 @@ import Animated, {
 import { tokens } from '../../theme'
 
 export const HEADER_HEIGHT = 52
-export const BOTTOM_NAV_HEIGHT = 58
+export const BOTTOM_NAV_HEIGHT = 64
 
 export function ConsoleLayout({
   children,
