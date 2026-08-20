@@ -35,14 +35,20 @@
     "prebuild:clean": "EXPO_NO_GIT_STATUS=1 expo prebuild --clean",
     "nuke": "rm -rf ./node_modules ./ios ./android",
     "typecheck": "tsc --noEmit",
-    "lint": "oxlint --quiet src"
+    "lint": "oxlint --quiet src",
+    "test": "tsx --test src/**/__tests__/*.test.ts"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
+    "@noble/curves": "1.9.7",
+    "@noble/hashes": "1.8.0",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@scure/bip39": "1.6.0",
+    "@scure/sr25519": "^2.3.0",
     "expo": "54.0.34",
     "expo-blur": "~15.0.8",
     "expo-build-properties": "~1.0.10",
+    "expo-crypto": "~15.0.9",
     "expo-dev-client": "~6.0.20",
     "expo-linking": "~8.0.11",
     "expo-local-authentication": "~16.0.0",

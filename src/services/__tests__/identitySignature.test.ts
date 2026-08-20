@@ -1,0 +1,259 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { hexToBytes, bytesToHex } from '@noble/curves/abstract/utils'
+import { deriveAllIdentities } from '../keyDerivation'
+import { MatrixIdentityForbiddenError } from '../matrixIdentity'
+import {
+  DOMAIN_IDENTITY_SIG,
+  encodeAssertion,
+  identitySigningPublicKey,
+  signIdentityChallenge,
+  verifyIdentityAssertion,
+  __internal,
+} from '../identitySignature'
+
+/*
+ * These tests pin the G0 result: that an sr25519 secret carrying a PARA
+ * identity scalar produces exactly identity_pub_i. If that stops holding, the
+ * library changed its key encoding and every account derived from it moves —
+ * fix the code, never the expectation.
+ */
+
+const here = dirname(fileURLToPath(import.meta.url))
+const vectors = JSON.parse(
+  readFileSync(join(here, 'identity-derivation-vectors.json'), 'utf8'),
+).vectors as Array<{ seed: string }>
+
+const LABELS = ['public', 'anonymous'] as const
+const base = {
+  purpose: 'matrix-login' as const,
+  audience: 'para-idp',
+  challenge: 'Zm9vYmFyYmF6',
+  signedAt: '2026-08-24T12:00:00.000Z',
+}
+
+describe('sr25519 key injection (gate G0)', () => {
+  it('reproduces identity_pub for every seed vector and identity', () => {
+    for (const v of vectors) {
+      const ids = deriveAllIdentities(hexToBytes(v.seed))
+      for (const label of LABELS) {
+        assert.equal(
+          bytesToHex(identitySigningPublicKey(ids[label])),
+          ids[label].pubHex,
+          `${v.seed}/${label}: sr25519 public key diverged from identity_pub`,
+        )
+      }
+    }
+  })
+
+  it('cofactor-shifts the scalar losslessly across the whole range', () => {
+    // The load-bearing detail: sr25519 stores scalar<<3 and divides by 8 on
+    // read. Raw injection would silently yield the wrong key.
+    const { encodeSecretScalar, CURVE_ORDER } = __internal
+    const decode = (b: Uint8Array) =>
+      b.reduceRight((acc, byte) => (acc << 8n) | BigInt(byte), 0n) >> 3n
+    for (const x of [1n, 2n, 255n, 2n ** 251n, CURVE_ORDER - 1n]) {
+      assert.equal(decode(encodeSecretScalar(x)), x)
+    }
+  })
+
+  it('rejects out-of-range scalars', () => {
+    const { encodeSecretScalar, CURVE_ORDER } = __internal
+    assert.throws(() => encodeSecretScalar(0n), /out of range/)
+    assert.throws(() => encodeSecretScalar(CURVE_ORDER), /out of range/)
+  })
+})
+
+describe('signIdentityChallenge', () => {
+  it('produces a signature that verifies', () => {
+    for (const v of vectors) {
+      for (const label of LABELS) {
+        const signed = signIdentityChallenge(hexToBytes(v.seed), label, base)
+        assert.equal(signed.signature.length, 128)
+        assert.ok(verifyIdentityAssertion(signed, base))
+      }
+    }
+  })
+
+  it('binds the signature to the identity public key', () => {
+    const seed = hexToBytes(vectors[0].seed)
+    const ids = deriveAllIdentities(seed)
+    const signed = signIdentityChallenge(seed, 'public', base)
+    assert.equal(signed.assertion.identityPub, ids.public.pubHex)
+
+    // Swapping in another identity's key must break verification.
+    const forged = {
+      ...signed,
+      assertion: { ...signed.assertion, identityPub: ids.anonymous.pubHex },
+    }
+    assert.equal(verifyIdentityAssertion(forged, base), false)
+  })
+
+  it('rejects a tampered challenge, audience or timestamp', () => {
+    const seed = hexToBytes(vectors[0].seed)
+    const signed = signIdentityChallenge(seed, 'public', base)
+    for (const patch of [
+      { challenge: 'b3RoZXI' },
+      { audience: 'evil-idp' },
+      { signedAt: '2026-08-24T12:00:01.000Z' },
+    ]) {
+      const t = { ...signed, assertion: { ...signed.assertion, ...patch } }
+      assert.equal(verifyIdentityAssertion(t, { ...base, ...patch }), false)
+    }
+  })
+
+  it('rejects a corrupted signature', () => {
+    const seed = hexToBytes(vectors[0].seed)
+    const signed = signIdentityChallenge(seed, 'public', base)
+    const flipped =
+      (signed.signature[0] === 'a' ? 'b' : 'a') + signed.signature.slice(1)
+    assert.equal(
+      verifyIdentityAssertion({ ...signed, signature: flipped }, base),
+      false,
+    )
+  })
+})
+
+describe('purpose binding', () => {
+  it('will not verify a registration assertion as a matrix login', () => {
+    // The replay this prevents: one key, two callers. Without purpose inside
+    // the signed bytes, a mubEZ registration signature would log someone in.
+    const seed = hexToBytes(vectors[0].seed)
+    const signed = signIdentityChallenge(seed, 'public', {
+      ...base,
+      purpose: 'mubez-registration',
+    })
+    assert.ok(
+      verifyIdentityAssertion(signed, { ...base, purpose: 'mubez-registration' }),
+    )
+    assert.equal(
+      verifyIdentityAssertion(signed, { ...base, purpose: 'matrix-login' }),
+      false,
+    )
+  })
+
+  it('refuses to sign for an unknown purpose', () => {
+    assert.throws(
+      () =>
+        signIdentityChallenge(hexToBytes(vectors[0].seed), 'public', {
+          ...base,
+          purpose: 'anything-else' as never,
+        }),
+      /unknown signature purpose/,
+    )
+  })
+
+  it('requires a challenge', () => {
+    assert.throws(
+      () =>
+        signIdentityChallenge(hexToBytes(vectors[0].seed), 'public', {
+          ...base,
+          challenge: '',
+        }),
+      /challenge is required/,
+    )
+  })
+
+  it('puts the domain separator inside the signed bytes', () => {
+    const encoded = new TextDecoder().decode(
+      encodeAssertion({
+        type: 'para.identity.pop.v1',
+        purpose: 'matrix-login',
+        audience: 'para-idp',
+        identityPub: '00'.repeat(32),
+        challenge: 'x',
+        signedAt: base.signedAt,
+      }),
+    )
+    assert.ok(encoded.startsWith(DOMAIN_IDENTITY_SIG))
+  })
+})
+
+describe('hostile input', () => {
+  it('rejects rather than throws on anything an attacker can send', () => {
+    // The verifier runs on a public endpoint. sr25519's verify() throws on a
+    // malformed point, and a null body throws before any field is read; both
+    // would turn garbage input into a 500 instead of an auth failure.
+    const good = signIdentityChallenge(hexToBytes(vectors[0].seed), 'public', base)
+    const junk: unknown[] = [
+      null, undefined, '', 'zz', '00', 'ff'.repeat(64), '00'.repeat(64),
+      'gg'.repeat(64), 123, {}, [],
+    ]
+
+    for (const sig of junk) {
+      for (const pub of junk) {
+        assert.equal(
+          verifyIdentityAssertion(
+            {
+              assertion: { ...good.assertion, identityPub: String(pub) },
+              signature: String(sig),
+            } as never,
+            base,
+          ),
+          false,
+        )
+      }
+    }
+
+    for (const shape of [
+      null, undefined, 'str', 42, [], {},
+      { assertion: null, signature: good.signature },
+      { assertion: good.assertion },
+      { assertion: good.assertion, signature: 1 },
+    ]) {
+      assert.equal(verifyIdentityAssertion(shape as never, base), false)
+    }
+  })
+})
+
+describe('identity boundary at the signing layer (OD-2 §6)', () => {
+  it('refuses to sign as the ballot identity', () => {
+    for (const v of vectors) {
+      assert.throws(
+        () => signIdentityChallenge(hexToBytes(v.seed), 'civic', base),
+        MatrixIdentityForbiddenError,
+        'the ballot identity produced a signature',
+      )
+    }
+  })
+
+  it('refuses unknown and reserved labels', () => {
+    const seed = hexToBytes(vectors[0].seed)
+    for (const label of ['delegate', 'burner', '', 'Public']) {
+      assert.throws(
+        () => signIdentityChallenge(seed, label as never, base),
+        MatrixIdentityForbiddenError,
+      )
+    }
+  })
+})
+
+describe('nonce behaviour', () => {
+  it('is synthetic: same input, different signatures', () => {
+    // Both signatures must verify, but they must not be byte-identical — a
+    // purely deterministic scheme would leak that the same challenge was
+    // signed twice, and a purely random one depends entirely on the device RNG.
+    const seed = hexToBytes(vectors[0].seed)
+    const a = signIdentityChallenge(seed, 'public', base)
+    const b = signIdentityChallenge(seed, 'public', base)
+    assert.notEqual(a.signature, b.signature)
+    assert.ok(verifyIdentityAssertion(a, base))
+    assert.ok(verifyIdentityAssertion(b, base))
+  })
+
+  it('derives a stable nonce seed from the identity key', () => {
+    // Stability matters for seed restore on a new device.
+    const ids = deriveAllIdentities(hexToBytes(vectors[0].seed))
+    assert.deepEqual(
+      __internal.deriveNonceSeed(ids.public.priv),
+      __internal.deriveNonceSeed(ids.public.priv),
+    )
+    assert.notDeepEqual(
+      __internal.deriveNonceSeed(ids.public.priv),
+      __internal.deriveNonceSeed(ids.anonymous.priv),
+    )
+  })
+})
