@@ -213,6 +213,31 @@ describe('purpose binding', () => {
     )
   })
 
+  it('binds an atproto account link to its own purpose and audience', () => {
+    // The replay this prevents: an account-linking signature presented as a
+    // login (or a link to a different atproto account than the one challenged).
+    const seed = hexToBytes(vectors[0].seed)
+    const link = {
+      purpose: 'atproto-link' as const,
+      audience: 'did:plc:atproto-account',
+      challenge: base.challenge,
+    }
+    const signed = signIdentityChallenge(seed, 'public', { ...base, ...link })
+    assert.ok(verifyIdentityAssertion(signed, { ...base, ...link }))
+    assert.equal(
+      verifyIdentityAssertion(signed, { ...base, purpose: 'matrix-login' }),
+      false,
+    )
+    assert.equal(
+      verifyIdentityAssertion(signed, {
+        ...base,
+        ...link,
+        audience: 'did:plc:someone-else',
+      }),
+      false,
+    )
+  })
+
   it('refuses to sign for an unknown purpose', () => {
     assert.throws(
       () =>

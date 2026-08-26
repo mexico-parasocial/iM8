@@ -30,6 +30,8 @@ export function ConsoleHeader({
   onSelectPersona,
   onDismissNotification,
   onMarkNotificationsRead,
+  publicLinks,
+  showPersonas = true,
 }: {
   notifications: NotificationItem[]
   badgeCount: number
@@ -39,14 +41,19 @@ export function ConsoleHeader({
   onSelectPersona: (id: string) => void
   onDismissNotification?: (id: string) => void
   onMarkNotificationsRead?: () => void
+  publicLinks?: { status: string; label?: string }[]
+  /** Persona chips are irrelevant on screens that aren't scoped to a card. */
+  showPersonas?: boolean
 }) {
   const [open, setOpen] = useState(false)
+  const [infoOpen, setInfoOpen] = useState(false)
   const insets = useSafeAreaInsets()
 
   const topOffset = insets.top
   const headerFullHeight = HEADER_HEIGHT + topOffset
   const hasPublicPersona = personas.some((p) => p.kind === 'public')
   const publicSlotActive = activePersonaId === PUBLIC_SLOT_ID
+  const linkedCount = (publicLinks ?? []).filter((l) => l.status === 'linked').length
 
   return (
     <>
@@ -67,8 +74,9 @@ export function ConsoleHeader({
         </View>
 
         {/* Center: labeled identity segments */}
-        <View style={styles.center}>
-          <View style={styles.segmentRow}>
+        {showPersonas ? (
+          <View style={styles.center}>
+            <View style={styles.segmentRow}>
             {personas.map((p, index) => {
               const active = p.id === activePersonaId
               const pColor = personaColor[p.kind] ?? tokens.accent
@@ -82,13 +90,14 @@ export function ConsoleHeader({
                   accessibilityLabel={`Identity ${label}`}
                   style={[
                     styles.segment,
-                    {backgroundColor: pColor + (active ? '30' : '14')},
-                    active && {borderColor: pColor + '90'},
+                    active
+                      ? {backgroundColor: pColor, borderColor: pColor}
+                      : styles.segmentGhost,
                   ]}>
                   <Text
                     style={[
                       styles.segmentText,
-                      {color: active ? pColor : tokens.muted},
+                      {color: active ? tokens.onAccent : tokens.muted},
                     ]}>
                     {label}
                   </Text>
@@ -96,31 +105,50 @@ export function ConsoleHeader({
               )
             })}
             {!hasPublicPersona && (
-              <Pressable
-                onPress={() => onSelectPersona(PUBLIC_SLOT_ID)}
-                accessibilityRole="button"
-                accessibilityState={{selected: publicSlotActive}}
-                accessibilityLabel="Create public identity"
-                style={[
-                  styles.segment,
-                  styles.segmentPlaceholder,
-                  publicSlotActive && {
-                    backgroundColor: tokens.success + '30',
-                    borderColor: tokens.success + '90',
-                    borderStyle: 'solid',
-                  },
-                ]}>
-                <Text
+              <View style={styles.publicGroup}>
+                <Pressable
+                  onPress={() => onSelectPersona(PUBLIC_SLOT_ID)}
+                  accessibilityRole="button"
+                  accessibilityState={{selected: publicSlotActive}}
+                  accessibilityLabel="Create public identity"
                   style={[
-                    styles.segmentText,
-                    {color: publicSlotActive ? tokens.success : tokens.muted},
+                    styles.segment,
+                    publicSlotActive
+                      ? {
+                          backgroundColor: tokens.success,
+                          borderColor: tokens.success,
+                          borderStyle: 'solid',
+                        }
+                      : styles.segmentPlaceholder,
                   ]}>
-                  + Public
-                </Text>
-              </Pressable>
+                  <Text
+                    style={[
+                      styles.segmentText,
+                      {color: publicSlotActive ? tokens.onAccent : tokens.muted},
+                    ]}>
+                    + Public
+                  </Text>
+                  <Pressable
+                    onPress={() => setInfoOpen((v) => !v)}
+                    hitSlop={6}
+                    style={styles.infoDot}>
+                    <Text style={styles.infoDotText}>i</Text>
+                  </Pressable>
+                </Pressable>
+                {infoOpen && (
+                  <View style={styles.infoTooltip}>
+                    <Text style={styles.infoTooltipText}>
+                      {linkedCount > 0
+                        ? `${linkedCount} linked identity. Instagram, X, and Bluesky stay empty until you choose them.`
+                        : 'No public identity is linked. Instagram, X, and Bluesky are empty until you choose them.'}
+                    </Text>
+                  </View>
+                )}
+              </View>
             )}
           </View>
         </View>
+        ) : null}
 
         {/* Notifications */}
         <View style={styles.side}>
@@ -168,8 +196,12 @@ export function ConsoleHeader({
             notifications.map(n => {
               const tint = severityTint[n.severity] ?? severityTint.info
               return (
-                <View
+                <Pressable
                   key={n.id}
+                  onPress={() => {
+                    n.action?.onPress()
+                    setOpen(false)
+                  }}
                   style={[
                     styles.note,
                     {borderLeftColor: tint.border, backgroundColor: tint.bg},
@@ -189,20 +221,16 @@ export function ConsoleHeader({
                     <View style={styles.noteFooter}>
                       <Text style={styles.noteTime}>{n.time}</Text>
                       {n.action && (
-                        <Pressable
-                          onPress={() => {
-                            n.action!.onPress()
-                            setOpen(false)
-                          }}
-                          style={styles.noteAction}>
-                          <Text style={[styles.noteActionText, {color: tint.text}]}>
-                            {n.action.label}
-                          </Text>
-                        </Pressable>
+                        <Text style={[styles.noteActionText, {color: tint.text}]}>
+                          {n.action.label}
+                        </Text>
                       )}
                       {n.source === 'user' && onDismissNotification && (
                         <Pressable
-                          onPress={() => onDismissNotification(n.id)}
+                          onPress={(e) => {
+                            e.stopPropagation()
+                            onDismissNotification(n.id)
+                          }}
                           style={styles.noteAction}>
                           <Text style={[styles.noteActionText, {color: tokens.muted}]}>
                             Dismiss
@@ -211,7 +239,7 @@ export function ConsoleHeader({
                       )}
                     </View>
                   </View>
-                </View>
+                </Pressable>
               )
             })
           )}
@@ -262,16 +290,58 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   segment: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 999,
     borderWidth: 1.5,
     borderColor: 'transparent',
   },
+  segmentGhost: {
+    backgroundColor: 'transparent',
+  },
   segmentPlaceholder: {
     backgroundColor: 'transparent',
     borderStyle: 'dashed',
     borderColor: tokens.glassBorderStrong,
+  },
+  publicGroup: {
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  infoDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoDotText: {
+    color: tokens.muted,
+    fontSize: 8,
+    fontWeight: '800',
+    fontStyle: 'italic',
+  },
+  infoTooltip: {
+    position: 'absolute',
+    top: 36,
+    left: -40,
+    width: 220,
+    backgroundColor: tokens.surfaceRaised,
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: tokens.glassBorder,
+    zIndex: 20,
+  },
+  infoTooltipText: {
+    color: tokens.muted,
+    fontSize: 12,
+    lineHeight: 16,
   },
   segmentText: {
     fontSize: 11,

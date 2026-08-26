@@ -17,7 +17,7 @@ export type NotificationItem = {
 
 export function useNotifications(
   session: IdentitySession,
-  onReviewGrants: () => void
+  onNavigate: (section: string) => void
 ) {
   const [userNotes, setUserNotes] = useState<NotificationItem[]>([])
   const [viewedIds, setViewedIds] = useState<string[]>([])
@@ -35,7 +35,7 @@ export function useNotifications(
         title: `${revokedCount} revoked grant${revokedCount > 1 ? 's' : ''}`,
         body: 'Revoked grants remain visible for audit, but linked proofs are marked inactive.',
         time: 'Now',
-        action: { label: 'Review', onPress: onReviewGrants },
+        action: { label: 'Review', onPress: () => onNavigate('credentials') },
         source: 'system',
       })
     }
@@ -49,7 +49,7 @@ export function useNotifications(
         title: `${expiredCount} expired proof${expiredCount > 1 ? 's' : ''}`,
         body: 'Expired proofs stay in history, but they are no longer treated as active access.',
         time: 'Now',
-        action: { label: 'Review', onPress: onReviewGrants },
+        action: { label: 'Review', onPress: () => onNavigate('credentials') },
         source: 'system',
       })
     }
@@ -75,13 +75,13 @@ export function useNotifications(
         title: `${pendingCount} pending request${pendingCount > 1 ? 's' : ''}`,
         body: 'Apps are waiting for proof approvals.',
         time: 'Now',
-        action: { label: 'Review', onPress: onReviewGrants },
+        action: { label: 'Review', onPress: () => onNavigate('credentials') },
         source: 'system',
       })
     }
 
     return warnings
-  }, [session, onReviewGrants])
+  }, [session, onNavigate])
 
   // Merge system warnings (first) + user notifications
   const allNotifications = useMemo<NotificationItem[]>(() => {

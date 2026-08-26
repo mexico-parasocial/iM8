@@ -24,13 +24,13 @@ export function buildPersonas(handle: string): Persona[] {
       id: 'anon-primary',
       name: handleRoot,
       handle: `@${handle}`,
-      role: 'Anonymous civic card',
-      oneLine: 'Your main anonymous card for PARA and civic proofs.',
+      role: 'Anonymous PARA card',
+      oneLine: 'Your main anonymous card for PARA proofs.',
       summary:
-        'This anonymous card can carry proof-backed civic facts without exposing the private civic root behind it. When you vote on a policy, the root enforces one vote while this card remains the face people see.',
+        'This anonymous card can carry proof-backed PARA facts without exposing the private root behind it. When you vote on a policy, the root enforces one vote while this card remains the face people see.',
       kind: 'anonymous',
       createdBy: 'bootstrap',
-      surfaceStates: { public: 'Limited', civic: 'Live', dating: 'Muted' },
+      surfaceStates: { public: 'Limited', civic: 'Live' },
       signals: [
         {
           label: 'Visibility',
@@ -39,7 +39,7 @@ export function buildPersonas(handle: string): Persona[] {
           action: 'Preview',
         },
         {
-          label: 'Civic proofs',
+          label: 'PARA proofs',
           value: 'Eligibility, verification, affiliation',
           visibility: 'Trusted only',
           action: 'Inspect',
@@ -62,7 +62,7 @@ export function buildPersonas(handle: string): Persona[] {
         'A second anonymous card for independent posts, experiments, or sensitive topics. It is not named as a derivative of your first card, so the UI does not imply a public link between them.',
       kind: 'anonymous',
       createdBy: 'bootstrap',
-      surfaceStates: { public: 'Limited', civic: 'Limited', dating: 'Muted' },
+      surfaceStates: { public: 'Limited', civic: 'Limited' },
       signals: [
         {
           label: 'Visibility',
@@ -104,7 +104,7 @@ export function buildPublicPersona(handle: string, linkedProviders: SocialProvid
     kind: 'public',
     createdBy: linkedProviders.length > 0 ? 'social-link' : 'manual',
     linkedProviders,
-    surfaceStates: { public: 'Live', civic: 'Muted', dating: 'Limited' },
+    surfaceStates: { public: 'Live', civic: 'Muted' },
     signals: [
       {
         label: 'Visibility',
@@ -176,9 +176,9 @@ export function buildIntegrations(): Integration[] {
       id: 'atmos-dating',
       name: 'Atmos Dating beta',
       status: 'Consumes proof-only grants',
-      summary: 'Requests bounded compatibility and age claims from the dating surface.',
+      summary: 'Requests bounded compatibility and age claims as a consumer app.',
       cta: 'Open',
-      surfaces: ['dating'],
+      surfaces: [],
     },
     {
       id: 'townhall-civic',
@@ -208,7 +208,7 @@ export function buildClaimCatalog(): ClaimDescriptor[] {
     },
     {
       type: 'is_civic_eligible',
-      label: 'Civic eligibility',
+      label: 'PARA eligibility',
       learns: 'The app learns that the account passed the required civic check without receiving source documents.',
     },
     {
@@ -295,7 +295,7 @@ export function buildAppGrants(): AppGrant[] {
       appId: 'atmos-dating',
       appName: 'Atmos Dating beta',
       appKind: 'Consumer app',
-      surface: 'dating',
+      surface: 'public',
       signals: ['has_party_affiliation_match', 'is_age_eligible'],
       requestedClaims: ['has_party_affiliation_match', 'is_age_eligible'],
       shareMode: 'proof-only',
@@ -381,7 +381,7 @@ export function buildSignalProviders(): SignalProvider[] {
       summary: 'Supplies backup coverage and migration posture that can be turned into proof-safe claims.',
       signalTypes: ['backup health', 'migration readiness', 'missing blob alerts'],
       claimTypes: ['has_backup_coverage'],
-      surfaces: ['public', 'civic', 'dating'],
+      surfaces: ['public', 'civic'],
       lastSync: '6 hours ago',
     },
     {
@@ -389,7 +389,7 @@ export function buildSignalProviders(): SignalProvider[] {
       name: 'PARA verifier',
       kind: 'Verifier',
       status: 'Core',
-      routing: 'Civic proof issuance and durable policy',
+      routing: 'PARA proof issuance and durable policy',
       summary: 'Writes durable PARA policy and can emit compatibility verification while keeping the app payload proof-shaped.',
       signalTypes: [
         'verified public figure',
@@ -403,7 +403,7 @@ export function buildSignalProviders(): SignalProvider[] {
         'has_para_verification',
         'has_party_affiliation_match',
       ],
-      surfaces: ['civic', 'dating'],
+      surfaces: ['civic'],
       lastSync: '2 minutes ago',
     },
     {
@@ -415,7 +415,7 @@ export function buildSignalProviders(): SignalProvider[] {
       summary: 'Owns auth resolution, consent, proof orchestration, and the current mobile session.',
       signalTypes: ['session identity', 'authorization context', 'consent ledger'],
       claimTypes: ['has_backup_coverage'],
-      surfaces: ['public', 'civic', 'dating'],
+      surfaces: ['public', 'civic'],
       lastSync: 'Live',
     },
     {
@@ -427,7 +427,7 @@ export function buildSignalProviders(): SignalProvider[] {
       summary: 'Reserved for later imported values, but only through bounded proof outputs rather than raw ideology payloads.',
       signalTypes: ['bounded values', 'compatibility card'],
       claimTypes: ['has_party_affiliation_match'],
-      surfaces: ['civic', 'dating'],
+      surfaces: ['civic'],
       lastSync: 'Not linked yet',
     },
   ]
@@ -439,29 +439,37 @@ export function buildSurfaceTemplates(): SurfaceTemplate[] {
       id: 'public-template',
       name: 'Public',
       audience: 'Default social face across the network',
+      detail: 'Your public-facing identity. Share display basics, location, and role without exposing proof-backed data.',
       status: 'Live',
       traits: ['discoverable', 'portable', 'low-friction'],
+      signalLabels: ['Name', 'Role', 'Location'],
     },
     {
       id: 'civic-template',
-      name: 'Civic',
-      audience: 'Communities, public-interest spaces, and governance',
+      name: 'PARA',
+      audience: 'Communities, PARA spaces, and verified participation',
+      detail: 'Governance, voting, and civic proof context. Share verification status and policy positions.',
       status: 'Live',
       traits: ['proof-first', 'policy-aware', 'trust-receipts'],
+      signalLabels: ['PARA proofs', 'Voting power', 'Visibility'],
     },
     {
       id: 'dating-template',
       name: 'Dating',
       audience: 'Relationship discovery with stronger boundaries',
+      detail: 'Share interests, values, and lifestyle signals. No voting, no civic data, no professional info.',
       status: 'Live',
       traits: ['bounded-matching', 'eligibility-safe', 'revocable'],
+      signalLabels: ['Interests', 'Policies', 'Values'],
     },
     {
       id: 'work-template',
       name: 'Work',
       audience: 'Professional and project-facing spaces',
+      detail: 'Skills, role, and professional reputation. Proof-backed credentials without personal data.',
       status: 'Template',
       traits: ['skills-forward', 'portable-reputation', 'future-grant-profile'],
+      signalLabels: ['Skills', 'Role', 'Experience'],
     },
   ]
 }
@@ -494,20 +502,6 @@ export function buildCommandDeck(): Record<SurfaceId, Command[]> {
       {
         title: 'Keep compatibility records downstream',
         detail: 'Use app.bsky.graph.verification only when existing clients need it, not as the main policy object.',
-      },
-    ],
-    dating: [
-      {
-        title: 'Keep matching bounded',
-        detail: 'Dating apps should receive bounded affiliation or compatibility outputs, never full ideology vectors.',
-      },
-      {
-        title: 'Expire sensitive proofs quickly',
-        detail: 'Short-lived proofs make revocation practical when relationships or app trust change.',
-      },
-      {
-        title: 'Preserve stronger boundaries',
-        detail: 'Age and safety checks can be disclosed without exposing exact age, location, or legal identity.',
       },
     ],
   }

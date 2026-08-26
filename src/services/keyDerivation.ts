@@ -22,6 +22,12 @@ const L = ed25519.CURVE.n
 export const DOMAIN_SPEND = 'm8/derive/spend/v1'
 export const DOMAIN_VIEW = 'm8/derive/view/v1'
 export const DOMAIN_IDENTITY = 'para-id/v1'
+/*
+ * Separate domain for cards past the first. Card 0 keeps deriving under
+ * DOMAIN_IDENTITY so it stays byte-identical to spec v1 and the shared
+ * vectors in mubEZ continue to pass unchanged.
+ */
+export const DOMAIN_CARD = 'para-id/card/v1'
 
 export const IDENTITY_INDEXES = {
   public: 0,
@@ -59,22 +65,56 @@ export function deriveMasterKeys(seed: Uint8Array): MasterKeys {
 export interface DerivedIdentity {
   index: number
   label: IdentityLabel
+  /** Which card under this label; 0 is the label's primary identity. */
+  card: number
   priv: bigint
   /** 32-byte ristretto255 encoding; the only thing that ever reaches a server. */
   pub: Uint8Array
   pubHex: string
 }
 
-export function deriveIdentity(keys: MasterKeys, label: IdentityLabel): DerivedIdentity {
+/**
+ * Derive one identity key.
+ *
+ * `card` distinguishes several independent identities under the same label.
+ * The product lets a user hold more than one anonymous card and tells them the
+ * cards are not linked — with a single key per label that promise is only
+ * skin-deep, since both cards would sign with the same key and anyone holding
+ * a signature from each could join them in one step. A per-card tweak makes
+ * the separation real.
+ *
+ * Card 0 derives exactly as spec v1 did, so existing identities and the shared
+ * mubEZ vectors are unaffected: the first card of a label *is* the v1 identity.
+ *
+ * Unlinkability here is against outside observers. Anyone holding the view key
+ * can still enumerate every card — that is what the view key is for.
+ */
+export function deriveIdentity(
+  keys: MasterKeys,
+  label: IdentityLabel,
+  card = 0,
+): DerivedIdentity {
+  if (!Number.isInteger(card) || card < 0) {
+    throw new Error('card must be a non-negative integer')
+  }
+
   const index = IDENTITY_INDEXES[label]
-  const tweak = hashToScalar(
-    utf8ToBytes(DOMAIN_IDENTITY),
-    numberToBytesLE(keys.viewPriv, 32),
-    u32le(index),
-  )
+  const tweak =
+    card === 0
+      ? hashToScalar(
+          utf8ToBytes(DOMAIN_IDENTITY),
+          numberToBytesLE(keys.viewPriv, 32),
+          u32le(index),
+        )
+      : hashToScalar(
+          utf8ToBytes(DOMAIN_CARD),
+          numberToBytesLE(keys.viewPriv, 32),
+          u32le(index),
+          u32le(card),
+        )
   const priv = (keys.spendPriv + tweak) % L
   const pub = RistrettoPoint.BASE.multiply(priv).toRawBytes()
-  return { index, label, priv, pub, pubHex: bytesToHex(pub) }
+  return { index, label, card, priv, pub, pubHex: bytesToHex(pub) }
 }
 
 export function deriveAllIdentities(seed: Uint8Array): Record<IdentityLabel, DerivedIdentity> {

@@ -42,8 +42,12 @@ const DOMAIN_SIG_NONCE = 'para-id/sig-nonce/v1'
  * at all and leaves this to callers; its own proof code had to grow a versioned
  * HASH_KEY_TXPROOF_V2 constant to fix the resulting confusability. We start
  * where they ended up.
+ *
+ * `atproto-link` binds a PARA identity to an atproto account DID: the account
+ * side presents a challenge, and this signature proves the PARA key accepts
+ * the pairing — without either key ever leaving its owner.
  */
-export const SIG_PURPOSES = ['matrix-login', 'mubez-registration'] as const
+export const SIG_PURPOSES = ['matrix-login', 'mubez-registration', 'atproto-link'] as const
 export type SigPurpose = (typeof SIG_PURPOSES)[number]
 
 const CURVE_ORDER =

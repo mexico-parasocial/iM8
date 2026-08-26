@@ -1,12 +1,18 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { View, Text, StyleSheet, Pressable, Switch } from 'react-native'
 import * as LocalAuthentication from 'expo-local-authentication'
 import { cardStyle } from '../../../components/m8/Card'
+import { buttonStyle, buttonTextStyle } from '../../../components/m8/Button'
 import { rowStyle, rowStyles } from '../../../components/m8/Row'
 import { pillStyle, pillTextStyle } from '../../../components/m8/Pill'
-import { EmptyState, SimpleRow } from '../../../components/m8/ConsolePrimitives'
+import { EmptyState } from '../../../components/m8/ConsolePrimitives'
 import { Icon } from '../../../components/m8/Icon'
-import type { IdentitySession, Persona, ConsentLedgerEntry } from '../../../types'
+import { RecoveryPhraseSheet } from '../../../components/m8/RecoveryPhraseSheet'
+import { RestoreIdentitySheet } from '../../../components/m8/RestoreIdentitySheet'
+import { getBackupState, type BackupState } from '../../../services/seedVault'
+import { getBiometricLockEnabled } from '../../../components/m8/BiometricGate'
+import { visibilityDestinationLabel } from '../../../contracts/profileFacets'
+import type { IdentitySession, Persona, ConsentLedgerEntry, Visibility } from '../../../types'
 import { tokens } from '../../../theme'
 import { hapticLight, hapticMedium } from '../../../utils/haptics'
 
@@ -16,16 +22,44 @@ export function SettingsSection({
   biometricEnabled,
   onSignOut,
   onToggleBiometric,
+  onUpdateSignalVisibility,
 }: {
   session: IdentitySession
   activePersona: Persona | undefined
   biometricEnabled: boolean
   onSignOut: () => void
   onToggleBiometric: (value: boolean) => void
+  onUpdateSignalVisibility: (personaId: string, signalLabel: string, visibility: Visibility) => Promise<void>
 }) {
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false)
   const [hasBiometricHardware, setHasBiometricHardware] = useState(false)
   const [isBiometricEnrolled, setIsBiometricEnrolled] = useState(false)
+  const [showPhrase, setShowPhrase] = useState(false)
+  const [showRestore, setShowRestore] = useState(false)
+  const [backup, setBackup] = useState<BackupState>('none')
+
+  const refreshBackupState = useCallback(() => {
+    // Reads this device's keystore. Resolves to 'none' rather than throwing on
+    // platforms with no keystore, so the card degrades to "no identity here".
+    getBackupState().then(setBackup).catch(() => setBackup('none'))
+  }, [])
+
+  useEffect(() => {
+    refreshBackupState()
+  }, [refreshBackupState])
+
+  // The setup ceremony can flip this preference after the parent hook has
+  // already read it, which would leave this switch showing the old value.
+  // Re-read what is actually stored and push it up, so the hook stays the
+  // single source of truth instead of drifting from disk.
+  useEffect(() => {
+    void getBiometricLockEnabled().then((stored) => {
+      if (stored !== biometricEnabled) onToggleBiometric(stored)
+    })
+    // Intentionally on mount only: this reconciles once when the section
+    // opens, and must not fight the user's own taps afterwards.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     LocalAuthentication.hasHardwareAsync().then((hasHardware) => {
@@ -40,6 +74,11 @@ export function SettingsSection({
     <View style={styles.stack}>
       <View style={styles.listCard}>
         <Text style={styles.listTitle}>Privacy settings</Text>
+        <Text style={styles.listIntro}>
+          Tap a badge to change where each item lives. Public items publish to your public
+          profile, Trusted only items go to your PARA facet space, and Private items never
+          leave this device.
+        </Text>
         {activePersona?.signals.map((signal) => (
           <View key={signal.label} style={rowStyle('default')}>
             <View style={rowStyles.text}>
@@ -47,12 +86,21 @@ export function SettingsSection({
               <Text style={rowStyles.detail}>{signal.value}</Text>
             </View>
             <View style={{ alignItems: 'flex-end', gap: 4 }}>
-              <View style={pillStyle(signal.visibility === 'Public' ? 'success' : signal.visibility === 'Private' ? 'danger' : 'warning')}>
-                <Text style={pillTextStyle(signal.visibility === 'Public' ? 'success' : signal.visibility === 'Private' ? 'danger' : 'warning')}>
-                  {signal.visibility}
-                </Text>
-              </View>
-              <Text style={{ color: tokens.muted, fontSize: 11 }}>{signal.action}</Text>
+              <VisibilityPill
+                visibility={signal.visibility}
+                onPress={() => {
+                  hapticLight()
+                  if (!activePersona) return
+                  void onUpdateSignalVisibility(
+                    activePersona.id,
+                    signal.label,
+                    nextVisibility(signal.visibility)
+                  )
+                }}
+              />
+              <Text style={{ color: tokens.muted, fontSize: 11 }}>
+                {visibilityDestinationLabel(signal.visibility)} · {signal.action}
+              </Text>
             </View>
           </View>
         ))}
@@ -67,24 +115,56 @@ export function SettingsSection({
         )}
       </View>
 
-      <View style={cardStyle('filled')}>
-        <Text style={styles.summaryEyebrow}>PDS safety</Text>
-        <Text style={styles.summaryTitle}>{session.pdsSafety.state}</Text>
-        <Text style={styles.summaryBody}>
-          {session.pdsSafety.detail} Source: {session.pdsSafety.source}. Last backup: {session.pdsSafety.lastBackup}.
+      {/*
+        Device & recovery: everything that protects or removes the identity on
+        this device — recovery ceremony, biometric lock, sign-out — in one
+        card. Recovery state is read from this device's own keystore, not from
+        the session: the old card used to print `session.pdsSafety.lastBackup`,
+        a string handed over by the broker describing a backup of a seed that
+        was never created. Amber until the phrase is saved — the card is
+        meant to insist.
+      */}
+      <View style={cardStyle(backup === 'done' ? 'filled' : 'warning')}>
+        <Text style={styles.summaryEyebrow}>Device & recovery</Text>
+        <Text style={styles.summaryTitle}>
+          {backup === 'done'
+            ? 'Recovery phrase saved'
+            : backup === 'pending'
+              ? 'Recovery phrase not saved yet'
+              : 'No identity on this device'}
         </Text>
-      </View>
+        <Text style={styles.summaryBody}>
+          {backup === 'done'
+            ? 'You can restore this identity on another device with your 24 words.'
+            : backup === 'pending'
+              ? 'If you lose this device now, this identity and every credential derived from it are gone.'
+              : 'Create or restore an identity to hold credentials on this device.'}
+        </Text>
 
-      <View style={styles.listCard}>
-        <Text style={styles.listTitle}>Session record</Text>
-        <Text style={styles.listIntro}>Technical details for recovery and app compatibility.</Text>
-        <SimpleRow icon="person" title="Display name" detail={session.displayName} meta="Local" />
-        <SimpleRow icon="shield" title="DID" detail={session.did} meta="Portable" />
-        <SimpleRow icon="globe" title="Auth server" detail={session.authorizationServer} meta={session.brokerMode} />
-      </View>
+        {backup === 'pending' && (
+          <Pressable
+            style={[buttonStyle('primary'), styles.recoveryAction]}
+            onPress={() => setShowPhrase(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Save my recovery phrase"
+          >
+            <Text style={buttonTextStyle('primary')}>Save recovery phrase</Text>
+          </Pressable>
+        )}
 
-      <View style={styles.listCard}>
-        <Text style={styles.listTitle}>Security</Text>
+        {backup === 'none' && (
+          <Pressable
+            style={[buttonStyle('secondary'), styles.recoveryAction]}
+            onPress={() => setShowRestore(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Restore an identity from a recovery phrase"
+          >
+            <Text style={buttonTextStyle('secondary')}>Restore from phrase</Text>
+          </Pressable>
+        )}
+
+        <View style={styles.deviceDivider} />
+
         <SettingsRow
           icon="shieldCheck"
           label="Biometric lock"
@@ -108,10 +188,9 @@ export function SettingsSection({
             />
           }
         />
-      </View>
 
-      <View style={styles.listCard}>
-        <Text style={styles.listTitle}>Account</Text>
+        <View style={styles.deviceDivider} />
+
         {!showSignOutConfirm ? (
           <Pressable
             onPress={() => {
@@ -149,18 +228,60 @@ export function SettingsSection({
         )}
       </View>
 
-      <View style={styles.listCard}>
-        <Text style={styles.listTitle}>About</Text>
-        <View style={styles.aboutRow}>
-          <Text style={styles.aboutLabel}>Version</Text>
-          <Text style={styles.aboutValue}>iM8 Console v0.1</Text>
-        </View>
-        <View style={styles.aboutRow}>
-          <Text style={styles.aboutLabel}>Build</Text>
-          <Text style={styles.aboutValue}>poc-2026.05.19</Text>
-        </View>
+      <RecoveryPhraseSheet
+        visible={showPhrase}
+        onClose={() => setShowPhrase(false)}
+        onConfirmed={refreshBackupState}
+      />
+      <RestoreIdentitySheet
+        visible={showRestore}
+        onClose={() => setShowRestore(false)}
+        onRestored={refreshBackupState}
+      />
+
+      {/*
+        Diagnostics: recovery-relevant identifiers and build info, quiet and
+        chrome-less. Nothing here is actionable; it exists for support moments.
+      */}
+      <View style={styles.diagnostics}>
+        <Text style={styles.diagnosticsLabel}>Diagnostics</Text>
+        <Text style={styles.diagnosticsLine}>DID  {session.did}</Text>
+        <Text style={styles.diagnosticsLine}>
+          Auth server  {session.authorizationServer} · {session.brokerMode}
+        </Text>
+        <Text style={styles.diagnosticsLine}>iM8 Console v0.1 · poc-2026.05.19</Text>
       </View>
     </View>
+  )
+}
+
+function nextVisibility(current: Visibility): Visibility {
+  if (current === 'Public') return 'Trusted only'
+  if (current === 'Trusted only') return 'Private'
+  return 'Public'
+}
+
+function visibilityPillVariant(visibility: Visibility) {
+  if (visibility === 'Public') return 'success' as const
+  if (visibility === 'Private') return 'danger' as const
+  return 'warning' as const
+}
+
+function VisibilityPill({ visibility, onPress }: { visibility: Visibility; onPress: () => void }) {
+  const variant = visibilityPillVariant(visibility)
+  const next = nextVisibility(visibility)
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${visibility}. Move to ${next}.`}
+      accessibilityHint={`Currently stored in ${visibilityDestinationLabel(visibility)}.`}
+      hitSlop={8}
+    >
+      <View style={pillStyle(variant)}>
+        <Text style={pillTextStyle(variant)}>{visibility}</Text>
+      </View>
+    </Pressable>
   )
 }
 
@@ -209,6 +330,7 @@ function SettingsRow({
 }
 
 const styles = StyleSheet.create({
+  recoveryAction: { marginTop: 14 },
   stack: {
     gap: 12,
     marginTop: 12,
@@ -318,19 +440,27 @@ const styles = StyleSheet.create({
     color: tokens.onDanger,
     fontWeight: '700',
   },
-  aboutRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+  deviceDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: tokens.glassBorder,
+    marginVertical: 12,
   },
-  aboutLabel: {
+  diagnostics: {
+    gap: 3,
+    paddingTop: 10,
+    paddingBottom: 6,
+  },
+  diagnosticsLabel: {
     color: tokens.muted,
-    fontSize: 14,
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 3,
   },
-  aboutValue: {
-    color: tokens.text,
-    fontSize: 14,
-    fontWeight: '500',
+  diagnosticsLine: {
+    color: tokens.muted,
+    fontSize: 11,
+    lineHeight: 15,
   },
 })

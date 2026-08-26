@@ -44,6 +44,7 @@ export function SurfaceBuilderModal({
 }) {
   const [name, setName] = useState('')
   const [audience, setAudience] = useState('')
+  const [signalLabelsInput, setSignalLabelsInput] = useState('')
   const [selectedTraits, setSelectedTraits] = useState<SurfaceTrait[]>([])
   const [activeCategory, setActiveCategory] = useState('Privacy')
 
@@ -75,10 +76,15 @@ export function SurfaceBuilderModal({
                 name: name.trim(),
                 audience: audience.trim() || 'General',
                 traits: selectedTraits,
+                signalLabels: signalLabelsInput
+                  .split(',')
+                  .map((s) => s.trim())
+                  .filter(Boolean),
                 status: 'Live',
               })
               setName('')
               setAudience('')
+              setSignalLabelsInput('')
               setSelectedTraits([])
               onClose()
             }}
@@ -120,6 +126,19 @@ export function SurfaceBuilderModal({
                 placeholder="Who sees this surface?"
                 placeholderTextColor={tokens.muted}
               />
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Signal labels</Text>
+              <TextInput
+                value={signalLabelsInput}
+                onChangeText={setSignalLabelsInput}
+                style={styles.input}
+                placeholder="e.g. Name, Role, Interests"
+                placeholderTextColor={tokens.muted}
+                autoCapitalize="words"
+              />
+              <Text style={styles.hint}>Comma-separated. These signals will be toggled on this surface.</Text>
             </View>
 
             <View style={styles.field}>
@@ -234,6 +253,11 @@ const styles = StyleSheet.create({
     color: tokens.text,
     fontSize: 13,
     fontWeight: '700',
+  },
+  hint: {
+    color: tokens.muted,
+    fontSize: 11,
+    marginTop: -4,
   },
   input: {
     borderRadius: 14,

@@ -7,17 +7,16 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#111018"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.m8.im8",
       "infoPlist": {
-        "LSApplicationQueriesSchemes": ["para"]
+        "LSApplicationQueriesSchemes": [
+          "para"
+        ],
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
       }
     },
     "android": {
@@ -26,15 +25,21 @@
         {
           "action": "VIEW",
           "autoVerify": true,
-          "data": [{"scheme": "im8"}],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "data": [
+            {
+              "scheme": "im8"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -42,13 +47,26 @@
     },
     "plugins": [
       "./plugins/withAndroidParaQuery.js",
-      ["expo-build-properties", {
-        "ios": {
-          "newArchEnabled": true,
-          "buildReactNativeFromSource": true,
-          "cxxLanguageStandard": "c++23"
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "newArchEnabled": true,
+            "buildReactNativeFromSource": true,
+            "cxxLanguageStandard": "c++23"
+          }
         }
-      }]
+      ],
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#111018"
+        }
+      ],
+      "expo-status-bar"
     ]
   }
 }

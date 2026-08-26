@@ -5,7 +5,6 @@ import { buttonStyle, buttonTextStyle } from '../../../components/m8/Button'
 import { Icon } from '../../../components/m8/Icon'
 import {
   consoleStyles,
-  Metric,
   SectionHeading,
   StatusPill,
 } from '../../../components/m8/ConsolePrimitives'
@@ -21,7 +20,6 @@ import type {
   NewSurfaceInput,
   Persona,
   PersonaKind,
-  ProofArtifact,
   RenameStatus,
   SocialProvider,
   SurfaceId,
@@ -29,25 +27,23 @@ import type {
   SurfaceTemplate,
 } from '../../../types'
 import { SURFACE_META } from '../constants'
-import { ParaSection } from './ParaSection'
-import { PublicLinksCard } from './PublicLinksCard'
+import { SurfaceDetailCard } from './SurfaceDetailCard'
 
 export function IdentitySection({
-  activeGrantCount,
   activePersona,
-  activeProofCount,
   customSurfaces,
+  surfaceOverrides,
   isVerified,
+  onRequestParaGrant,
   onSaveName,
   onCreatePublicPersona,
   onLinkPublicSocial,
-  onUnlinkPublicSocial,
-  onRequestParaGrant,
   onShowSurfaceBuilder,
+  onEditSurface,
   onSkipRename,
   onStartVerification,
+  onToggleSignalSurface,
   onUpdateSurfaceState,
-  proofArtifacts,
   publicSlotActive,
   renameInput,
   renameStatus,
@@ -56,21 +52,20 @@ export function IdentitySection({
   session,
   setRenameInput,
 }: {
-  activeGrantCount: number
   activePersona: Persona | undefined
-  activeProofCount: number
   customSurfaces: NewSurfaceInput[]
+  surfaceOverrides: Record<string, Record<string, unknown>>
   isVerified: boolean
+  onRequestParaGrant: () => Promise<void>
   onSaveName: () => Promise<void>
   onCreatePublicPersona: (displayName: string) => Promise<void>
   onLinkPublicSocial: (provider: SocialProvider, handle: string) => Promise<void>
-  onUnlinkPublicSocial: (id: string) => Promise<void>
-  onRequestParaGrant: () => Promise<void>
   onShowSurfaceBuilder: () => void
+  onEditSurface: (surface: SurfaceTemplate | NewSurfaceInput) => void
   onSkipRename: () => void
   onStartVerification: () => void
+  onToggleSignalSurface: (signalLabel: string, surfaceId: SurfaceId) => void
   onUpdateSurfaceState: (personaId: string, surface: SurfaceId, state: SurfaceState) => Promise<void>
-  proofArtifacts: ProofArtifact[]
   publicSlotActive: boolean
   renameInput: string
   renameStatus: RenameStatus
@@ -79,7 +74,12 @@ export function IdentitySection({
   session: IdentitySession
   setRenameInput: (value: string) => void
 }) {
-  const surfaces = [...session.surfaceTemplates, ...customSurfaces]
+  const baseSurfaces = [...session.surfaceTemplates, ...customSurfaces]
+  const surfaces = baseSurfaces.map((s) => {
+    const override = surfaceOverrides[s.id]
+    return override ? { ...s, ...override } : s
+  })
+  const [expandedSurface, setExpandedSurface] = useState<string | null>(null)
 
   // Live tiered voices from the broker (main voice vs burner identities).
   // Silently absent in local demo mode where no broker session exists.
@@ -100,23 +100,19 @@ export function IdentitySection({
 
   return (
     <View style={consoleStyles.stack}>
-      <View style={consoleStyles.heroCard}>
-        <Text style={styles.eyebrow}>Identity wallet</Text>
-        <Text style={styles.heroTitle}>
-          {isVerified ? 'Your civic root is verified.' : 'Verify the private root to unlock civic participation.'}
-        </Text>
-        <Text style={styles.heroBody}>
-          {isVerified
-            ? 'Choose a card for each context. The root stays hidden, enforces one vote, and only issues the proofs you approve.'
-            : 'Verification unlocks PARA civic proofs and voting rights. Your raw documents are never shared.'}
-        </Text>
-        <ProgressRail isVerified={isVerified} renameStatus={renameStatus} />
-        {!isVerified ? (
+      {/*
+        Card-first: the persona card is the hero of the wallet. The only
+        chrome above it is the verification rail while onboarding is
+        incomplete — once verified, the section is cards all the way down.
+      */}
+      {!isVerified ? (
+        <View style={cardStyle('warning')}>
+          <ProgressRail isVerified={isVerified} renameStatus={renameStatus} />
           <Pressable onPress={onStartVerification} style={[buttonStyle('primary'), consoleStyles.fullButton]}>
             <Text style={buttonTextStyle('primary')}>Verify identity</Text>
           </Pressable>
-        ) : null}
-      </View>
+        </View>
+      ) : null}
 
       {isVerified && renameStatus === 'available' ? (
         <View style={cardStyle('filled')}>
@@ -151,12 +147,6 @@ export function IdentitySection({
         </View>
       ) : null}
 
-      <View style={consoleStyles.metricRow}>
-        <Metric label="Proofs" value={String(activeProofCount)} />
-        <Metric label="Apps" value={String(activeGrantCount)} />
-        <Metric label="PARA" value={session.paraProvider.availability} />
-      </View>
-
       {publicSlotActive ? (
         <View style={consoleStyles.listBlock}>
           <SectionHeading
@@ -189,6 +179,29 @@ export function IdentitySection({
               }}
               persona={activePersona}
             />
+          </View>
+
+          <View style={consoleStyles.listBlock}>
+            <SectionHeading title="Surfaces" detail="Tap a surface to expand and choose what to share." />
+            {surfaces.map((surface) => (
+              <SurfaceDetailCard
+                key={surface.id}
+                surface={surface}
+                isExpanded={expandedSurface === surface.id}
+                onToggle={() => setExpandedSurface(expandedSurface === surface.id ? null : surface.id)}
+                onEdit={() => onEditSurface(surface)}
+                persona={activePersona}
+                isVerified={isVerified}
+                onStartVerification={onStartVerification}
+                onRequestParaGrant={onRequestParaGrant}
+                requestingPara={requestingPara}
+                supportedClaims={session.paraProvider.supportedClaims}
+                onToggleSignalSurface={onToggleSignalSurface}
+              />
+            ))}
+            <Pressable onPress={onShowSurfaceBuilder} style={[buttonStyle('secondary'), consoleStyles.fullButton]}>
+              <Text style={buttonTextStyle('secondary')}>Create surface</Text>
+            </Pressable>
           </View>
 
           {activePersona.kind === 'anonymous' && voices && voices.length > 0 ? (
@@ -229,38 +242,30 @@ export function IdentitySection({
               ))}
             </View>
           ) : null}
-
-          {activePersona.kind === 'public' ? (
-            <PublicLinksCard
-              onLinkPublicSocial={onLinkPublicSocial}
-              onUnlinkPublicSocial={onUnlinkPublicSocial}
-              session={session}
-            />
-          ) : null}
-
-          <View style={consoleStyles.listBlock}>
-            <SectionHeading title="Surfaces" detail="Surfaces replace the old global switcher with clear sharing contexts." />
-            {surfaces.map((surface) => (
-              <SurfaceCard key={surface.id} surface={surface} />
-            ))}
-            <Pressable onPress={onShowSurfaceBuilder} style={[buttonStyle('secondary'), consoleStyles.fullButton]}>
-              <Text style={buttonTextStyle('secondary')}>Create surface</Text>
-            </Pressable>
-          </View>
-
-          {activePersona.kind === 'anonymous' ? (
-            <ParaSection
-              embedded
-              isVerified={isVerified}
-              onRequestParaGrant={onRequestParaGrant}
-              onStartVerification={onStartVerification}
-              proofArtifacts={proofArtifacts}
-              requestingPara={requestingPara}
-              session={session}
-            />
-          ) : null}
         </>
       ) : null}
+
+      {/* Guarantees */}
+      <View style={cardStyle('accent')}>
+        <View style={styles.guaranteeRow}>
+          <Icon name="lock" size={16} color={tokens.accentSoft} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.guaranteeTitle}>Private civic root</Text>
+            <Text style={styles.guaranteeBody}>
+              Hidden authority for one vote, recovery, and proof issuance. Never a public profile.
+            </Text>
+          </View>
+        </View>
+        <View style={styles.guaranteeRow}>
+          <Icon name="shieldCheck" size={16} color={tokens.accentSoft} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.guaranteeTitle}>One vote. Guaranteed.</Text>
+            <Text style={styles.guaranteeBody}>
+              However many cards you create, the root ensures one vote per policy.
+            </Text>
+          </View>
+        </View>
+      </View>
     </View>
   )
 }
@@ -484,24 +489,6 @@ function SurfaceCard({ surface }: { surface: SurfaceTemplate | NewSurfaceInput }
 }
 
 const styles = StyleSheet.create({
-  eyebrow: {
-    color: tokens.accentSoft,
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.9,
-  },
-  heroTitle: {
-    color: tokens.text,
-    fontSize: 23,
-    lineHeight: 29,
-    fontWeight: '800',
-  },
-  heroBody: {
-    color: tokens.muted,
-    fontSize: 14,
-    lineHeight: 20,
-  },
   avatarText: {
     color: tokens.text,
     fontSize: 18,
@@ -567,6 +554,22 @@ const styles = StyleSheet.create({
   surfaceStateHint: {
     color: tokens.muted,
     fontSize: 10,
+    marginTop: 2,
+  },
+  guaranteeRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  guaranteeTitle: {
+    color: tokens.text,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  guaranteeBody: {
+    color: tokens.muted,
+    fontSize: 12,
+    lineHeight: 16,
     marginTop: 2,
   },
 })

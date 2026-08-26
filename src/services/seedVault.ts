@@ -1,14 +1,36 @@
 import { getRandomBytes } from 'expo-crypto'
 import { bytesToHex, hexToBytes } from '@noble/curves/abstract/utils'
-import { deriveAllIdentities, mnemonicToSeed, seedToMnemonic } from './keyDerivation'
+import {
+  deriveAllIdentities,
+  deriveIdentity,
+  deriveMasterKeys,
+  mnemonicToSeed,
+  seedToMnemonic,
+} from './keyDerivation'
 import type { DerivedIdentity, IdentityLabel } from './keyDerivation'
 
-let SecureStore: typeof import('expo-secure-store') | null = null
-try {
-  SecureStore = require('expo-secure-store')
-} catch {
-  SecureStore = null
+/*
+ * Presence of the module is not proof of a working keystore. On web,
+ * expo-secure-store resolves to `export default {}` — the require succeeds and
+ * the module is truthy, so a null-check passes and the first call dies with
+ * "setItemAsync is not a function" instead of the clear error below. Probe the
+ * methods we actually call.
+ */
+function loadSecureStore(): typeof import('expo-secure-store') | null {
+  try {
+    const mod = require('expo-secure-store')
+    const candidate = mod?.setItemAsync ? mod : mod?.default
+    const usable =
+      typeof candidate?.setItemAsync === 'function' &&
+      typeof candidate?.getItemAsync === 'function' &&
+      typeof candidate?.deleteItemAsync === 'function'
+    return usable ? candidate : null
+  } catch {
+    return null
+  }
 }
+
+const SecureStore = loadSecureStore()
 
 /*
  * Custody of the master seed. Unlike secureStorage.ts, there is deliberately
@@ -99,9 +121,11 @@ export async function getBackupState(): Promise<BackupState> {
 }
 
 /** Derive one identity on demand. The result stays in memory only. */
-export async function getIdentity(label: IdentityLabel): Promise<DerivedIdentity> {
-  const identities = deriveAllIdentities(await loadSeed())
-  return identities[label]
+export async function getIdentity(
+  label: IdentityLabel,
+  card = 0,
+): Promise<DerivedIdentity> {
+  return deriveIdentity(deriveMasterKeys(await loadSeed()), label, card)
 }
 
 /** Public keys for all three identities, e.g. for registration. */

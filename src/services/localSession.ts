@@ -48,14 +48,22 @@ function buildLocalProviders(handle: string) {
   )
 }
 
-export function buildLocalSession(handle: string): IdentitySession {
+/**
+ * @param did  DID naming the device's own key. Callers that have enrolled an
+ *   identity pass it in; omitting it falls back to a handle-derived DID, which
+ *   identifies a *string* rather than a keyholder — nothing can be signed with
+ *   it and nothing can be proved about it. That fallback exists only so the
+ *   pre-enrollment screens keep rendering, and should disappear once every
+ *   entry point enrolls first.
+ */
+export function buildLocalSession(handle: string, did?: string): IdentitySession {
   const cleanHandle = sanitizeHandle(handle)
   const fullHandle = `${cleanHandle}.m8.local`
   const communityAdmins = buildCommunityAdmins()
 
   return {
     brokerMode: 'local',
-    did: `did:web:${fullHandle}`,
+    did: did ?? `did:web:${fullHandle}`,
     handle: fullHandle,
     displayName: buildDisplayName(cleanHandle),
     renameStatus: 'locked',
