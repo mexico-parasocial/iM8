@@ -1,4 +1,4 @@
-export type SurfaceId = 'public' | 'civic' | 'dating'
+export type SurfaceId = 'public' | 'civic'
 export type Visibility = 'Public' | 'Trusted only' | 'Private'
 export type SurfaceState = 'Live' | 'Limited' | 'Muted'
 
@@ -77,6 +77,7 @@ export type Signal = {
   value: string
   visibility: Visibility
   action: string
+  surfaces?: SurfaceId[]
 }
 
 export type SocialProvider = 'instagram' | 'x' | 'bsky'
@@ -131,6 +132,8 @@ export type AppBskyEmbedGallery = {
   }>
 }
 
+import type { ArtifactVerification } from './services/artifactVerification'
+
 export type PersonaKind = 'anonymous' | 'public'
 export type PersonaCreatedBy = 'bootstrap' | 'social-link' | 'manual'
 
@@ -173,6 +176,13 @@ export type ParaClaimCatalogItem = {
 }
 
 export type ProofArtifact = {
+  /**
+   * Result of checking the issuer's signature on this artifact, computed when
+   * the broker response is mapped. Absent means the check never ran.
+   * `status: 'Active'` says the *broker* considers it live; only this says we
+   * could confirm it ourselves.
+   */
+  verification?: ArtifactVerification
   id: string
   claimType: ClaimType
   label: string
@@ -373,8 +383,10 @@ export type SurfaceTemplate = {
   id: string
   name: string
   audience: string
+  detail?: string
   status: 'Live' | 'Template' | 'Draft'
   traits: SurfaceTrait[]
+  signalLabels: string[]
 }
 
 export type SurfaceTrait =
@@ -400,7 +412,9 @@ export type NewSurfaceInput = {
   id: string
   name: string
   audience: string
+  detail?: string
   traits: SurfaceTrait[]
+  signalLabels: string[]
   status: 'Live' | 'Limited' | 'Muted'
 }
 
@@ -470,15 +484,9 @@ export type KnowledgeBundle = {
   submittedAt?: string
 }
 
-export type PermissionedSpace = {
-  did: string
-  type: 'com.para.space.civic' | 'com.para.space.regional' | 'com.para.space.topic'
-  name: string
-  ownerDid: string
-  memberDids: string[]
-  requiredProofs: string[]
-  endorsementThreshold: number
-}
+// The pre-Spaces sketch of proof-gated spaces (`PermissionedSpace`, keyed by
+// member DIDs) was removed: contracts/gatedSpaces.ts is the live model now,
+// built on the atproto Spaces alpha rather than a PARA-private shape.
 
 export type Command = {
   title: string

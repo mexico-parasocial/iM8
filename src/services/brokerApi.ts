@@ -32,6 +32,7 @@ import {
   clearLocalSession,
   buildLocalSession,
 } from './localSession'
+import { enrollNewIdentity } from './identityEnrollment'
 
 type BrokerRequestInit = RequestInit & {
   token?: string | null
@@ -58,6 +59,17 @@ function getBrokerBaseUrl() {
   const baseUrl = configured && configured.length > 0
     ? configured
     : getDefaultBrokerBaseUrl()
+  if (!configured && __DEV__) {
+    // Loopback reaches the dev machine from a simulator (it shares the host's
+    // network stack) but on a physical device it is the phone itself, and
+    // 10.0.2.2 only exists inside the Android emulator. Every broker call
+    // fails with a connection error that looks like the broker is down.
+    console.warn(
+      `[brokerApi] EXPO_PUBLIC_M8_BROKER_URL not set; using ${baseUrl}. ` +
+        'This only works on a simulator/emulator. On a physical device set it ' +
+        'to your dev machine LAN address (e.g. http://192.168.0.4:8787) in .env.local.',
+    )
+  }
   const trimmed = baseUrl.replace(/\/+$/, '')
   return /\/v\d+$/i.test(trimmed) ? trimmed : `${trimmed}/v1`
 }
@@ -401,8 +413,21 @@ export async function clearPersistedSession() {
   await clearLocalSession()
 }
 
+/**
+ * Creates a local session backed by a real key.
+ *
+ * Enrollment comes first: the device generates and stores a seed, and the
+ * session's DID names the resulting public key. Previously the DID was built
+ * from the typed handle, so the "identity" was a formatted string and the
+ * seed vault was never touched.
+ *
+ * If this device cannot hold a key (no hardware keystore — notably web),
+ * enrollment throws and the caller surfaces that rather than handing back a
+ * keyless session that looks identical to a real one.
+ */
 export async function createNativeSession(handle: string): Promise<IdentitySession> {
-  const session = buildLocalSession(handle)
+  const enrolled = await enrollNewIdentity()
+  const session = buildLocalSession(handle, enrolled.did)
   cacheSession(session)
   await saveLocalSession(session)
   return session

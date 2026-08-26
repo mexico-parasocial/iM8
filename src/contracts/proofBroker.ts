@@ -1,4 +1,4 @@
-export type ProofBrokerSurfaceId = 'public' | 'civic' | 'dating'
+export type ProofBrokerSurfaceId = 'public' | 'civic'
 
 export type ProofBrokerDisclosureMode = 'proof-only' | 'signed-claim' | 'raw'
 
@@ -108,7 +108,30 @@ export type ProofBrokerGrant = {
 
 export type ProofBrokerProofOutcome = 'verified' | 'not-verified' | 'matched' | 'mismatched' | 'bounded'
 
+/**
+ * Issuer attestation over a proof artifact.
+ *
+ * Without this the artifact carries `outcome: 'verified'` as a bare string and
+ * a client has no way to tell a genuine verification from a compromised
+ * broker, a man in the middle, or a server bug — all three produce identical
+ * bytes. `signature` is sr25519 over the canonical encoding in
+ * services/artifactVerification.ts.
+ *
+ * Optional while the broker learns to sign: an artifact without it verifies as
+ * `unsigned`, which the UI must surface rather than quietly treat as trusted.
+ */
+export type ProofBrokerAttestation = {
+  /** Issuer's sr25519 public key, 32 bytes hex. */
+  issuerPub: string
+  /** Signature over the canonical artifact encoding, 64 bytes hex. */
+  signature: string
+  /** Encoding version, so the canonical form can evolve. */
+  alg: 'para.artifact.v1'
+}
+
 export type ProofBrokerProofArtifact = {
+  /** Present once the issuer signs. Absent means unverifiable, not valid. */
+  attestation?: ProofBrokerAttestation
   id: string
   grantId: string
   requestId: string
@@ -228,7 +251,7 @@ export type ProofBrokerGrantMutationResult = {
 
 export function proofBrokerClaimLabel(claimType: ProofBrokerClaimType) {
   if (claimType === 'is_verified_public_figure') return 'Verified public figure'
-  if (claimType === 'is_civic_eligible') return 'Civic eligible'
+  if (claimType === 'is_civic_eligible') return 'PARA eligible'
   if (claimType === 'has_para_verification') return 'PARA verification'
   if (claimType === 'has_party_affiliation_match') return 'Party affiliation match'
   if (claimType === 'joined_during_founding_period') return 'Founding-period membership'

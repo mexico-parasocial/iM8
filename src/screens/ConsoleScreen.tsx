@@ -6,10 +6,12 @@ import { ConsoleLayout } from './Console/ConsoleLayout'
 import { ConsoleHeader } from './Console/Header'
 import { BottomNav } from './Console/Nav'
 import { useNotifications } from '../hooks/useNotifications'
+import { useProfileContext } from '../hooks/useProfileContext'
 import type { DeepLinkRoute } from '../hooks/useDeepLink'
 import { BiometricGateModal, useBiometricGate } from '../components/m8/BiometricGate'
 import { IneVerificationModal } from '../components/m8/IneVerificationModal'
 import { SurfaceBuilderModal } from '../components/m8/SurfaceBuilderModal'
+import { SurfaceEditModal } from '../components/m8/SurfaceEditModal'
 import type {
   GrantRequestInput,
   IdentitySession,
@@ -18,16 +20,20 @@ import type {
   SocialProvider,
   SurfaceId,
   SurfaceState,
+  SurfaceTemplate,
+  Visibility,
 } from '../types'
 import { SettingsSection } from './Console/sections/SettingsSection'
-import { HomeSection } from './Console/sections/HomeSection'
+import { InboxSection } from './Console/sections/InboxSection'
+import { CredentialsSection } from './Console/sections/CredentialsSection'
 import { IdentitySection } from './Console/sections/IdentitySection'
-import { getRenameStatus, PUBLIC_SLOT_ID } from './Console/constants'
+import { getRenameStatus, PUBLIC_SLOT_ID, SURFACE_META } from './Console/constants'
 
-type ConsoleSectionId = 'dashboard' | 'identity' | 'settings'
+type ConsoleSectionId = 'inbox' | 'identity' | 'credentials' | 'settings'
 
 const CONSOLE_UI_KEY = '@m8/console-ui'
 const CUSTOM_SURFACES_KEY = '@m8/custom-surfaces'
+const SURFACE_OVERRIDES_KEY = '@m8/surface-overrides'
 
 export function ConsoleScreen({
   onApproveGrant,
@@ -40,8 +46,10 @@ export function ConsoleScreen({
   onCreatePublicPersona,
   onLinkPublicSocial,
   onSignOut,
+  onToggleSignalSurface,
   onUnlinkPublicSocial,
   onUpdateDisplayName,
+  onUpdateSignalVisibility,
   onUpdateSurfaceState,
   onRefreshSession,
   session,
@@ -58,8 +66,10 @@ export function ConsoleScreen({
   onCreatePublicPersona: (displayName: string) => Promise<void>
   onLinkPublicSocial: (provider: SocialProvider, handle: string) => Promise<void>
   onSignOut: () => void
+  onToggleSignalSurface: (personaId: string, signalLabel: string, surfaceId: SurfaceId) => Promise<void>
   onUnlinkPublicSocial: (id: string) => Promise<void>
   onUpdateDisplayName: (displayName: string) => Promise<void>
+  onUpdateSignalVisibility: (personaId: string, signalLabel: string, visibility: Visibility) => Promise<void>
   onUpdateSurfaceState: (personaId: string, surface: SurfaceId, state: SurfaceState) => Promise<void>
   onRefreshSession: () => Promise<void>
   session: IdentitySession
@@ -68,12 +78,14 @@ export function ConsoleScreen({
 }) {
   const isVerified = session.ineVerification?.status === 'verified'
   const renameStatus = getRenameStatus(session, isVerified)
-  const [activeSection, setActiveSection] = useState<ConsoleSectionId>('dashboard')
+  const [activeSection, setActiveSection] = useState<ConsoleSectionId>('identity')
   const [activePersonaId, setActivePersonaId] = useState(session.personas[0]?.id ?? '')
   const [refreshing, setRefreshing] = useState(false)
   const [uiRestored, setUiRestored] = useState(false)
   const [showSurfaceBuilder, setShowSurfaceBuilder] = useState(false)
   const [customSurfaces, setCustomSurfaces] = useState<NewSurfaceInput[]>([])
+  const [surfaceOverrides, setSurfaceOverrides] = useState<Record<string, Record<string, unknown>>>({})
+  const [editingSurface, setEditingSurface] = useState<SurfaceTemplate | NewSurfaceInput | null>(null)
   const [showBiometricGate, setShowBiometricGate] = useState(false)
   const [showIneModal, setShowIneModal] = useState(false)
   const [renameInput, setRenameInput] = useState(session.verifiedDisplayName ?? session.displayName)
@@ -88,7 +100,7 @@ export function ConsoleScreen({
     hasDanger,
     dismissNotification,
     markNotificationsRead,
-  } = useNotifications(session, () => setActiveSection('dashboard'))
+  } = useNotifications(session, (section) => setActiveSection(section as ConsoleSectionId))
 
   // Restore persisted UI state (selected section/persona, custom surfaces) once on mount.
   useEffect(() => {
@@ -96,9 +108,10 @@ export function ConsoleScreen({
     let cancelled = false
     void (async () => {
       try {
-        const [uiRaw, surfacesRaw] = await Promise.all([
+        const [uiRaw, surfacesRaw, overridesRaw] = await Promise.all([
           AsyncStorage.getItem(CONSOLE_UI_KEY),
           AsyncStorage.getItem(CUSTOM_SURFACES_KEY),
+          AsyncStorage.getItem(SURFACE_OVERRIDES_KEY),
         ])
         if (cancelled) return
         if (uiRaw) {
@@ -106,8 +119,9 @@ export function ConsoleScreen({
           // A pending deep link wins over the restored section.
           if (
             !incomingRoute &&
-            (parsed.activeSection === 'dashboard' ||
+            (parsed.activeSection === 'inbox' ||
               parsed.activeSection === 'identity' ||
+              parsed.activeSection === 'credentials' ||
               parsed.activeSection === 'settings')
           ) {
             setActiveSection(parsed.activeSection)
@@ -123,6 +137,10 @@ export function ConsoleScreen({
         if (surfacesRaw) {
           const parsed = JSON.parse(surfacesRaw)
           if (Array.isArray(parsed)) setCustomSurfaces(parsed as NewSurfaceInput[])
+        }
+        if (overridesRaw) {
+          const parsed = JSON.parse(overridesRaw)
+          if (parsed && typeof parsed === 'object') setSurfaceOverrides(parsed as Record<string, Record<string, unknown>>)
         }
       } catch {
         // Corrupt or missing storage — keep defaults.
@@ -148,6 +166,11 @@ export function ConsoleScreen({
     if (!uiRestored) return
     void AsyncStorage.setItem(CUSTOM_SURFACES_KEY, JSON.stringify(customSurfaces))
   }, [uiRestored, customSurfaces])
+
+  useEffect(() => {
+    if (!uiRestored) return
+    void AsyncStorage.setItem(SURFACE_OVERRIDES_KEY, JSON.stringify(surfaceOverrides))
+  }, [uiRestored, surfaceOverrides])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false })
@@ -192,7 +215,7 @@ export function ConsoleScreen({
         setActiveSection('identity')
         break
       default:
-        setActiveSection('dashboard')
+        setActiveSection('identity')
         break
     }
     onRouteHandled?.()
@@ -208,13 +231,12 @@ export function ConsoleScreen({
     [isPublicSlot, activePersonaId, session.personas]
   )
 
-  const activeProofCount = session.proofArtifacts.filter((proof) => proof.status === 'Active').length
-  const activeGrantCount = session.grants.filter((grant) => grant.status === 'Active').length
+  const profileContext = useProfileContext(session, activePersona)
 
   async function completeVerification(record: IneVerificationRecord) {
     await onSaveIneVerification({ ...record, status: 'verified' })
     setShowIneModal(false)
-    setActiveSection('dashboard')
+    setActiveSection('identity')
   }
 
   async function saveNameAndUsePara() {
@@ -234,7 +256,7 @@ export function ConsoleScreen({
     try {
       await onRequestGrant({
         appId: 'para-civic-pass',
-        appName: 'PARA Civic Pass',
+        appName: 'PARA Pass',
         appKind: 'Civic app',
         surface: 'civic',
         requestedClaims: ['has_para_verification', 'is_civic_eligible'],
@@ -243,10 +265,25 @@ export function ConsoleScreen({
         reason: 'Use the selected card in PARA with proof-only civic eligibility.',
         verifier: 'PARA verifier',
       })
-      setActiveSection('dashboard')
+      setActiveSection('identity')
     } finally {
       setRequestingPara(false)
     }
+  }
+
+  function handleSaveSurface(id: string, updates: Record<string, unknown>) {
+    setSurfaceOverrides((prev) => ({ ...prev, [id]: updates }))
+  }
+
+  function deriveSurfaceId(templateId: string): SurfaceId | null {
+    if (templateId === 'public-template' || templateId === 'public') return 'public'
+    if (templateId === 'civic-template' || templateId === 'civic') return 'civic'
+    return null
+  }
+
+  function handleToggleSignalSurface(signalLabel: string, surfaceId: SurfaceId) {
+    if (!activePersona) return
+    void onToggleSignalSurface(activePersona.id, signalLabel, surfaceId)
   }
 
   return (
@@ -269,6 +306,8 @@ export function ConsoleScreen({
             onSelectPersona={setActivePersonaId}
             onDismissNotification={dismissNotification}
             onMarkNotificationsRead={markNotificationsRead}
+            publicLinks={session.publicLinks}
+            showPersonas={activeSection !== 'settings'}
           />
         }
         footer={
@@ -278,46 +317,49 @@ export function ConsoleScreen({
           />
         }
       >
-        {activeSection === 'dashboard' && (
-          <HomeSection
-            activePersona={activePersona ?? session.personas[0]}
-            grants={session.grants}
-            isVerified={isVerified}
+        {activeSection === 'inbox' && (
+          <InboxSection
             notifications={notifications}
+            onDismissNotification={dismissNotification}
+            onBack={() => setActiveSection('identity')}
+          />
+        )}
+
+        {activeSection === 'credentials' && (
+          <CredentialsSection
+            activePersona={activePersona ?? session.personas[0]}
+            grants={profileContext.grants}
             onApproveGrant={onApproveGrant}
             onApprovePolicyChange={onApprovePolicyChange}
             onApplyPolicyChange={onApplyPolicyChange}
-            onDismissNotification={dismissNotification}
-            onGoToIdentity={() => setActiveSection('identity')}
-            onGoToPublic={() => {
-              const publicPersona = session.personas.find((p) => p.kind === 'public')
-              setActivePersonaId(publicPersona?.id ?? PUBLIC_SLOT_ID)
-              setActiveSection('identity')
-            }}
+            onLinkPublicSocial={onLinkPublicSocial}
             onRejectPolicyChange={onRejectPolicyChange}
             onRevokeGrant={onRevokeGrant}
-            pendingRequests={session.pendingRequests}
+            onUnlinkPublicSocial={onUnlinkPublicSocial}
+            pendingRequests={profileContext.pendingRequests}
+            policyChangeRequests={profileContext.policyChangeRequests}
+            proofArtifacts={session.proofArtifacts}
             session={session}
+            surfaceLabel={profileContext.surfaceLabel}
           />
         )}
 
         {activeSection === 'identity' && (
           <IdentitySection
-            activeGrantCount={activeGrantCount}
             activePersona={activePersona}
-            activeProofCount={activeProofCount}
             customSurfaces={customSurfaces}
+            surfaceOverrides={surfaceOverrides}
             isVerified={isVerified}
+            onRequestParaGrant={requestParaStarterGrant}
             onSaveName={saveNameAndUsePara}
             onCreatePublicPersona={onCreatePublicPersona}
             onLinkPublicSocial={onLinkPublicSocial}
-            onUnlinkPublicSocial={onUnlinkPublicSocial}
-            onRequestParaGrant={requestParaStarterGrant}
             onShowSurfaceBuilder={() => setShowSurfaceBuilder(true)}
-            onSkipRename={() => setActiveSection('dashboard')}
+            onEditSurface={setEditingSurface}
+            onSkipRename={() => setActiveSection('identity')}
             onStartVerification={() => setShowIneModal(true)}
+            onToggleSignalSurface={handleToggleSignalSurface}
             onUpdateSurfaceState={onUpdateSurfaceState}
-            proofArtifacts={session.proofArtifacts}
             publicSlotActive={isPublicSlot}
             renameInput={renameInput}
             renameStatus={renameStatus}
@@ -337,6 +379,7 @@ export function ConsoleScreen({
             onToggleBiometric={(value) => {
               void toggleBiometric(value)
             }}
+            onUpdateSignalVisibility={onUpdateSignalVisibility}
           />
         )}
       </ConsoleLayout>
@@ -347,6 +390,16 @@ export function ConsoleScreen({
         onCreate={(input) => {
           setCustomSurfaces((prev) => [...prev, input])
         }}
+      />
+
+      <SurfaceEditModal
+        visible={editingSurface !== null}
+        surface={editingSurface}
+        persona={activePersona ?? session.personas[0]}
+        surfaceId={editingSurface ? deriveSurfaceId(editingSurface.id) : null}
+        onToggleSignalSurface={handleToggleSignalSurface}
+        onClose={() => setEditingSurface(null)}
+        onSave={handleSaveSurface}
       />
 
       <IneVerificationModal
@@ -366,7 +419,7 @@ export function ConsoleScreen({
         }}
         onCancel={() => {
           setShowBiometricGate(false)
-          setActiveSection('dashboard')
+          setActiveSection('identity')
         }}
       />
     </>

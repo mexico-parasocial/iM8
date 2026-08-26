@@ -22,8 +22,9 @@ import {
   type SocialProvider,
   type SurfaceId,
   type SurfaceState,
+  type Visibility,
 } from '../types'
-import { buildPublicPersona } from '../poc-data'
+import { buildPublicPersona, buildSurfaceTemplates } from '../poc-data'
 import { buildInstagramGalleryPlan } from '../services/instagramGallery'
 
 export function useSessionBootstrap() {
@@ -38,8 +39,14 @@ export function useSessionBootstrap() {
     void restoreIdentitySession()
       .then((restored) => {
         if (!mounted || !restored) return
+        // Refresh surface templates from the latest code to pick up label renames
+        const freshTemplates = buildSurfaceTemplates()
+        const updated = {
+          ...restored,
+          surfaceTemplates: freshTemplates,
+        }
         startTransition(() => {
-          setSession(restored)
+          setSession(updated)
         })
       })
       .catch((caught) => {
@@ -180,7 +187,7 @@ export function useSessionBootstrap() {
           ? {
               ...persona,
               name: cleanName,
-              oneLine: 'Verified civic identity for PARA-compatible apps',
+              oneLine: 'Verified identity for PARA-compatible apps',
             }
           : persona
       ),
@@ -194,6 +201,48 @@ export function useSessionBootstrap() {
       personas: session.personas.map((persona) =>
         persona.id === personaId
           ? { ...persona, surfaceStates: { ...persona.surfaceStates, [surface]: state } }
+          : persona
+      ),
+    })
+  }
+
+  // Signal visibility is the profile-publication switch: it decides whether
+  // an item goes to the public repo, the persona's facet space, or stays on
+  // this device (services/profileFacets.ts consumes it).
+  async function updateSignalVisibility(personaId: string, signalLabel: string, visibility: Visibility) {
+    if (!session) return
+    await updateSession({
+      ...session,
+      personas: session.personas.map((persona) =>
+        persona.id === personaId
+          ? {
+              ...persona,
+              signals: persona.signals.map((signal) =>
+                signal.label === signalLabel ? { ...signal, visibility } : signal
+              ),
+            }
+          : persona
+      ),
+    })
+  }
+
+  async function toggleSignalSurface(personaId: string, signalLabel: string, surfaceId: SurfaceId) {
+    if (!session) return
+    await updateSession({
+      ...session,
+      personas: session.personas.map((persona) =>
+        persona.id === personaId
+          ? {
+              ...persona,
+              signals: persona.signals.map((signal) => {
+                if (signal.label !== signalLabel) return signal
+                const current = signal.surfaces ?? []
+                const next = current.includes(surfaceId)
+                  ? current.filter((s) => s !== surfaceId)
+                  : [...current, surfaceId]
+                return { ...signal, surfaces: next }
+              }),
+            }
           : persona
       ),
     })
@@ -390,8 +439,10 @@ export function useSessionBootstrap() {
     signIn,
     signOut,
     status,
+    toggleSignalSurface,
     unlinkPublicSocial,
     updateDisplayName,
+    updateSignalVisibility,
     updateSurfaceState,
   }
 }

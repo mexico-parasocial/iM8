@@ -17,13 +17,12 @@ export function personaLabel(persona: Persona, index: number): string {
 
 export const SURFACE_META: Record<SurfaceId, { label: string; color: string; icon: IconName }> = {
   public: { label: 'Public', color: tokens.success, icon: 'globe' },
-  civic: { label: 'Civic', color: tokens.accent, icon: 'shieldCheck' },
-  dating: { label: 'Dating', color: '#a78bfa', icon: 'personGroup' },
+  civic: { label: 'PARA', color: tokens.accent, icon: 'shieldCheck' },
 }
 
 export const CLAIM_LABELS: Record<string, string> = {
   is_verified_public_figure: 'Verified public figure',
-  is_civic_eligible: 'Civic eligibility',
+  is_civic_eligible: 'PARA eligibility',
   has_para_verification: 'PARA verification',
   has_party_affiliation_match: 'Party affiliation match',
   is_age_eligible: 'Age eligible',

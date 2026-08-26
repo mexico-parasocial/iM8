@@ -1,21 +1,23 @@
-import { ActivityIndicator, Pressable, Text, View } from 'react-native'
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import { buttonStyle, buttonTextStyle } from '../../../components/m8/Button'
 import {
+  ClaimChips,
   consoleStyles,
-  EmptyCard,
-  Metric,
-  SectionHeading,
-  SectionHero,
-  SimpleFact,
-  SimpleRow,
   StatusPill,
 } from '../../../components/m8/ConsolePrimitives'
+import { Icon } from '../../../components/m8/Icon'
+import { describeVerification } from '../../../services/artifactVerification'
 import { tokens } from '../../../theme'
 import type { IdentitySession, ProofArtifact } from '../../../types'
 import { CLAIM_LABELS } from '../constants'
 
+/**
+ * PARA as one compact card: lock state, the one CTA, claims as chips, and
+ * proof receipts as single rows. The provider telemetry (availability, policy
+ * record, sync age) and the fixture integrations list were removed — they
+ * described the backend, not anything the user can act on.
+ */
 export function ParaSection({
-  embedded = false,
   isVerified,
   onRequestParaGrant,
   onStartVerification,
@@ -23,7 +25,6 @@ export function ParaSection({
   requestingPara,
   session,
 }: {
-  embedded?: boolean
   isVerified: boolean
   onRequestParaGrant: () => Promise<void>
   onStartVerification: () => void
@@ -34,32 +35,21 @@ export function ParaSection({
   const activeProofs = proofArtifacts.filter((proof) => proof.status === 'Active')
 
   return (
-    <View style={consoleStyles.stack}>
-      {embedded ? (
-        <View style={consoleStyles.listBlock}>
-          <SectionHeading
-            title="PARA"
-            detail="Proof use and connected apps for this wallet."
-          />
-        </View>
-      ) : (
-        <SectionHero
-          eyebrow="PARA"
-          title={isVerified ? 'Selected card can request PARA proofs.' : 'Verification unlocks PARA use.'}
-          body={session.paraProvider.detail}
-          icon="globe"
-        />
-      )}
+    <View style={styles.paraCard}>
+      <View style={consoleStyles.rowBetween}>
+        <Text style={consoleStyles.cardTitle}>PARA</Text>
+        <StatusPill label={isVerified ? 'Unlocked' : 'Locked'} tone={isVerified ? 'success' : 'neutral'} />
+      </View>
 
       {!isVerified ? (
-        <Pressable onPress={onStartVerification} style={[buttonStyle('primary'), consoleStyles.fullButton]}>
+        <Pressable onPress={onStartVerification} style={buttonStyle('primary')}>
           <Text style={buttonTextStyle('primary')}>Verify before using PARA</Text>
         </Pressable>
       ) : (
         <Pressable
           onPress={() => void onRequestParaGrant()}
           disabled={requestingPara}
-          style={[buttonStyle('primary'), consoleStyles.fullButton, requestingPara && consoleStyles.disabled]}
+          style={[buttonStyle('primary'), requestingPara && consoleStyles.disabled]}
         >
           {requestingPara ? (
             <ActivityIndicator color={tokens.onAccent} />
@@ -69,61 +59,70 @@ export function ParaSection({
         </Pressable>
       )}
 
-      <View style={consoleStyles.metricRow}>
-        <Metric label="Provider" value={session.paraProvider.availability} />
-        <Metric label="Policy" value={session.paraProvider.policyRecord} />
-        <Metric label="Sync" value={session.paraProvider.lastSync} />
-      </View>
+      <ClaimChips claims={session.paraProvider.supportedClaims} />
 
-      <View style={consoleStyles.listBlock}>
-        <SectionHeading title="Proof receipts" detail="These are the receipts PARA-compatible apps can consume." />
+      <View style={styles.receipts}>
+        <Text style={styles.receiptsLabel}>Proof receipts</Text>
         {activeProofs.length > 0 ? (
-          activeProofs.map((proof) => <ProofCard key={proof.id} proof={proof} />)
+          activeProofs.map((proof) => <ReceiptRow key={proof.id} proof={proof} />)
         ) : (
-          <EmptyCard icon="shield" title="No active proof receipts yet" body="Approve a request to create proof-only receipts for PARA and other apps." />
+          <Text style={styles.receiptsEmpty}>
+            No receipts yet. Approve a request to create proof-only receipts.
+          </Text>
         )}
       </View>
-
-      <View style={consoleStyles.listBlock}>
-        <SectionHeading title="PARA claims" detail="Supported proofs for the selected card, backed by the private root." />
-        {session.paraProvider.supportedClaims.map((claim) => (
-          <SimpleRow
-            key={claim}
-            icon="check"
-            title={CLAIM_LABELS[claim] ?? claim}
-            detail="Available as proof-only output"
-            meta="PARA"
-          />
-        ))}
-      </View>
-
-      <View style={consoleStyles.listBlock}>
-        <SectionHeading title="Connected apps" detail="Apps that know how to ask iM8 for bounded proofs." />
-        {session.integrations.map((integration) => (
-          <SimpleRow
-            key={integration.id}
-            icon="globe"
-            title={integration.name}
-            detail={integration.summary}
-            meta={integration.status}
-          />
-        ))}
-      </View>
     </View>
   )
 }
 
-function ProofCard({ proof }: { proof: ProofArtifact }) {
+function ReceiptRow({ proof }: { proof: ProofArtifact }) {
+  const verified = proof.verification?.status === 'verified'
   return (
-    <View style={consoleStyles.receiptCard}>
-      <View style={consoleStyles.rowBetween}>
-        <Text style={consoleStyles.cardTitle}>{CLAIM_LABELS[proof.claimType] ?? proof.label}</Text>
-        <StatusPill label={proof.status} tone={proof.status === 'Active' ? 'success' : 'neutral'} />
+    <View style={consoleStyles.surfaceCard}>
+      {/*
+        Two different facts, deliberately shown separately. The pill is what
+        the broker says about the proof's lifecycle; the second line is
+        whether we could confirm the issuer's signature ourselves. Collapsing
+        them would put a green tick on an assertion we cannot check.
+      */}
+      <Icon
+        name={verified ? 'shieldCheck' : 'shield'}
+        size={18}
+        color={verified ? tokens.success : tokens.warning}
+      />
+      <View style={{ flex: 1 }}>
+        <Text style={consoleStyles.rowTitle}>{CLAIM_LABELS[proof.claimType] ?? proof.label}</Text>
+        <Text style={consoleStyles.rowDetail}>
+          {proof.verification ? describeVerification(proof.verification) : 'Signature not checked'}
+        </Text>
       </View>
-      <Text style={consoleStyles.cardBodyText}>{proof.summary}</Text>
-      <SimpleFact label="Issuer" value={proof.issuer} />
-      <SimpleFact label="Audience" value={proof.audienceAppId} />
-      <SimpleFact label="Expires" value={proof.expiresAt} />
+      <StatusPill label={proof.status} tone={proof.status === 'Active' ? 'success' : 'neutral'} />
     </View>
   )
 }
+
+const styles = StyleSheet.create({
+  paraCard: {
+    borderRadius: 16,
+    padding: 14,
+    gap: 12,
+    backgroundColor: tokens.surface,
+    borderWidth: 1,
+    borderColor: tokens.accentBorder,
+  },
+  receipts: {
+    gap: 8,
+  },
+  receiptsLabel: {
+    color: tokens.muted,
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  receiptsEmpty: {
+    color: tokens.muted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+})

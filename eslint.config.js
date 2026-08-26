@@ -1,10 +1,10 @@
-import js from "@eslint/js";
-import tseslint from "typescript-eslint";
-import react from "eslint-plugin-react";
-import reactHooks from "eslint-plugin-react-hooks";
-import reactNative from "eslint-plugin-react-native";
+const js = require("@eslint/js");
+const tseslint = require("typescript-eslint");
+const react = require("eslint-plugin-react");
+const reactHooks = require("eslint-plugin-react-hooks");
+const reactNative = require("eslint-plugin-react-native");
 
-export default tseslint.config(
+module.exports = tseslint.config(
   {
     ignores: ["node_modules/", ".expo/", "dist/", "web-build/"],
   },

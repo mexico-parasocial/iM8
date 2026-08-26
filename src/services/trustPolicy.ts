@@ -53,7 +53,7 @@ export function buildConsentLedger(): ConsentLedgerEntry[] {
       detail: 'Approved bounded compatibility and age claims without releasing raw provider data.',
       timestamp: 'Today · 09:30',
       app: 'Atmos Dating',
-      surface: 'dating',
+      surface: 'public',
       outcome: 'Approved',
     },
     {

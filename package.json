@@ -22,7 +22,7 @@
   "expo": {
     "autolinking": {},
     "install": {
-      "exclude": []
+      "exclude": ["typescript"]
     }
   },
   "scripts": {
@@ -35,40 +35,48 @@
     "prebuild:clean": "EXPO_NO_GIT_STATUS=1 expo prebuild --clean",
     "nuke": "rm -rf ./node_modules ./ios ./android",
     "typecheck": "tsc --noEmit",
-    "lint": "oxlint --quiet src"
+    "lint": "oxlint --quiet src",
+    "test": "tsx --test src/**/__tests__/*.test.ts",
+    "check": "pnpm typecheck && pnpm test && pnpm lint"
   },
   "dependencies": {
-    "@expo/metro-runtime": "~6.1.2",
+    "@expo/metro-runtime": "~57.0.13",
+    "@noble/curves": "1.9.7",
+    "@noble/hashes": "1.8.0",
     "@react-native-async-storage/async-storage": "2.2.0",
-    "expo": "54.0.34",
-    "expo-blur": "~15.0.8",
-    "expo-build-properties": "~1.0.10",
-    "expo-dev-client": "~6.0.20",
-    "expo-linking": "~8.0.11",
-    "expo-local-authentication": "~16.0.0",
-    "expo-secure-store": "^15.0.8",
-    "expo-splash-screen": "~31.0.13",
-    "expo-status-bar": "~3.0.9",
-    "expo-system-ui": "~6.0.9",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "react-native": "0.81.5",
-    "react-native-gesture-handler": "~2.28.0",
+    "@scure/bip39": "1.6.0",
+    "@scure/sr25519": "^2.3.0",
+    "expo": "57.0.16",
+    "expo-blur": "~57.0.2",
+    "expo-build-properties": "~57.0.14",
+    "expo-crypto": "~57.0.2",
+    "expo-dev-client": "~57.0.15",
+    "expo-linking": "~57.0.7",
+    "expo-local-authentication": "~57.0.2",
+    "expo-secure-store": "^57.0.1",
+    "expo-splash-screen": "~57.0.8",
+    "expo-status-bar": "~57.0.1",
+    "expo-system-ui": "~57.0.2",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.2",
+    "react-native-gesture-handler": "~2.32.0",
     "react-native-qrcode-svg": "^6.3.21",
-    "react-native-reanimated": "~3.19.1",
-    "react-native-safe-area-context": "~5.6.0",
-    "react-native-svg": "15.12.1",
-    "react-native-web": "^0.21.0"
+    "react-native-reanimated": "~4.5.1",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-svg": "15.15.4",
+    "react-native-web": "^0.21.0",
+    "react-native-worklets": "0.10.1"
   },
   "devDependencies": {
     "@types/node": "^25.5.2",
-    "@types/react": "~19.1.0",
-    "babel-preset-expo": "~54.0.10",
+    "@types/react": "~19.2.18",
+    "babel-preset-expo": "~57.0.8",
     "eas-cli": "19.0.5",
     "eas-cli-local-build-plugin": "^18.13.1",
     "oxlint": "^1.74.0",
     "patch-package": "^8.0.1",
     "tsx": "^4.21.0",
-    "typescript": "~5.9.2"
+    "typescript": "~7.0.2"
   }
 }

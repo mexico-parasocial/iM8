@@ -8,6 +8,8 @@ import { ConsoleScreen } from './src/screens/ConsoleScreen'
 import { OnboardingScreen } from './src/screens/OnboardingScreen'
 import { useSessionBootstrap } from './src/hooks/useSessionBootstrap'
 import { useDeepLink, type DeepLinkRoute } from './src/hooks/useDeepLink'
+import { useBackupPrompt } from './src/hooks/useBackupPrompt'
+import { RecoveryPhraseSheet } from './src/components/m8/RecoveryPhraseSheet'
 import { tokens } from './src/theme'
 
 const ONBOARDING_KEY = '@m8/onboarding-complete'
@@ -32,12 +34,18 @@ export default function App() {
     signIn,
     signOut,
     status,
+    toggleSignalSurface,
     unlinkPublicSocial,
     updateDisplayName,
+    updateSignalVisibility,
     updateSurfaceState,
   } = useSessionBootstrap()
 
   const {route, clear} = useDeepLink()
+
+  // A freshly enrolled identity lives on one device and nowhere else. Raise
+  // the recovery ceremony as soon as there is a session to protect.
+  const backupPrompt = useBackupPrompt(Boolean(session))
   const [pendingRoute, setPendingRoute] = useState<DeepLinkRoute>(null)
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null)
 
@@ -87,8 +95,10 @@ export default function App() {
       onCreatePublicPersona={createPublicPersona}
       onLinkPublicSocial={linkPublicSocial}
       onSignOut={signOut}
+      onToggleSignalSurface={toggleSignalSurface}
       onUnlinkPublicSocial={unlinkPublicSocial}
       onUpdateDisplayName={updateDisplayName}
+      onUpdateSignalVisibility={updateSignalVisibility}
       onUpdateSurfaceState={updateSurfaceState}
       onRefreshSession={reloadSession}
     />
@@ -105,7 +115,14 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>{screen}</SafeAreaProvider>
+      <SafeAreaProvider>
+        {screen}
+        <RecoveryPhraseSheet
+          visible={backupPrompt.visible}
+          onClose={backupPrompt.dismiss}
+          onConfirmed={backupPrompt.onConfirmed}
+        />
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   )
 }

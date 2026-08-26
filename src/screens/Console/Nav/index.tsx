@@ -10,8 +10,8 @@ const SECTIONS: {
   icon: IconName
   iconActive: IconName
 }[] = [
-  { id: 'dashboard', label: 'Dash', icon: 'home', iconActive: 'homeFilled' },
-  { id: 'identity', label: 'Wallet', icon: 'person', iconActive: 'personFilled' },
+  { id: 'identity', label: 'Identity', icon: 'person', iconActive: 'personFilled' },
+  { id: 'credentials', label: 'Credentials', icon: 'shieldCheck', iconActive: 'shieldCheck' },
   { id: 'settings', label: 'Settings', icon: 'settingsGear', iconActive: 'settingsGearFilled' },
 ]
 

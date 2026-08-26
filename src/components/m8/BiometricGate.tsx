@@ -19,7 +19,93 @@ const BIOMETRIC_ENABLED_KEY = '@m8/biometric-enabled'
 const LAST_BACKGROUND_KEY = '@m8/last-background'
 const LOCK_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
 
-async function authenticateBiometric(): Promise<boolean> {
+/**
+ * Whether this device can offer the biometric lock at all.
+ *
+ * Both conditions matter and mean different things: no hardware is permanent,
+ * unenrolled biometrics is something the user can go fix in system settings.
+ */
+export async function biometricLockAvailability(): Promise<{
+  hasHardware: boolean
+  isEnrolled: boolean
+  available: boolean
+}> {
+  try {
+    const hasHardware = await LocalAuthentication.hasHardwareAsync()
+    const isEnrolled = hasHardware
+      ? await LocalAuthentication.isEnrolledAsync()
+      : false
+    return { hasHardware, isEnrolled, available: hasHardware && isEnrolled }
+  } catch {
+    return { hasHardware: false, isEnrolled: false, available: false }
+  }
+}
+
+/** Read the stored preference. Shared with useBiometricGate's `enabled`. */
+export async function getBiometricLockEnabled(): Promise<boolean> {
+  const stored = await AsyncStorage.getItem(BIOMETRIC_ENABLED_KEY)
+  return stored === 'true'
+}
+
+/**
+ * Persist the preference from outside the hook, so the setup ceremony and the
+ * settings switch drive one stored value rather than diverging.
+ */
+export async function setBiometricLockEnabled(value: boolean): Promise<void> {
+  await AsyncStorage.setItem(BIOMETRIC_ENABLED_KEY, String(value))
+}
+
+export type DeviceAuthResult =
+  | { ok: true }
+  /** The user was asked and declined or failed. */
+  | { ok: false; reason: 'rejected' }
+  /** Nothing to authenticate against — no biometrics *and* no passcode. */
+  | { ok: false; reason: 'no-credential' }
+
+/**
+ * Authenticate with whatever this device actually has: biometrics if enrolled,
+ * otherwise the device passcode.
+ *
+ * `authenticateBiometric` below returns false when biometrics are unenrolled,
+ * which is right for an opt-in app lock but wrong for the recovery ceremony:
+ * a phone with a passcode and no Face ID would be permanently unable to reveal
+ * its own recovery phrase, so the identity could never be backed up and would
+ * die with the device. The early returns there also mean the passcode fallback
+ * is never reached, even though `disableDeviceFallback: false` asks for it.
+ *
+ * Distinguishing "declined" from "nothing to ask with" matters: the first is a
+ * retry, the second needs the user to set a passcode first, and telling them
+ * to retry would be a loop with no exit.
+ */
+export async function authenticateWithDeviceCredential(
+  promptMessage = 'Verify your identity',
+): Promise<DeviceAuthResult> {
+  try {
+    const level = await LocalAuthentication.getEnrolledLevelAsync()
+    if (level === LocalAuthentication.SecurityLevel.NONE) {
+      return { ok: false, reason: 'no-credential' }
+    }
+
+    const result = await LocalAuthentication.authenticateAsync({
+      promptMessage,
+      fallbackLabel: 'Use device passcode',
+      disableDeviceFallback: false,
+    })
+
+    return result.success ? { ok: true } : { ok: false, reason: 'rejected' }
+  } catch (err) {
+    console.error('[BiometricGate] Device authentication error:', err)
+    return { ok: false, reason: 'rejected' }
+  }
+}
+
+/**
+ * Biometrics specifically, for the opt-in app lock. Returns false when
+ * biometrics are unavailable or unenrolled — the lock is only offered when
+ * they exist. Ceremonies that must not dead-end should use
+ * `authenticateWithDeviceCredential` instead.
+ */
+export async function authenticateBiometric(): Promise<boolean> {
   try {
     const hasHardware = await LocalAuthentication.hasHardwareAsync()
     if (!hasHardware) {

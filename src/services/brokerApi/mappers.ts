@@ -17,6 +17,8 @@ import {
   buildCommandDeck,
   buildPolicyChangeRequests,
 } from '../../poc-data'
+import { verifyProofArtifact } from '../artifactVerification'
+import { getTrustedIssuers } from '../trustedIssuers'
 import {
   buildClaimCatalog,
   buildConsentLedger,
@@ -175,7 +177,15 @@ export function mapCurrentSession(
       compatibilityRecord: 'app.bsky.graph.verification',
       proofArtifactIds: grant.proofArtifactIds,
     })),
+    // Verify here, at the edge where broker data enters the app, so nothing
+    // downstream has to remember to. An artifact reaches the UI already
+    // carrying whether we could confirm it — today that is `unsigned` for
+    // everything, because the broker does not sign yet.
     proofArtifacts: session.proofs.map((proof) => ({
+      verification: verifyProofArtifact(proof, {
+        trustedIssuers: getTrustedIssuers(),
+        audienceAppId: proof.audienceAppId,
+      }),
       id: proof.id,
       claimType: proof.claimType,
       label: proof.claimType,
