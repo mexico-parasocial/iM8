@@ -36,7 +36,8 @@
     "nuke": "rm -rf ./node_modules ./ios ./android",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint --quiet src",
-    "test": "tsx --test src/**/__tests__/*.test.ts"
+    "test": "tsx --test src/**/__tests__/*.test.ts",
+    "check": "pnpm typecheck && pnpm test && pnpm lint"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.13",
