@@ -26,6 +26,28 @@ import {
 } from '../types'
 import { buildPublicPersona, buildSurfaceTemplates } from '../poc-data'
 import { buildInstagramGalleryPlan } from '../services/instagramGallery'
+import { registerSignableIdentities } from '../services/brokerApi'
+import { hasSeed } from '../services/seedVault'
+import { clearDeviceRegistry, touchCurrentDevice } from './useDeviceRegistry'
+
+/**
+ * Register this device's signable identity keys with the broker, best-effort.
+ * Fire-and-forget: registration is idempotent server-side (re-registering a
+ * known key is a no-op success), so triggering it on every launch is safe and
+ * a failure must never block identity creation or restore. Skips when there is
+ * no seed to prove possession with. Session-unbound by design — see
+ * brokerApi/identityRegistration.
+ */
+function registerIdentitiesInBackground() {
+  void (async () => {
+    try {
+      if (!(await hasSeed())) return
+      await registerSignableIdentities()
+    } catch {
+      // Best-effort; a real failure retries on the next launch.
+    }
+  })()
+}
 
 export function useSessionBootstrap() {
   const [session, setSession] = useState<IdentitySession | null>(null)
@@ -45,6 +67,10 @@ export function useSessionBootstrap() {
           ...restored,
           surfaceTemplates: freshTemplates,
         }
+        // Record this install in the device registry (best effort).
+        void touchCurrentDevice()
+        // Retry identity registration on launch (idempotent, best-effort).
+        registerIdentitiesInBackground()
         startTransition(() => {
           setSession(updated)
         })
@@ -71,6 +97,7 @@ export function useSessionBootstrap() {
     }
     const nextSession = await beginIdentitySession(fallbackAttempt)
     const hydratedSession = preservePublicIdentityState(nextSession, session)
+    void touchCurrentDevice()
 
     startTransition(() => {
       setSession(hydratedSession)
@@ -112,6 +139,9 @@ export function useSessionBootstrap() {
       setStatus('hydrating')
 
       const nextSession = await createNativeIdentity(handle)
+      void touchCurrentDevice()
+      // The seed now exists, so the identity keys can prove possession.
+      registerIdentitiesInBackground()
       startTransition(() => {
         setSession(nextSession)
       })
@@ -412,6 +442,8 @@ export function useSessionBootstrap() {
     await AsyncStorage.removeItem('@m8/last-background')
     await AsyncStorage.removeItem('@m8/console-ui')
     await AsyncStorage.removeItem('@m8/custom-surfaces')
+    // The identity left this device: its device list leaves with it.
+    await clearDeviceRegistry()
 
     const allKeys = await AsyncStorage.getAllKeys()
     const aiCacheKeys = allKeys.filter((k) => k.startsWith('@ai_cache_'))
