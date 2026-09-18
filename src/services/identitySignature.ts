@@ -46,8 +46,12 @@ const DOMAIN_SIG_NONCE = 'para-id/sig-nonce/v1'
  * `atproto-link` binds a PARA identity to an atproto account DID: the account
  * side presents a challenge, and this signature proves the PARA key accepts
  * the pairing — without either key ever leaving its owner.
+ *
+ * `message-approve` is per-message step-up for the messenger: the challenge
+ * commits to room, body hash and timestamp, so an approval cannot be moved
+ * to another message — and a matrix-login assertion cannot approve one.
  */
-export const SIG_PURPOSES = ['matrix-login', 'mubez-registration', 'atproto-link'] as const
+export const SIG_PURPOSES = ['matrix-login', 'mubez-registration', 'atproto-link', 'message-approve', 'anon-action'] as const
 export type SigPurpose = (typeof SIG_PURPOSES)[number]
 
 const CURVE_ORDER =
