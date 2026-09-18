@@ -8,6 +8,11 @@ import {
   seedToMnemonic,
 } from './keyDerivation'
 import type { DerivedIdentity, IdentityLabel } from './keyDerivation'
+import {
+  signIdentityChallenge,
+  type SigPurpose,
+  type SignedAssertion,
+} from './identitySignature'
 
 /*
  * Presence of the module is not proof of a working keystore. On web,
@@ -136,6 +141,27 @@ export async function getIdentityPublicKeys(): Promise<Record<IdentityLabel, str
     civic: identities.civic.pubHex,
     anonymous: identities.anonymous.pubHex,
   }
+}
+
+/**
+ * Sign a proof-of-possession challenge as one identity, without the raw seed
+ * ever leaving this module. Mirrors `getIdentity`: the seed is loaded here and
+ * discarded, never handed to the caller.
+ *
+ * `signIdentityChallenge` refuses the ballot identity (`civic`) by the same
+ * allowlist as `getMatrixIdentity`, so this cannot be used to make the ballot
+ * key sign anything.
+ */
+export async function signChallenge(
+  label: IdentityLabel,
+  input: {
+    purpose: SigPurpose
+    audience: string
+    challenge: string
+    signedAt?: string
+  },
+): Promise<SignedAssertion> {
+  return signIdentityChallenge(await loadSeed(), label, input)
 }
 
 /**

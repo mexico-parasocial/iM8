@@ -33,6 +33,12 @@ import {
   buildLocalSession,
 } from './localSession'
 import { enrollNewIdentity } from './identityEnrollment'
+import { signChallenge } from './seedVault'
+import {
+  registerIdentityWith,
+  REGISTRABLE_LABELS,
+  type RegistrableLabel,
+} from './identityRegistration'
 
 type BrokerRequestInit = RequestInit & {
   token?: string | null
@@ -464,4 +470,48 @@ export async function getAnonymousIdentities(): Promise<AnonymousVoiceCard[]> {
     '/anonymous/identities'
   )
   return response.identities
+}
+
+/*
+ * Identity registration (mubEZ CD-9). The pure flow lives in
+ * `identityRegistration.ts` (no react-native imports, so it is testable); here
+ * we wire it to the real broker URL, a session-unbound fetch, and the seedVault
+ * signer. The registration calls deliberately do NOT attach the bearer token:
+ * correlating registration with a session would recreate the linkage the
+ * identity scheme removes. The proof of possession is the authorization.
+ */
+
+/** Register one identity, signing with the identity key. Seed stays in vault. */
+export async function registerIdentity(
+  label: RegistrableLabel,
+): Promise<{ registered: boolean; alreadyRegistered: boolean }> {
+  return registerIdentityWith(
+    { baseUrl: getBrokerBaseUrl(), fetchFn: fetch },
+    (input) => signChallenge(label, input),
+  )
+}
+
+/**
+ * Register every signable identity. Best-effort per identity: one failing does
+ * not abort the others, and the caller gets the per-label outcome.
+ */
+export async function registerSignableIdentities(): Promise<
+  Record<RegistrableLabel, { ok: true; alreadyRegistered: boolean } | { ok: false; error: string }>
+> {
+  const out = {} as Record<
+    RegistrableLabel,
+    { ok: true; alreadyRegistered: boolean } | { ok: false; error: string }
+  >
+  for (const label of REGISTRABLE_LABELS) {
+    try {
+      const result = await registerIdentity(label)
+      out[label] = { ok: true, alreadyRegistered: result.alreadyRegistered }
+    } catch (error) {
+      out[label] = {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      }
+    }
+  }
+  return out
 }
