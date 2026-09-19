@@ -504,6 +504,34 @@ export async function createAnonymousIdentity(
   return response.identity
 }
 
+/**
+ * Resolve this device's anonymous identity by proof of possession (F2b /
+ * CD-10): the server finds it by the proven key, not the session. Returns null
+ * when no identity is anchored to the key yet.
+ */
+export async function resolveAnonymousIdentityByKey(): Promise<AnonymousVoiceCard | null> {
+  const identityPub = (await getIdentityPublicKeys()).anonymous
+  const jti = bytesToHex(getRandomBytes(16))
+  const proof = await buildActionProof(
+    { baseUrl: getBrokerBaseUrl(), fetchFn: fetch },
+    (i) => signChallenge('anonymous', i),
+    { identityPub, action: 'resolve', jti },
+  )
+  try {
+    const response = await requestJson<{ identity: AnonymousVoiceCard }>(
+      '/anonymous/identities/resolve',
+      { method: 'POST', body: JSON.stringify({ proof }) },
+    )
+    return response.identity
+  } catch (error) {
+    // 404 = no identity anchored to this key yet; anything else propagates.
+    if (error instanceof Error && /No identity for this key|404/.test(error.message)) {
+      return null
+    }
+    throw error
+  }
+}
+
 export type UpdateAnonymousIdentityInput = {
   displayName?: string
   status?: 'active' | 'archived'
