@@ -561,6 +561,53 @@ export async function linkAnonymousPost(
   return response.post
 }
 
+/** Build an anon-action proof of possession for `action`, signing with the
+ * anonymous key. The seed stays in seedVault. */
+async function anonymousActionProofFor(action: string) {
+  const identityPub = (await getIdentityPublicKeys()).anonymous
+  const jti = bytesToHex(getRandomBytes(16))
+  return buildActionProof(
+    { baseUrl: getBrokerBaseUrl(), fetchFn: fetch },
+    (i) => signChallenge('anonymous', i),
+    { identityPub, action, jti },
+  )
+}
+
+export type LinkGermContactInput = {
+  contactUrl: string
+  providerRef?: string
+  mode?: 'germ-card-link' | 'm8-relay-pending-germ'
+}
+
+/**
+ * Link a Germ contact to an anonymous identity, proving possession of its key
+ * (F2b / CD-10). Bound to `germ-link:<id>`.
+ */
+export async function linkGermContact(
+  identityId: string,
+  input: LinkGermContactInput,
+): Promise<unknown> {
+  const proof = await anonymousActionProofFor(`germ-link:${identityId}`)
+  const response = await requestJson<{ germ: unknown }>(
+    `/anonymous/identities/${encodeURIComponent(identityId)}/germ/link`,
+    { method: 'POST', body: JSON.stringify({ ...input, proof }) },
+  )
+  return response.germ
+}
+
+/**
+ * Unlink an identity's Germ contact, proving possession of its key
+ * (F2b / CD-10). Bound to `germ-unlink:<id>`.
+ */
+export async function unlinkGermContact(identityId: string): Promise<unknown> {
+  const proof = await anonymousActionProofFor(`germ-unlink:${identityId}`)
+  const response = await requestJson<{ germ: unknown }>(
+    `/anonymous/identities/${encodeURIComponent(identityId)}/germ/unlink`,
+    { method: 'POST', body: JSON.stringify({ proof }) },
+  )
+  return response.germ
+}
+
 export type UpdateAnonymousIdentityInput = {
   displayName?: string
   status?: 'active' | 'archived'
