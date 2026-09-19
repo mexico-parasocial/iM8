@@ -85,3 +85,41 @@ export async function registerIdentityWith(
     signed,
   })
 }
+
+/*
+ * Per-mutation proof of possession (CD-10). The broker audience the anon-action
+ * proof is bound to; must equal the server's M8_BROKER_AUDIENCE.
+ */
+export const BROKER_AUDIENCE =
+  process.env.EXPO_PUBLIC_M8_BROKER_AUDIENCE?.trim() || 'mubez'
+
+export type ActionSigner = (input: {
+  purpose: 'anon-action'
+  audience: string
+  challenge: string
+}) => Promise<SignedAssertion>
+
+/**
+ * Build a per-request proof for an anonymous-surface mutation: fetch a
+ * single-use challenge bound to (identityPub, action), sign it under
+ * `anon-action`, and pair it with a client one-time id. The server verifies the
+ * signature and consumes the challenge+jti atomically. `jti` is injected so this
+ * stays pure (brokerApi supplies the randomness).
+ */
+export async function buildActionProof(
+  deps: RegistrationDeps,
+  sign: ActionSigner,
+  opts: { identityPub: string; action: string; jti: string },
+): Promise<{ signed: SignedAssertion; jti: string }> {
+  const { challenge } = await registrationFetch<{ challenge: string }>(
+    deps,
+    '/identity/action-challenge',
+    { identityPub: opts.identityPub, action: opts.action },
+  )
+  const signed = await sign({
+    purpose: 'anon-action',
+    audience: BROKER_AUDIENCE,
+    challenge,
+  })
+  return { signed, jti: opts.jti }
+}

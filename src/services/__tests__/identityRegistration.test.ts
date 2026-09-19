@@ -3,8 +3,10 @@ import assert from 'node:assert/strict'
 import { hexToBytes } from '@noble/curves/abstract/utils'
 import {
   registerIdentityWith,
+  buildActionProof,
   REGISTRABLE_LABELS,
   REGISTRATION_AUDIENCE,
+  BROKER_AUDIENCE,
   type RegistrationDeps,
 } from '../identityRegistration'
 import {
@@ -124,5 +126,56 @@ describe('identity registration flow (F2b client)', () => {
     })
     assert.equal(sawChallenge, broker.getChallenge())
     assert.ok(sawChallenge.startsWith('challenge-'))
+  })
+})
+
+describe('anonymous action proof flow (F2b client)', () => {
+  const SEED = hexToBytes(
+    '150fa3a728c08094f419910d77367ff90c1b7c694039718431638aa4033a2a73',
+  )
+  const signAnon = async (input: {
+    purpose: 'anon-action'
+    audience: string
+    challenge: string
+  }) => signIdentityChallenge(SEED, 'anonymous', input)
+
+  it('fetches an action challenge, signs it, and pairs it with a jti', async () => {
+    const calls: { path: string; body: unknown }[] = []
+    let issued = ''
+    const fetchFn = (async (url: string | URL | Request, init?: RequestInit) => {
+      const path = String(url)
+      calls.push({ path, body: init?.body ? JSON.parse(String(init.body)) : undefined })
+      if (path.endsWith('/identity/action-challenge')) {
+        issued = 'action-' + Math.random().toString(36).slice(2)
+        return json({ challenge: issued })
+      }
+      return json({ error: 'not found' }, 404)
+    }) as unknown as typeof fetch
+
+    const deps = { baseUrl: 'https://broker.test/v1', fetchFn }
+    const identityPub = 'aa'.repeat(32)
+    const { signed, jti } = await buildActionProof(deps, signAnon, {
+      identityPub,
+      action: 'create',
+      jti: 'client-jti-1',
+    })
+
+    // The challenge request carried the identity key and the action.
+    assert.deepEqual(calls[0].body, { identityPub, action: 'create' })
+    // The proof is bound to the server-issued challenge, for anon-action.
+    assert.equal(signed.assertion.purpose, 'anon-action')
+    assert.equal(signed.assertion.audience, BROKER_AUDIENCE)
+    assert.equal(signed.assertion.challenge, issued)
+    assert.equal(jti, 'client-jti-1')
+
+    // And it verifies for exactly that purpose/audience/challenge.
+    assert.equal(
+      verifyIdentityAssertion(signed, {
+        purpose: 'anon-action',
+        audience: BROKER_AUDIENCE,
+        challenge: issued,
+      }),
+      true,
+    )
   })
 })

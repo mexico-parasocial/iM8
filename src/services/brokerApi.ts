@@ -33,9 +33,12 @@ import {
   buildLocalSession,
 } from './localSession'
 import { enrollNewIdentity } from './identityEnrollment'
-import { signChallenge } from './seedVault'
+import { getRandomBytes } from 'expo-crypto'
+import { bytesToHex } from '@noble/curves/abstract/utils'
+import { signChallenge, getIdentityPublicKeys } from './seedVault'
 import {
   registerIdentityWith,
+  buildActionProof,
   REGISTRABLE_LABELS,
   type RegistrableLabel,
 } from './identityRegistration'
@@ -470,6 +473,35 @@ export async function getAnonymousIdentities(): Promise<AnonymousVoiceCard[]> {
     '/anonymous/identities'
   )
   return response.identities
+}
+
+export type CreateAnonymousIdentityInput = {
+  displayName?: string
+  surface?: 'public' | 'civic' | 'dating'
+  communityUri?: string | null
+  burnAfter?: 'none' | 'post'
+}
+
+/**
+ * Create an anonymous identity, proving possession of the `anonymous` key
+ * (F2b / CD-10). The seed never leaves seedVault; the proof anchors the new
+ * identity to its key server-side so it can later be resolved without a session.
+ */
+export async function createAnonymousIdentity(
+  input: CreateAnonymousIdentityInput = {},
+): Promise<AnonymousVoiceCard> {
+  const identityPub = (await getIdentityPublicKeys()).anonymous
+  const jti = bytesToHex(getRandomBytes(16))
+  const proof = await buildActionProof(
+    { baseUrl: getBrokerBaseUrl(), fetchFn: fetch },
+    (i) => signChallenge('anonymous', i),
+    { identityPub, action: 'create', jti },
+  )
+  const response = await requestJson<{ identity: AnonymousVoiceCard }>(
+    '/anonymous/identities',
+    { method: 'POST', body: JSON.stringify({ ...input, proof }) },
+  )
+  return response.identity
 }
 
 /*
