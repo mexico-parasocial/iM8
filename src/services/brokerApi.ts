@@ -504,6 +504,35 @@ export async function createAnonymousIdentity(
   return response.identity
 }
 
+export type UpdateAnonymousIdentityInput = {
+  displayName?: string
+  status?: 'active' | 'archived'
+  burnAfter?: 'none' | 'post'
+}
+
+/**
+ * Update an anonymous identity, proving possession of its key (F2b / CD-10).
+ * The proof is bound to `update:<id>`, so it authorizes only this identity, and
+ * the server checks the target row's key matches the proven one.
+ */
+export async function updateAnonymousIdentity(
+  identityId: string,
+  input: UpdateAnonymousIdentityInput = {},
+): Promise<AnonymousVoiceCard> {
+  const identityPub = (await getIdentityPublicKeys()).anonymous
+  const jti = bytesToHex(getRandomBytes(16))
+  const proof = await buildActionProof(
+    { baseUrl: getBrokerBaseUrl(), fetchFn: fetch },
+    (i) => signChallenge('anonymous', i),
+    { identityPub, action: `update:${identityId}`, jti },
+  )
+  const response = await requestJson<{ identity: AnonymousVoiceCard }>(
+    `/anonymous/identities/${encodeURIComponent(identityId)}`,
+    { method: 'PATCH', body: JSON.stringify({ ...input, proof }) },
+  )
+  return response.identity
+}
+
 /*
  * Identity registration (mubEZ CD-9). The pure flow lives in
  * `identityRegistration.ts` (no react-native imports, so it is testable); here
