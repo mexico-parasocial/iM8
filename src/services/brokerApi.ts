@@ -532,6 +532,35 @@ export async function resolveAnonymousIdentityByKey(): Promise<AnonymousVoiceCar
   }
 }
 
+export type LinkAnonymousPostInput = {
+  identityId?: string
+  postUri: string
+  communityUri?: string | null
+  postType?: string
+}
+
+/**
+ * Link a post to an anonymous identity, proving possession of its key
+ * (F2b / CD-10). The proof is bound to `link-post:<postUri>`, so it authorizes
+ * only this post, and the server checks the target identity's key matches.
+ */
+export async function linkAnonymousPost(
+  input: LinkAnonymousPostInput,
+): Promise<unknown> {
+  const identityPub = (await getIdentityPublicKeys()).anonymous
+  const jti = bytesToHex(getRandomBytes(16))
+  const proof = await buildActionProof(
+    { baseUrl: getBrokerBaseUrl(), fetchFn: fetch },
+    (i) => signChallenge('anonymous', i),
+    { identityPub, action: `link-post:${input.postUri}`, jti },
+  )
+  const response = await requestJson<{ post: unknown }>('/anonymous/posts', {
+    method: 'POST',
+    body: JSON.stringify({ ...input, proof }),
+  })
+  return response.post
+}
+
 export type UpdateAnonymousIdentityInput = {
   displayName?: string
   status?: 'active' | 'archived'
