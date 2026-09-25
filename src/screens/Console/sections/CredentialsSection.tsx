@@ -26,37 +26,48 @@ import type {
 } from '../../../types'
 import { CLAIM_LABELS } from '../constants'
 import { GrantCard, RequestCard } from './RequestsSection'
+import { AppsDirectory } from './AppsDirectory'
+import { ParaSection } from './ParaSection'
 import { PublicLinksCard } from './PublicLinksCard'
 import { GovernanceSection } from './GovernanceSection'
+import { MatrixSignRequests } from './MatrixSignRequests'
 
 export function CredentialsSection({
   activePersona,
   grants,
+  isVerified,
   onApproveGrant,
   onApprovePolicyChange,
   onApplyPolicyChange,
   onLinkPublicSocial,
   onRejectPolicyChange,
+  onRequestParaGrant,
   onRevokeGrant,
+  onStartVerification,
   onUnlinkPublicSocial,
   pendingRequests,
   policyChangeRequests,
   proofArtifacts,
+  requestingPara,
   session,
   surfaceLabel,
 }: {
   activePersona: Persona | undefined
   grants: AppGrant[]
+  isVerified: boolean
   onApproveGrant: (id: string) => Promise<void>
   onApprovePolicyChange: (requestId: string, adminDid: string) => Promise<void>
   onApplyPolicyChange: (requestId: string) => Promise<void>
   onLinkPublicSocial: (provider: SocialProvider, handle: string) => Promise<void>
   onRejectPolicyChange: (requestId: string, adminDid: string) => Promise<void>
+  onRequestParaGrant: () => Promise<void>
   onRevokeGrant: (id: string) => Promise<void>
+  onStartVerification: () => void
   onUnlinkPublicSocial: (id: string) => Promise<void>
   pendingRequests: ClaimRequest[]
   policyChangeRequests: PolicyChangeRequest[]
   proofArtifacts: ProofArtifact[]
+  requestingPara: boolean
   session: IdentitySession
   surfaceLabel: string
 }) {
@@ -65,7 +76,17 @@ export function CredentialsSection({
 
   return (
     <View style={consoleStyles.stack}>
+      {/* PARA hub: civic-power hero over the ledgers it summarizes */}
+      <ParaSection
+        isVerified={isVerified}
+        onRequestParaGrant={onRequestParaGrant}
+        onStartVerification={onStartVerification}
+        requestingPara={requestingPara}
+        session={session}
+      />
+
       {/* Pending claim requests */}
+      <MatrixSignRequests hasPublicIdentity={session.personas.some(persona => persona.kind === 'public')} />
       <View style={consoleStyles.listBlock}>
         <SectionHeading title={`Pending requests \u2014 ${surfaceLabel}`} detail="Apps receive proofs only after you approve." />
         {pendingRequests.length > 0 ? (
@@ -94,6 +115,9 @@ export function CredentialsSection({
           <EmptyCard icon="shield" title="No receipts yet" body="Approve a request to create proof-only receipts." />
         )}
       </View>
+
+      {/* Connected apps directory */}
+      <AppsDirectory grants={grants} onRevokeGrant={onRevokeGrant} />
 
       {/* Active grants */}
       <View style={consoleStyles.listBlock}>

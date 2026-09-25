@@ -1,18 +1,22 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { View, Text, StyleSheet, Pressable, Switch } from 'react-native'
 import * as LocalAuthentication from 'expo-local-authentication'
+import * as Clipboard from 'expo-clipboard'
 import { cardStyle } from '../../../components/m8/Card'
 import { buttonStyle, buttonTextStyle } from '../../../components/m8/Button'
 import { rowStyle, rowStyles } from '../../../components/m8/Row'
 import { pillStyle, pillTextStyle } from '../../../components/m8/Pill'
-import { EmptyState } from '../../../components/m8/ConsolePrimitives'
+import { EmptyState, consoleStyles } from '../../../components/m8/ConsolePrimitives'
 import { Icon } from '../../../components/m8/Icon'
 import { RecoveryPhraseSheet } from '../../../components/m8/RecoveryPhraseSheet'
 import { RestoreIdentitySheet } from '../../../components/m8/RestoreIdentitySheet'
 import { getBackupState, type BackupState } from '../../../services/seedVault'
+import { copyText } from '../../../services/clipboard'
+import { describeLastSeen } from '../../../services/deviceRegistry'
+import { useDeviceRegistry } from '../../../hooks/useDeviceRegistry'
 import { getBiometricLockEnabled } from '../../../components/m8/BiometricGate'
 import { visibilityDestinationLabel } from '../../../contracts/profileFacets'
-import type { IdentitySession, Persona, ConsentLedgerEntry, Visibility } from '../../../types'
+import type { DeviceRecord, IdentitySession, Persona, ConsentLedgerEntry, Visibility } from '../../../types'
 import { tokens } from '../../../theme'
 import { hapticLight, hapticMedium } from '../../../utils/haptics'
 
@@ -37,6 +41,7 @@ export function SettingsSection({
   const [showPhrase, setShowPhrase] = useState(false)
   const [showRestore, setShowRestore] = useState(false)
   const [backup, setBackup] = useState<BackupState>('none')
+  const { devices, currentId, removeDevice, recordRestore } = useDeviceRegistry()
 
   const refreshBackupState = useCallback(() => {
     // Reads this device's keystore. Resolves to 'none' rather than throwing on
@@ -75,9 +80,7 @@ export function SettingsSection({
       <View style={styles.listCard}>
         <Text style={styles.listTitle}>Privacy settings</Text>
         <Text style={styles.listIntro}>
-          Tap a badge to change where each item lives. Public items publish to your public
-          profile, Trusted only items go to your PARA facet space, and Private items never
-          leave this device.
+          Tap a badge to move an item between Public, Trusted only, and Private.
         </Text>
         {activePersona?.signals.map((signal) => (
           <View key={signal.label} style={rowStyle('default')}>
@@ -114,6 +117,14 @@ export function SettingsSection({
           <EmptyState icon="shield" title="Ledger empty" detail="Your consent history will appear here." />
         )}
       </View>
+
+      {/*
+        Devices: where this identity lives. This install touches its own
+        entry on every bootstrap; restores add the restored-from holder.
+        Borrowed from the Bluesky account Devices page: recency order,
+        a badge on the current row, per-row removal disabled for it.
+      */}
+      <DevicesCard devices={devices} currentId={currentId} onRemoveDevice={removeDevice} />
 
       {/*
         Device & recovery: everything that protects or removes the identity on
@@ -236,20 +247,26 @@ export function SettingsSection({
       <RestoreIdentitySheet
         visible={showRestore}
         onClose={() => setShowRestore(false)}
-        onRestored={refreshBackupState}
+        onRestored={() => {
+          refreshBackupState()
+          // A completed restore means another holder exists: list it.
+          void recordRestore()
+        }}
       />
 
       {/*
-        Diagnostics: recovery-relevant identifiers and build info, quiet and
-        chrome-less. Nothing here is actionable; it exists for support moments.
+        Diagnostics: recovery-relevant identifiers and build info. Each row
+        copies on tap — a DID is not retypable, so it should not be static
+        text.
       */}
       <View style={styles.diagnostics}>
         <Text style={styles.diagnosticsLabel}>Diagnostics</Text>
-        <Text style={styles.diagnosticsLine}>DID  {session.did}</Text>
-        <Text style={styles.diagnosticsLine}>
-          Auth server  {session.authorizationServer} · {session.brokerMode}
-        </Text>
-        <Text style={styles.diagnosticsLine}>iM8 Console v0.1 · poc-2026.05.19</Text>
+        <DiagnosticRow label="DID" value={session.did} />
+        <DiagnosticRow
+          label="Auth server"
+          value={`${session.authorizationServer} · ${session.brokerMode}`}
+        />
+        <DiagnosticRow label="Build" value="iM8 Console v0.1 · poc-2026.05.19" />
       </View>
     </View>
   )
@@ -304,6 +321,127 @@ function LedgerRow({ entry }: { entry: ConsentLedgerEntry }) {
   )
 }
 
+function DevicesCard({
+  currentId,
+  devices,
+  onRemoveDevice,
+}: {
+  currentId: string | null
+  devices: DeviceRecord[]
+  onRemoveDevice: (id: string) => Promise<boolean>
+}) {
+  const [removingId, setRemovingId] = useState<string | null>(null)
+  const sorted = useMemo(
+    () =>
+      [...devices].sort(
+        (a, b) => Date.parse(b.lastSeenAt) - Date.parse(a.lastSeenAt),
+      ),
+    [devices],
+  )
+  return (
+    <View style={styles.listCard}>
+      <Text style={styles.listTitle}>Devices</Text>
+      <Text style={styles.listIntro}>
+        Where this identity lives. Remove anything you don&apos;t recognize.
+      </Text>
+      {sorted.length > 0 ? (
+        sorted.map((device) => {
+          const isCurrent = currentId !== null && device.id === currentId
+          const removing = removingId === device.id
+          return (
+            <View key={device.id} style={rowStyle('default')}>
+              <View style={[consoleStyles.surfaceIcon, { backgroundColor: tokens.surfaceRaised }]}>
+                <Icon name="devices" size={20} color={tokens.accentSoft} />
+              </View>
+              <View style={rowStyles.text}>
+                <Text style={rowStyles.title}>{device.label}</Text>
+                <Text style={rowStyles.detail}>
+                  Last seen {describeLastSeen(device.lastSeenAt)}
+                </Text>
+              </View>
+              {isCurrent ? (
+                <View style={pillStyle('accent')}>
+                  <Text style={pillTextStyle('accent')}>This device</Text>
+                </View>
+              ) : (
+                <Pressable
+                  onPress={() => {
+                    hapticMedium()
+                    setRemovingId(device.id)
+                    void onRemoveDevice(device.id).finally(() =>
+                      setRemovingId((current) => (current === device.id ? null : current)),
+                    )
+                  }}
+                  disabled={removing}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove ${device.label}`}
+                  style={[
+                    buttonStyle('secondary'),
+                    styles.compactAction,
+                    removing && consoleStyles.disabled,
+                  ]}
+                >
+                  <Text style={buttonTextStyle('secondary')}>
+                    {removing ? 'Removing…' : 'Remove'}
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+          )
+        })
+      ) : (
+        <EmptyState
+          icon="devices"
+          title="No devices yet"
+          detail="This install registers itself here on next launch."
+        />
+      )}
+    </View>
+  )
+}
+
+function DiagnosticRow({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current)
+    },
+    [],
+  )
+
+  return (
+    <Pressable
+      onPress={() => {
+        hapticLight()
+        void copyText(Clipboard.setStringAsync, value).then((ok) => {
+          if (!ok) return
+          setCopied(true)
+          if (timer.current) clearTimeout(timer.current)
+          timer.current = setTimeout(() => setCopied(false), 1500)
+        })
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={`${label}: ${value}. Tap to copy.`}
+    >
+      <View style={rowStyle('default')}>
+        <View style={rowStyles.text}>
+          <Text style={rowStyles.detail}>{label}</Text>
+          <Text style={rowStyles.title} numberOfLines={1}>
+            {value}
+          </Text>
+        </View>
+        {copied ? (
+          <Text style={styles.copiedLabel}>Copied</Text>
+        ) : (
+          <Icon name="copy" size={16} color={tokens.muted} />
+        )}
+      </View>
+    </Pressable>
+  )
+}
+
 function SettingsRow({
   control,
   detail,
@@ -331,6 +469,12 @@ function SettingsRow({
 
 const styles = StyleSheet.create({
   recoveryAction: { marginTop: 14 },
+  compactAction: {
+    flex: 0,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
   stack: {
     gap: 12,
     marginTop: 12,
@@ -458,9 +602,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     marginBottom: 3,
   },
-  diagnosticsLine: {
-    color: tokens.muted,
-    fontSize: 11,
-    lineHeight: 15,
+  copiedLabel: {
+    color: tokens.success,
+    fontSize: 12,
+    fontWeight: '700',
   },
 })

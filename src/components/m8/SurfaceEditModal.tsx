@@ -11,8 +11,9 @@ import { buttonStyle, buttonTextStyle } from './Button'
 import { cardStyle } from './Card'
 import { pillStyle, pillTextStyle } from './Pill'
 import { ResponsiveSheet } from './ResponsiveSheet'
+import { toggleInterestFollowed, type FollowedInterests } from '../../services/interestFollow'
 import { tokens } from '../../theme'
-import type { Persona, SurfaceId, SurfaceTemplate, NewSurfaceInput } from '../../types'
+import type { SurfaceTemplate, NewSurfaceInput } from '../../types'
 import { SurfaceFieldBrowser } from '../../screens/Console/sections/SurfaceFieldBrowser'
 
 type SurfaceInput = SurfaceTemplate | NewSurfaceInput
@@ -33,7 +34,6 @@ const TRAIT_LABELS: Record<string, string> = {
   agegated: 'Age-gated',
   locationscoped: 'Location-scoped',
   timeboxed: 'Time-boxed',
-  delegationenabled: 'Delegation enabled',
 }
 
 const TRAIT_TO_CATEGORY: Record<string, string> = {
@@ -50,23 +50,16 @@ const TRAIT_TO_CATEGORY: Record<string, string> = {
   agegated: 'Safety',
   locationscoped: 'Safety',
   timeboxed: 'Control',
-  delegationenabled: 'Control',
 }
 
 export function SurfaceEditModal({
   visible,
   surface,
-  persona,
-  surfaceId,
-  onToggleSignalSurface,
   onClose,
   onSave,
 }: {
   visible: boolean
   surface: SurfaceInput | null
-  persona: Persona | null
-  surfaceId: SurfaceId | null
-  onToggleSignalSurface: (signalLabel: string, surfaceId: SurfaceId) => void
   onClose: () => void
   onSave: (id: string, updates: Record<string, unknown>) => void
 }) {
@@ -74,6 +67,7 @@ export function SurfaceEditModal({
   const [audience, setAudience] = useState('')
   const [detail, setDetail] = useState('')
   const [selectedTraits, setSelectedTraits] = useState<string[]>([])
+  const [followedInterests, setFollowedInterests] = useState<FollowedInterests>({})
   const [activeCategory, setActiveCategory] = useState('Privacy')
 
   useEffect(() => {
@@ -84,6 +78,13 @@ export function SurfaceEditModal({
       setSelectedTraits(
         'traits' in surface ? (surface.traits as string[]) : []
       )
+      // Overrides merge onto the template in IdentitySection, so a previous
+      // save round-trips back through the same object.
+      setFollowedInterests(
+        'followedInterests' in surface
+          ? ((surface.followedInterests ?? {}) as FollowedInterests)
+          : {},
+      )
     }
   }, [surface])
 
@@ -91,6 +92,10 @@ export function SurfaceEditModal({
     setSelectedTraits((prev) =>
       prev.includes(trait) ? prev.filter((t) => t !== trait) : [...prev, trait]
     )
+  }
+
+  const toggleInterest = (categoryId: string, interest: string) => {
+    setFollowedInterests((prev) => toggleInterestFollowed(prev, categoryId, interest))
   }
 
   const filteredTraits = Object.entries(TRAIT_LABELS)
@@ -119,6 +124,7 @@ export function SurfaceEditModal({
                 audience: audience.trim() || surface.audience,
                 detail: detail.trim() || undefined,
                 traits: selectedTraits as any,
+                followedInterests,
               })
               onClose()
             }}
@@ -174,14 +180,10 @@ export function SurfaceEditModal({
           />
         </View>
 
-        {persona && surfaceId && (
-          <SurfaceFieldBrowser
-            surface={surface}
-            persona={persona}
-            surfaceId={surfaceId}
-            onToggleSignalSurface={onToggleSignalSurface}
-          />
-        )}
+        <SurfaceFieldBrowser
+          followedInterests={followedInterests}
+          onToggleInterest={toggleInterest}
+        />
 
         <View style={styles.field}>
           <Text style={styles.label}>

@@ -1,24 +1,28 @@
 import { useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native'
-import { SectionHeading, StatusPill } from '../../../components/m8/ConsolePrimitives'
-import { Icon } from '../../../components/m8/Icon'
+import { SectionHeading } from '../../../components/m8/ConsolePrimitives'
+import { Icon, type IconName } from '../../../components/m8/Icon'
+import {
+  countFollowedInterests,
+  type FollowedInterests,
+} from '../../../services/interestFollow'
 import { tokens } from '../../../theme'
-import type { Persona, Signal, SurfaceId, SurfaceTemplate, NewSurfaceInput } from '../../../types'
 
-type SurfaceInput = SurfaceTemplate | NewSurfaceInput
-
-const CIVIC_CATEGORIES = [
+const CIVIC_CATEGORIES: {
+  id: string
+  label: string
+  icon: IconName
+  color: string
+}[] = [
   { id: 'public-services', label: 'Public Services', icon: 'heart', color: '#0EA5E9' },
   { id: 'internal-revenue', label: 'Internal Revenue', icon: 'landmark', color: '#8B5CF6' },
   { id: 'economy', label: 'Economy', icon: 'trending', color: '#22C55E' },
   { id: 'internal-affairs', label: 'Internal Affairs', icon: 'shield', color: '#F59E0B' },
   { id: 'external-affairs', label: 'External Affairs', icon: 'globe', color: '#6366F1' },
   { id: 'social-issues', label: 'Social Issues', icon: 'users', color: '#EC4899' },
-] as const
+]
 
-type CategoryId = typeof CIVIC_CATEGORIES[number]['id']
-
-const CATEGORY_INTERESTS: Record<CategoryId, string[]> = {
+const CATEGORY_INTERESTS: Record<string, string[]> = {
   'public-services': ['Healthcare', 'Education', 'Infrastructure', 'Public Transport', 'Water & Sanitation'],
   'internal-revenue': ['Tax Reform', 'Fiscal Transparency', 'Public Debt', 'Audit & Accountability', 'Tax Evasion'],
   economy: ['Employment', 'Inflation', 'Trade Policy', 'Minimum Wage', 'Small Business'],
@@ -33,7 +37,7 @@ function CategoryCard({
   activeCount,
   onPress,
 }: {
-  category: typeof CIVIC_CATEGORIES[number]
+  category: (typeof CIVIC_CATEGORIES)[number]
   signalCount: number
   activeCount: number
   onPress: () => void
@@ -43,10 +47,11 @@ function CategoryCard({
       onPress={onPress}
       style={styles.categoryCard}
       accessibilityRole="button"
+      accessibilityLabel={`${category.label}: ${activeCount} of ${signalCount} followed`}
     >
       <View style={[styles.categoryAccent, { backgroundColor: category.color }]} />
       <View style={styles.categoryIconWrap}>
-        <Icon name={category.icon as any} size={18} color={category.color} />
+        <Icon name={category.icon} size={18} color={category.color} />
       </View>
       <View style={styles.categoryContent}>
         <Text style={styles.categoryLabel}>{category.label}</Text>
@@ -61,106 +66,72 @@ function CategoryCard({
   )
 }
 
-function SignalRow({
-  signal,
-  assigned,
-  surfaceId,
-  categoryColor,
-  onToggle,
-}: {
-  signal: Signal
-  assigned: boolean
-  surfaceId: SurfaceId | null
-  categoryColor: string
-  onToggle: () => void
-}) {
-  return (
-    <View style={styles.signalRow}>
-      <View style={[styles.signalAccent, { backgroundColor: categoryColor }]} />
-      <View style={styles.signalContent}>
-        <View style={styles.signalHeader}>
-          <Text style={styles.signalLabel}>{signal.label}</Text>
-          <StatusPill
-            label={signal.visibility}
-            tone={signal.visibility === 'Private' ? 'danger' : signal.visibility === 'Trusted only' ? 'warning' : 'success'}
-          />
-        </View>
-        <Text style={styles.signalValue}>{signal.value}</Text>
-      </View>
-      {surfaceId && (
-        <Switch
-          value={assigned}
-          onValueChange={onToggle}
-          trackColor={{ false: tokens.stroke, true: categoryColor }}
-          thumbColor={assigned ? tokens.text : tokens.muted}
-        />
-      )}
-    </View>
-  )
-}
-
 function InterestRow({
   label,
   assigned,
-  surfaceId,
   categoryColor,
   onToggle,
 }: {
   label: string
   assigned: boolean
-  surfaceId: SurfaceId | null
   categoryColor: string
   onToggle: () => void
 }) {
+  // The whole row is the switch: the visible Switch is a non-interactive
+  // indicator so a tap never double-toggles, and the row carries the
+  // switch role with its checked state for assistive tech.
   return (
-    <View style={styles.signalRow}>
-      <View style={[styles.signalAccent, { backgroundColor: categoryColor }]} />
-      <View style={styles.signalContent}>
-        <Text style={styles.signalLabel}>{label}</Text>
-      </View>
-      {surfaceId && (
+    <Pressable
+      onPress={onToggle}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: assigned }}
+      accessibilityLabel={label}
+    >
+      <View style={styles.signalRow}>
+        <View style={[styles.signalAccent, { backgroundColor: categoryColor }]} />
+        <View style={styles.signalContent}>
+          <Text style={styles.signalLabel}>{label}</Text>
+        </View>
         <Switch
           value={assigned}
           onValueChange={onToggle}
+          pointerEvents="none"
           trackColor={{ false: tokens.stroke, true: categoryColor }}
           thumbColor={assigned ? tokens.text : tokens.muted}
         />
-      )}
-    </View>
+      </View>
+    </Pressable>
   )
 }
 
 export function SurfaceFieldBrowser({
-  surface,
-  persona,
-  surfaceId,
-  onToggleSignalSurface,
+  followedInterests,
+  onToggleInterest,
 }: {
-  surface: SurfaceInput
-  persona: Persona
-  surfaceId: SurfaceId | null
-  onToggleSignalSurface: (signalLabel: string, surfaceId: SurfaceId) => void
+  followedInterests: FollowedInterests
+  onToggleInterest: (categoryId: string, interest: string) => void
 }) {
-  const [activeCategory, setActiveCategory] = useState<CategoryId | null>(null)
+  const [activeCategory, setActiveCategory] = useState<string | null>(null)
 
   const activeCat = CIVIC_CATEGORIES.find((c) => c.id === activeCategory)
 
   const categoryInterests = activeCategory
-    ? CATEGORY_INTERESTS[activeCategory]
+    ? (CATEGORY_INTERESTS[activeCategory] ?? [])
     : []
 
-  const getCategoryCounts = (catId: CategoryId) => {
-    const interests = CATEGORY_INTERESTS[catId]
-    // For now, count all interests as available (would need interest assignment tracking)
-    return { total: interests.length, active: 0 }
-  }
-
   if (activeCategory && activeCat) {
+    const counts = countFollowedInterests(
+      followedInterests,
+      activeCat.id,
+      categoryInterests.length,
+    )
     return (
       <View style={styles.container}>
         <Pressable
           onPress={() => setActiveCategory(null)}
           style={styles.backButton}
+          accessibilityRole="button"
+          accessibilityLabel="All categories"
         >
           <Icon name="chevronLeft" size={16} color={tokens.accent} />
           <Text style={styles.backText}>All categories</Text>
@@ -168,12 +139,12 @@ export function SurfaceFieldBrowser({
 
         <View style={styles.categoryHero}>
           <View style={[styles.categoryHeroIcon, { backgroundColor: activeCat.color + '20' }]}>
-            <Icon name={activeCat.icon as any} size={24} color={activeCat.color} />
+            <Icon name={activeCat.icon} size={24} color={activeCat.color} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.categoryHeroTitle}>{activeCat.label}</Text>
             <Text style={styles.categoryHeroDetail}>
-              {categoryInterests.length} interests to follow
+              {counts.active} of {counts.total} followed
             </Text>
           </View>
         </View>
@@ -183,12 +154,9 @@ export function SurfaceFieldBrowser({
             <InterestRow
               key={interest}
               label={interest}
-              assigned={false}
-              surfaceId={surfaceId}
+              assigned={(followedInterests[activeCat.id] ?? []).includes(interest)}
               categoryColor={activeCat.color}
-              onToggle={() => {
-                // TODO: track interest assignments per surface
-              }}
+              onToggle={() => onToggleInterest(activeCat.id, interest)}
             />
           ))}
         </ScrollView>
@@ -204,7 +172,8 @@ export function SurfaceFieldBrowser({
       />
       <View style={styles.categoryGrid}>
         {CIVIC_CATEGORIES.map((cat) => {
-          const counts = getCategoryCounts(cat.id)
+          const interests = CATEGORY_INTERESTS[cat.id] ?? []
+          const counts = countFollowedInterests(followedInterests, cat.id, interests.length)
           return (
             <CategoryCard
               key={cat.id}
@@ -323,28 +292,9 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 4,
   },
-  signalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   signalLabel: {
     color: tokens.text,
     fontSize: 14,
     fontWeight: '600',
-  },
-  signalValue: {
-    color: tokens.muted,
-    fontSize: 12,
-  },
-  emptyState: {
-    alignItems: 'center',
-    padding: 24,
-    gap: 8,
-  },
-  emptyText: {
-    color: tokens.muted,
-    fontSize: 14,
-    textAlign: 'center',
   },
 })

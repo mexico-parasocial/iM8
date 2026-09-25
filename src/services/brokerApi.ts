@@ -56,7 +56,14 @@ let currentAccessToken: string | null = null
 let currentRefreshToken: string | null = null
 let cachedSession: IdentitySession | null = null
 
+// Production broker (Elastic IP-backed, real atproto OAuth). Dev builds keep
+// the loopback defaults below; set EXPO_PUBLIC_M8_BROKER_URL to override.
+const PROD_BROKER_URL = 'https://mubez.para-g0v.site'
+
 function getDefaultBrokerBaseUrl() {
+  if (!__DEV__) {
+    return PROD_BROKER_URL
+  }
   if (Platform.OS === 'android') {
     return 'http://10.0.2.2:8787'
   }
@@ -190,7 +197,7 @@ function parseJsonPayload(text: string) {
   }
 }
 
-async function requestJson<T>(
+export async function requestJson<T>(
   path: string,
   init: BrokerRequestInit = {}
 ): Promise<T> {
@@ -267,6 +274,20 @@ export async function postSessionStart(
       proofMode: 'proof-only',
     },
   }
+}
+
+/**
+ * Mobile OAuth handoff: swaps the single-use `exchange_code` that arrived via
+ * the im8://oauth/callback deep link for a token bundle. requestJson persists
+ * any `tokens` payload automatically, so a successful call here completes the
+ * sign-in; the caller only needs to re-read the session.
+ */
+export async function exchangeOAuthCode(code: string): Promise<{ authenticated?: boolean; sessionId?: string }> {
+  return requestJson('/sessions/exchange', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+    token: null,
+  })
 }
 
 export async function getCurrentSession(): Promise<IdentitySession> {

@@ -1,5 +1,6 @@
 import {
   clearPersistedSession,
+  exchangeOAuthCode,
   getCachedSession,
   getCurrentSession,
   restoreCurrentSession,
@@ -19,8 +20,8 @@ import {
 } from '../types'
 
 export async function prepareIdentitySession(input: string, provider: IdentityProvider = 'bsky'): Promise<BrokerAttempt> {
-  const response = await postSessionStart({ identifier: input, provider })
-  return response.identity
+  const response = await postSessionStart({ identifier: input, provider, platform: 'mobile' })
+  return { ...response.identity, authUrl: response.authUrl || undefined }
 }
 
 export async function beginIdentitySession(_attempt: BrokerAttempt): Promise<IdentitySession> {
@@ -30,6 +31,14 @@ export async function beginIdentitySession(_attempt: BrokerAttempt): Promise<Ide
   }
 
   return getCurrentSession()
+}
+
+/**
+ * Completes the mobile OAuth handoff: swaps the deep-link exchange code for a
+ * token bundle (persisted by brokerApi) so the next session read succeeds.
+ */
+export async function completeOAuthHandoff(code: string): Promise<void> {
+  await exchangeOAuthCode(code)
 }
 
 export async function requestGrant(input: GrantRequestInput) {

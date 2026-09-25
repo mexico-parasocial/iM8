@@ -1,9 +1,11 @@
 import { startTransition, useEffect, useState } from 'react'
+import { Linking } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
   clearIdentitySession,
   approveGrant,
   beginIdentitySession,
+  completeOAuthHandoff,
   prepareIdentitySession,
   refreshIdentitySession,
   requestGrant,
@@ -49,6 +51,22 @@ function registerIdentitiesInBackground() {
   })()
 }
 
+/**
+ * Parses the broker's OAuth return URL (im8://oauth/callback?exchange_code=…)
+ * and returns the code, or null for any other link.
+ */
+function parseOAuthExchangeCode(url: string): string | null {
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol.replace(/:$/, '') !== 'im8') return null
+    const path = `${parsed.hostname || ''}${parsed.pathname}`.replace(/\/+$/, '')
+    if (path !== 'oauth/callback') return null
+    return parsed.searchParams.get('exchange_code')
+  } catch {
+    return null
+  }
+}
+
 export function useSessionBootstrap() {
   const [session, setSession] = useState<IdentitySession | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -87,6 +105,40 @@ export function useSessionBootstrap() {
     }
   }, [])
 
+  // OAuth handoff listener: the broker deep-links back with a single-use
+  // exchange code after the user signs in on the system browser (cold start
+  // included via getInitialURL). Tokens are persisted by the exchange call;
+  // re-reading the session then finishes the bootstrap.
+  useEffect(() => {
+    let mounted = true
+
+    const handleUrl = (url: string | null) => {
+      if (!url || !mounted) return
+      const code = parseOAuthExchangeCode(url)
+      if (!code) return
+
+      void (async () => {
+        try {
+          await completeOAuthHandoff(code)
+          if (!mounted) return
+          await refreshSession()
+        } catch (caught) {
+          if (mounted) {
+            setError(caught instanceof Error ? caught.message : 'Sign-in handoff failed')
+          }
+        }
+      })()
+    }
+
+    void Linking.getInitialURL().then(handleUrl)
+    const subscription = Linking.addEventListener('url', (event) => handleUrl(event.url))
+    return () => {
+      mounted = false
+      subscription.remove()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   async function refreshSession(nextAttempt?: BrokerAttempt | null) {
     const fallbackAttempt = nextAttempt ?? attempt ?? {
       did: '',
@@ -121,8 +173,19 @@ export function useSessionBootstrap() {
 
       const nextAttempt = await prepareIdentitySession(input)
       setAttempt(nextAttempt)
-      setStatus('hydrating')
 
+      // Real OAuth flow: hand off to the system browser and wait for the
+      // im8://oauth/callback deep link (the handoff effect below completes
+      // sign-in by exchanging the code). No tokens exist until then.
+      if (nextAttempt.authUrl) {
+        void Linking.openURL(nextAttempt.authUrl).catch(() => {
+          setError('Unable to open the sign-in page')
+        })
+        setStatus('idle')
+        return
+      }
+
+      setStatus('hydrating')
       await refreshSession(nextAttempt)
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : 'Unable to start session'
