@@ -232,7 +232,8 @@ export async function requestJson<T>(
           (payload as { message?: string }).message ??
           `Broker request failed with ${response.status}`)
         : `Broker request failed with ${response.status}`
-    throw new Error(message)
+    // status lets callers tell "not found" apart from an outage.
+    throw Object.assign(new Error(message), { status: response.status })
   }
 
   return payload as T
