@@ -15,6 +15,13 @@ const AUDIENCE_LABELS: Record<string, string> = {
   'para-matrix-bridge/session.v1': 'Iniciar sesión de chat',
   'para-matrix-bridge/attest.v1': 'Registrar este dispositivo de chat',
   'para-matrix-bridge/join.v1': 'Entrar a una comunidad',
+  'para-matrix-bridge/dm.v1': 'Compartir tu identidad de chat para un mensaje directo',
+}
+
+// What approving actually discloses, when it is more than proving it is you.
+const AUDIENCE_DETAILS: Record<string, string> = {
+  'para-matrix-bridge/dm.v1':
+    'Si la otra persona acepta tu solicitud, podrá ver tu cuenta de chat. Nadie más la recibe.',
 }
 
 export function MatrixSignRequests({ hasPublicIdentity }: { hasPublicIdentity: boolean }) {
@@ -63,6 +70,7 @@ export function MatrixSignRequests({ hasPublicIdentity }: { hasPublicIdentity: b
       {requests.map(request => (
         <View key={request.id} style={[consoleStyles.surfaceCard, { gap: 10 }]}>
           <Text style={consoleStyles.cardTitle}>{AUDIENCE_LABELS[request.audience] ?? request.audience}</Text>
+          {AUDIENCE_DETAILS[request.audience] ? <Text style={consoleStyles.cardBodyText}>{AUDIENCE_DETAILS[request.audience]}</Text> : null}
           <Text style={consoleStyles.cardBodyText}>PARA · vence a las {new Date(request.expiresAt.replace(' ', 'T') + 'Z').toLocaleTimeString()}</Text>
           {AUDIENCE_LABELS[request.audience] ? <View style={{ flexDirection: 'row', gap: 8 }}>
             {hasPublicIdentity ? (
