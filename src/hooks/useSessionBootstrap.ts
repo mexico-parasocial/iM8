@@ -1,9 +1,11 @@
 import { startTransition, useEffect, useState } from 'react'
+import { Linking } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
   clearIdentitySession,
   approveGrant,
   beginIdentitySession,
+  completeOAuthHandoff,
   prepareIdentitySession,
   refreshIdentitySession,
   requestGrant,
@@ -26,6 +28,44 @@ import {
 } from '../types'
 import { buildPublicPersona, buildSurfaceTemplates } from '../poc-data'
 import { buildInstagramGalleryPlan } from '../services/instagramGallery'
+import { registerSignableIdentities } from '../services/brokerApi'
+import { hasSeed } from '../services/seedVault'
+import { clearDeviceRegistry, touchCurrentDevice } from './useDeviceRegistry'
+
+/**
+ * Register this device's signable identity keys with the broker, best-effort.
+ * Fire-and-forget: registration is idempotent server-side (re-registering a
+ * known key is a no-op success), so triggering it on every launch is safe and
+ * a failure must never block identity creation or restore. Skips when there is
+ * no seed to prove possession with. Session-unbound by design — see
+ * brokerApi/identityRegistration.
+ */
+function registerIdentitiesInBackground() {
+  void (async () => {
+    try {
+      if (!(await hasSeed())) return
+      await registerSignableIdentities()
+    } catch {
+      // Best-effort; a real failure retries on the next launch.
+    }
+  })()
+}
+
+/**
+ * Parses the broker's OAuth return URL (im8://oauth/callback?exchange_code=…)
+ * and returns the code, or null for any other link.
+ */
+function parseOAuthExchangeCode(url: string): string | null {
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol.replace(/:$/, '') !== 'im8') return null
+    const path = `${parsed.hostname || ''}${parsed.pathname}`.replace(/\/+$/, '')
+    if (path !== 'oauth/callback') return null
+    return parsed.searchParams.get('exchange_code')
+  } catch {
+    return null
+  }
+}
 
 export function useSessionBootstrap() {
   const [session, setSession] = useState<IdentitySession | null>(null)
@@ -45,6 +85,10 @@ export function useSessionBootstrap() {
           ...restored,
           surfaceTemplates: freshTemplates,
         }
+        // Record this install in the device registry (best effort).
+        void touchCurrentDevice()
+        // Retry identity registration on launch (idempotent, best-effort).
+        registerIdentitiesInBackground()
         startTransition(() => {
           setSession(updated)
         })
@@ -61,6 +105,40 @@ export function useSessionBootstrap() {
     }
   }, [])
 
+  // OAuth handoff listener: the broker deep-links back with a single-use
+  // exchange code after the user signs in on the system browser (cold start
+  // included via getInitialURL). Tokens are persisted by the exchange call;
+  // re-reading the session then finishes the bootstrap.
+  useEffect(() => {
+    let mounted = true
+
+    const handleUrl = (url: string | null) => {
+      if (!url || !mounted) return
+      const code = parseOAuthExchangeCode(url)
+      if (!code) return
+
+      void (async () => {
+        try {
+          await completeOAuthHandoff(code)
+          if (!mounted) return
+          await refreshSession()
+        } catch (caught) {
+          if (mounted) {
+            setError(caught instanceof Error ? caught.message : 'Sign-in handoff failed')
+          }
+        }
+      })()
+    }
+
+    void Linking.getInitialURL().then(handleUrl)
+    const subscription = Linking.addEventListener('url', (event) => handleUrl(event.url))
+    return () => {
+      mounted = false
+      subscription.remove()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   async function refreshSession(nextAttempt?: BrokerAttempt | null) {
     const fallbackAttempt = nextAttempt ?? attempt ?? {
       did: '',
@@ -71,6 +149,7 @@ export function useSessionBootstrap() {
     }
     const nextSession = await beginIdentitySession(fallbackAttempt)
     const hydratedSession = preservePublicIdentityState(nextSession, session)
+    void touchCurrentDevice()
 
     startTransition(() => {
       setSession(hydratedSession)
@@ -94,8 +173,19 @@ export function useSessionBootstrap() {
 
       const nextAttempt = await prepareIdentitySession(input)
       setAttempt(nextAttempt)
-      setStatus('hydrating')
 
+      // Real OAuth flow: hand off to the system browser and wait for the
+      // im8://oauth/callback deep link (the handoff effect below completes
+      // sign-in by exchanging the code). No tokens exist until then.
+      if (nextAttempt.authUrl) {
+        void Linking.openURL(nextAttempt.authUrl).catch(() => {
+          setError('Unable to open the sign-in page')
+        })
+        setStatus('idle')
+        return
+      }
+
+      setStatus('hydrating')
       await refreshSession(nextAttempt)
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : 'Unable to start session'
@@ -112,6 +202,9 @@ export function useSessionBootstrap() {
       setStatus('hydrating')
 
       const nextSession = await createNativeIdentity(handle)
+      void touchCurrentDevice()
+      // The seed now exists, so the identity keys can prove possession.
+      registerIdentitiesInBackground()
       startTransition(() => {
         setSession(nextSession)
       })
@@ -412,6 +505,8 @@ export function useSessionBootstrap() {
     await AsyncStorage.removeItem('@m8/last-background')
     await AsyncStorage.removeItem('@m8/console-ui')
     await AsyncStorage.removeItem('@m8/custom-surfaces')
+    // The identity left this device: its device list leaves with it.
+    await clearDeviceRegistry()
 
     const allKeys = await AsyncStorage.getAllKeys()
     const aiCacheKeys = allKeys.filter((k) => k.startsWith('@ai_cache_'))

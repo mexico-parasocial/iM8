@@ -210,6 +210,8 @@ export type AppGrant = {
   status: GrantStatus
   grantedAt: string
   lastUsed: string
+  /** Machine timestamp behind the `lastUsed` display string; drives Apps sorting. */
+  lastUsedAt?: string
   expiresAt: string
   audience: string
   reason: string
@@ -245,6 +247,23 @@ export type ConsentLedgerEntry = {
   app: string
   surface: SurfaceId
   outcome: 'Approved' | 'Revoked' | 'Expired' | 'Rejected'
+}
+
+export type DeviceSource = 'this-install' | 'restore'
+
+/**
+ * One device known to hold (or have held) this identity. The install's own
+ * entry is created on first launch; `restore` entries record identities
+ * restored here from another device's phrase, so the other holder stays
+ * visible until explicitly removed.
+ */
+export type DeviceRecord = {
+  id: string
+  label: string
+  platform: string
+  source: DeviceSource
+  addedAt: string
+  lastSeenAt: string
 }
 
 export type SignalProvider = {
@@ -346,6 +365,8 @@ export type BrokerAttempt = {
   authorizationServer: string
   phaseLabel: string
   provider: IdentityProvider
+  /** Broker OAuth URL to open in the system browser when the broker runs a real OAuth flow. */
+  authUrl?: string
 }
 
 export type IdentitySession = {
@@ -406,7 +427,6 @@ export type SurfaceTrait =
   | 'age-gated'
   | 'location-scoped'
   | 'time-boxed'
-  | 'delegation-enabled'
 
 export type NewSurfaceInput = {
   id: string
@@ -436,7 +456,9 @@ export type IneVerificationRecord = {
   photoUri?: string
   verifiedAt?: string
   expiresAt?: string
-  // Only proofs are shared, never raw data
+  // Derived claims shown in the UI. This is not what an app receives: a v2
+  // presentation carries the full credential and the account DID, and apps can
+  // link repeated shares (mubEZ CD-13, docs/WALLET_PRIVACY.md).
   proofs: {
     isMexicanCitizen: boolean
     isAgeEligible: boolean
@@ -497,6 +519,8 @@ export type StartSessionRequest = {
   identifier: string
   provider?: IdentityProvider
   surface?: SurfaceId
+  /** Tells the broker this client returns via the im8:// deep-link handoff. */
+  platform?: 'web' | 'mobile'
 }
 
 export type StartSessionResponse = {

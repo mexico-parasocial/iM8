@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Pressable, Text, View } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import Animated from 'react-native-reanimated'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -9,6 +10,8 @@ import { useNotifications } from '../hooks/useNotifications'
 import { useProfileContext } from '../hooks/useProfileContext'
 import type { DeepLinkRoute } from '../hooks/useDeepLink'
 import { BiometricGateModal, useBiometricGate } from '../components/m8/BiometricGate'
+import { buttonStyle, buttonTextStyle } from '../components/m8/Button'
+import { consoleStyles } from '../components/m8/ConsolePrimitives'
 import { IneVerificationModal } from '../components/m8/IneVerificationModal'
 import { SurfaceBuilderModal } from '../components/m8/SurfaceBuilderModal'
 import { SurfaceEditModal } from '../components/m8/SurfaceEditModal'
@@ -81,6 +84,7 @@ export function ConsoleScreen({
   const [activeSection, setActiveSection] = useState<ConsoleSectionId>('identity')
   const [activePersonaId, setActivePersonaId] = useState(session.personas[0]?.id ?? '')
   const [refreshing, setRefreshing] = useState(false)
+  const [refreshError, setRefreshError] = useState(false)
   const [uiRestored, setUiRestored] = useState(false)
   const [showSurfaceBuilder, setShowSurfaceBuilder] = useState(false)
   const [customSurfaces, setCustomSurfaces] = useState<NewSurfaceInput[]>([])
@@ -233,6 +237,14 @@ export function ConsoleScreen({
 
   const profileContext = useProfileContext(session, activePersona)
 
+  function handleRefresh() {
+    setRefreshing(true)
+    setRefreshError(false)
+    void onRefreshSession()
+      .catch(() => setRefreshError(true))
+      .finally(() => setRefreshing(false))
+  }
+
   async function completeVerification(record: IneVerificationRecord) {
     await onSaveIneVerification({ ...record, status: 'verified' })
     setShowIneModal(false)
@@ -275,12 +287,6 @@ export function ConsoleScreen({
     setSurfaceOverrides((prev) => ({ ...prev, [id]: updates }))
   }
 
-  function deriveSurfaceId(templateId: string): SurfaceId | null {
-    if (templateId === 'public-template' || templateId === 'public') return 'public'
-    if (templateId === 'civic-template' || templateId === 'civic') return 'civic'
-    return null
-  }
-
   function handleToggleSignalSurface(signalLabel: string, surfaceId: SurfaceId) {
     if (!activePersona) return
     void onToggleSignalSurface(activePersona.id, signalLabel, surfaceId)
@@ -292,10 +298,7 @@ export function ConsoleScreen({
       <ConsoleLayout
         scrollRef={scrollRef}
         refreshing={refreshing}
-        onRefresh={() => {
-          setRefreshing(true)
-          void onRefreshSession().finally(() => setRefreshing(false))
-        }}
+        onRefresh={handleRefresh}
         header={
           <ConsoleHeader
             notifications={notifications}
@@ -317,6 +320,23 @@ export function ConsoleScreen({
           />
         }
       >
+        {refreshError && !refreshing ? (
+          <View style={consoleStyles.receiptCard}>
+            <Text style={consoleStyles.cardTitle}>Couldn&apos;t refresh</Text>
+            <Text style={consoleStyles.cardBodyText}>
+              Your local identity is untouched.
+            </Text>
+            <Pressable
+              onPress={handleRefresh}
+              accessibilityRole="button"
+              accessibilityLabel="Try again"
+              style={[buttonStyle('primary'), consoleStyles.fullButton]}
+            >
+              <Text style={buttonTextStyle('primary')}>Try again</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
         {activeSection === 'inbox' && (
           <InboxSection
             notifications={notifications}
@@ -329,16 +349,20 @@ export function ConsoleScreen({
           <CredentialsSection
             activePersona={activePersona ?? session.personas[0]}
             grants={profileContext.grants}
+            isVerified={isVerified}
             onApproveGrant={onApproveGrant}
             onApprovePolicyChange={onApprovePolicyChange}
             onApplyPolicyChange={onApplyPolicyChange}
             onLinkPublicSocial={onLinkPublicSocial}
             onRejectPolicyChange={onRejectPolicyChange}
+            onRequestParaGrant={requestParaStarterGrant}
             onRevokeGrant={onRevokeGrant}
+            onStartVerification={() => setShowIneModal(true)}
             onUnlinkPublicSocial={onUnlinkPublicSocial}
             pendingRequests={profileContext.pendingRequests}
             policyChangeRequests={profileContext.policyChangeRequests}
             proofArtifacts={session.proofArtifacts}
+            requestingPara={requestingPara}
             session={session}
             surfaceLabel={profileContext.surfaceLabel}
           />
@@ -395,9 +419,6 @@ export function ConsoleScreen({
       <SurfaceEditModal
         visible={editingSurface !== null}
         surface={editingSurface}
-        persona={activePersona ?? session.personas[0]}
-        surfaceId={editingSurface ? deriveSurfaceId(editingSurface.id) : null}
-        onToggleSignalSurface={handleToggleSignalSurface}
         onClose={() => setEditingSurface(null)}
         onSave={handleSaveSurface}
       />

@@ -28,7 +28,6 @@ const ALL_TRAITS: { id: SurfaceTrait; label: string; category: string }[] = [
   { id: 'age-gated', label: 'Age-gated', category: 'Safety' },
   { id: 'location-scoped', label: 'Location-scoped', category: 'Safety' },
   { id: 'time-boxed', label: 'Time-boxed', category: 'Control' },
-  { id: 'delegation-enabled', label: 'Delegation enabled', category: 'Control' },
 ]
 
 const CATEGORIES = ['Privacy', 'Safety', 'Control', 'Visibility', 'Matching', 'Portability', 'UX']

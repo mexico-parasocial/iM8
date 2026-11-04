@@ -1,45 +1,74 @@
+import { useState } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import { buttonStyle, buttonTextStyle } from '../../../components/m8/Button'
 import {
   ClaimChips,
   consoleStyles,
+  StatRow,
   StatusPill,
 } from '../../../components/m8/ConsolePrimitives'
 import { Icon } from '../../../components/m8/Icon'
-import { describeVerification } from '../../../services/artifactVerification'
+import { PARA_GATED_SPACES, gatedSpaceFor } from '../../../contracts/gatedSpaces'
+import { evaluateProofGate } from '../../../services/proofGate'
+import { formatSpaceUri } from '../../../services/atproto/spaceClient'
+import { summarizeParaHub } from '../../../services/paraHub'
 import { tokens } from '../../../theme'
-import type { IdentitySession, ProofArtifact } from '../../../types'
-import { CLAIM_LABELS } from '../constants'
+import { hapticLight } from '../../../utils/haptics'
+import type { IdentitySession } from '../../../types'
 
 /**
- * PARA as one compact card: lock state, the one CTA, claims as chips, and
- * proof receipts as single rows. The provider telemetry (availability, policy
- * record, sync age) and the fixture integrations list were removed — they
- * described the backend, not anything the user can act on.
+ * PARA as the civic-power hero: verification state, the one vote guarantee,
+ * provider status, the one CTA, supported claims, the About explainer, and a
+ * stat row over the ledgers below. The per-surface PARA controls live in
+ * SurfaceDetailCard and the ledgers live in this same tab beneath the hub —
+ * the hero summarizes, never copies.
  */
 export function ParaSection({
   isVerified,
   onRequestParaGrant,
   onStartVerification,
-  proofArtifacts,
   requestingPara,
   session,
 }: {
   isVerified: boolean
   onRequestParaGrant: () => Promise<void>
   onStartVerification: () => void
-  proofArtifacts: ProofArtifact[]
   requestingPara: boolean
   session: IdentitySession
 }) {
-  const activeProofs = proofArtifacts.filter((proof) => proof.status === 'Active')
+  const [showAbout, setShowAbout] = useState(false)
+
+  const activeProofs = session.proofArtifacts.filter((proof) => proof.status === 'Active')
+  const activeGrants = session.grants.filter((grant) => grant.status === 'Active')
+  const admittedSpaces = PARA_GATED_SPACES.filter(
+    (spec) =>
+      evaluateProofGate({
+        requiredClaims: spec.requiredClaims,
+        artifacts: session.proofArtifacts,
+        audience: formatSpaceUri(gatedSpaceFor(spec, session.did)),
+      }).admitted,
+  ).length
+  const summary = summarizeParaHub({
+    isVerified,
+    activeReceiptCount: activeProofs.length,
+    activeGrantCount: activeGrants.length,
+    admittedSpaceCount: admittedSpaces,
+    totalSpaceCount: PARA_GATED_SPACES.length,
+  })
+  const provider = session.paraProvider
 
   return (
     <View style={styles.paraCard}>
       <View style={consoleStyles.rowBetween}>
         <Text style={consoleStyles.cardTitle}>PARA</Text>
-        <StatusPill label={isVerified ? 'Unlocked' : 'Locked'} tone={isVerified ? 'success' : 'neutral'} />
+        <StatusPill label={summary.statusLabel} tone={summary.statusTone} />
       </View>
+      <Text style={styles.voteLine}>
+        One vote per policy — guaranteed by your private root.
+      </Text>
+      <Text style={styles.providerLine}>
+        {provider.availability} · Synced {provider.lastSync}
+      </Text>
 
       {!isVerified ? (
         <Pressable onPress={onStartVerification} style={buttonStyle('primary')}>
@@ -59,44 +88,46 @@ export function ParaSection({
         </Pressable>
       )}
 
-      <ClaimChips claims={session.paraProvider.supportedClaims} />
+      <ClaimChips claims={provider.supportedClaims} />
 
-      <View style={styles.receipts}>
-        <Text style={styles.receiptsLabel}>Proof receipts</Text>
-        {activeProofs.length > 0 ? (
-          activeProofs.map((proof) => <ReceiptRow key={proof.id} proof={proof} />)
-        ) : (
-          <Text style={styles.receiptsEmpty}>
-            No receipts yet. Approve a request to create proof-only receipts.
+      <Pressable
+        onPress={() => {
+          hapticLight()
+          setShowAbout((current) => !current)
+        }}
+        accessibilityRole="button"
+        accessibilityLabel="What is PARA?"
+        accessibilityState={{ expanded: showAbout }}
+        style={styles.aboutRow}
+      >
+        <Text style={styles.aboutTitle}>What is PARA?</Text>
+        <View style={{ transform: [{ rotate: showAbout ? '90deg' : '0deg' }] }}>
+          <Icon name="chevronRight" size={14} color={tokens.muted} />
+        </View>
+      </Pressable>
+      {showAbout ? (
+        <View style={styles.aboutBody}>
+          <Text style={styles.aboutLine}>
+            Your private root holds one civic identity. It is never a profile.
           </Text>
-        )}
-      </View>
-    </View>
-  )
-}
+          <Text style={styles.aboutLine}>
+            Cards are faces of that root: public, or anonymous PARA cards.
+          </Text>
+          <Text style={styles.aboutLine}>
+            Apps receive proofs about you — never the underlying records.
+          </Text>
+        </View>
+      ) : null}
 
-function ReceiptRow({ proof }: { proof: ProofArtifact }) {
-  const verified = proof.verification?.status === 'verified'
-  return (
-    <View style={consoleStyles.surfaceCard}>
-      {/*
-        Two different facts, deliberately shown separately. The pill is what
-        the broker says about the proof's lifecycle; the second line is
-        whether we could confirm the issuer's signature ourselves. Collapsing
-        them would put a green tick on an assertion we cannot check.
-      */}
-      <Icon
-        name={verified ? 'shieldCheck' : 'shield'}
-        size={18}
-        color={verified ? tokens.success : tokens.warning}
+      <View style={styles.jumpDivider} />
+
+      <StatRow
+        stats={[
+          { label: 'Receipts', value: summary.receiptsLabel },
+          { label: 'App grants', value: summary.appsLabel },
+          { label: 'Gated spaces', value: summary.spacesLabel },
+        ]}
       />
-      <View style={{ flex: 1 }}>
-        <Text style={consoleStyles.rowTitle}>{CLAIM_LABELS[proof.claimType] ?? proof.label}</Text>
-        <Text style={consoleStyles.rowDetail}>
-          {proof.verification ? describeVerification(proof.verification) : 'Signature not checked'}
-        </Text>
-      </View>
-      <StatusPill label={proof.status} tone={proof.status === 'Active' ? 'success' : 'neutral'} />
     </View>
   )
 }
@@ -110,19 +141,39 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.accentBorder,
   },
-  receipts: {
-    gap: 8,
+  voteLine: {
+    color: tokens.text,
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 19,
   },
-  receiptsLabel: {
+  providerLine: {
     color: tokens.muted,
     fontSize: 12,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    marginTop: -8,
   },
-  receiptsEmpty: {
+  aboutRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  aboutTitle: {
+    color: tokens.accentSoft,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  aboutBody: {
+    gap: 6,
+    marginTop: -4,
+  },
+  aboutLine: {
     color: tokens.muted,
     fontSize: 13,
     lineHeight: 18,
+  },
+  jumpDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: tokens.glassBorder,
   },
 })

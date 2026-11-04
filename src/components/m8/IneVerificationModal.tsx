@@ -113,7 +113,7 @@ export function IneVerificationModal({
     >
       <Text style={styles.title}>INE Verification</Text>
       <Text style={styles.subtitle}>
-        Verify your Mexican civic identity. Your INE data stays private — only proofs are shared with apps.
+        Verify your Mexican civic identity. Apps never receive your INE photo or raw CURP. What you share with an app includes your account DID and can be linked across apps; it is not anonymous.
       </Text>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -197,10 +197,10 @@ export function IneVerificationModal({
             <View style={[cardStyle('warning'), { marginTop: 12 }]}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Icon name="warning" size={14} color={tokens.warning} />
-                <Text style={styles.warningTitle}>Raw data stays private</Text>
+                <Text style={styles.warningTitle}>What apps can and cannot see</Text>
               </View>
               <Text style={styles.warningBody}>
-                Apps never see your CURP, full name, or INE number. They only receive the proofs above when you explicitly approve a grant.
+                Apps never see your raw CURP, full name, or INE number. When you approve a share, the app receives your account DID with it, and a request for your CURP or district hash hands over an identifier that stays the same across apps.
               </Text>
             </View>
 

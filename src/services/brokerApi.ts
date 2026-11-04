@@ -33,6 +33,15 @@ import {
   buildLocalSession,
 } from './localSession'
 import { enrollNewIdentity } from './identityEnrollment'
+import { getRandomBytes } from 'expo-crypto'
+import { bytesToHex } from '@noble/curves/abstract/utils'
+import { signChallenge, getIdentityPublicKeys } from './seedVault'
+import {
+  registerIdentityWith,
+  buildActionProof,
+  REGISTRABLE_LABELS,
+  type RegistrableLabel,
+} from './identityRegistration'
 
 type BrokerRequestInit = RequestInit & {
   token?: string | null
@@ -47,7 +56,14 @@ let currentAccessToken: string | null = null
 let currentRefreshToken: string | null = null
 let cachedSession: IdentitySession | null = null
 
+// Production broker (Elastic IP-backed, real atproto OAuth). Dev builds keep
+// the loopback defaults below; set EXPO_PUBLIC_M8_BROKER_URL to override.
+const PROD_BROKER_URL = 'https://mubez.para-g0v.site'
+
 function getDefaultBrokerBaseUrl() {
+  if (!__DEV__) {
+    return PROD_BROKER_URL
+  }
   if (Platform.OS === 'android') {
     return 'http://10.0.2.2:8787'
   }
@@ -181,7 +197,7 @@ function parseJsonPayload(text: string) {
   }
 }
 
-async function requestJson<T>(
+export async function requestJson<T>(
   path: string,
   init: BrokerRequestInit = {}
 ): Promise<T> {
@@ -216,7 +232,8 @@ async function requestJson<T>(
           (payload as { message?: string }).message ??
           `Broker request failed with ${response.status}`)
         : `Broker request failed with ${response.status}`
-    throw new Error(message)
+    // status lets callers tell "not found" apart from an outage.
+    throw Object.assign(new Error(message), { status: response.status })
   }
 
   return payload as T
@@ -258,6 +275,20 @@ export async function postSessionStart(
       proofMode: 'proof-only',
     },
   }
+}
+
+/**
+ * Mobile OAuth handoff: swaps the single-use `exchange_code` that arrived via
+ * the im8://oauth/callback deep link for a token bundle. requestJson persists
+ * any `tokens` payload automatically, so a successful call here completes the
+ * sign-in; the caller only needs to re-read the session.
+ */
+export async function exchangeOAuthCode(code: string): Promise<{ authenticated?: boolean; sessionId?: string }> {
+  return requestJson('/sessions/exchange', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+    token: null,
+  })
 }
 
 export async function getCurrentSession(): Promise<IdentitySession> {
@@ -464,4 +495,210 @@ export async function getAnonymousIdentities(): Promise<AnonymousVoiceCard[]> {
     '/anonymous/identities'
   )
   return response.identities
+}
+
+export type CreateAnonymousIdentityInput = {
+  displayName?: string
+  surface?: 'public' | 'civic' | 'dating'
+  communityUri?: string | null
+  burnAfter?: 'none' | 'post'
+}
+
+/**
+ * Create an anonymous identity, proving possession of the `anonymous` key
+ * (F2b / CD-10). The seed never leaves seedVault; the proof anchors the new
+ * identity to its key server-side so it can later be resolved without a session.
+ */
+export async function createAnonymousIdentity(
+  input: CreateAnonymousIdentityInput = {},
+): Promise<AnonymousVoiceCard> {
+  const identityPub = (await getIdentityPublicKeys()).anonymous
+  const jti = bytesToHex(getRandomBytes(16))
+  const proof = await buildActionProof(
+    { baseUrl: getBrokerBaseUrl(), fetchFn: fetch },
+    (i) => signChallenge('anonymous', i),
+    { identityPub, action: 'create', jti },
+  )
+  const response = await requestJson<{ identity: AnonymousVoiceCard }>(
+    '/anonymous/identities',
+    { method: 'POST', body: JSON.stringify({ ...input, proof }) },
+  )
+  return response.identity
+}
+
+/**
+ * Resolve this device's anonymous identity by proof of possession (F2b /
+ * CD-10): the server finds it by the proven key, not the session. Returns null
+ * when no identity is anchored to the key yet.
+ */
+export async function resolveAnonymousIdentityByKey(): Promise<AnonymousVoiceCard | null> {
+  const identityPub = (await getIdentityPublicKeys()).anonymous
+  const jti = bytesToHex(getRandomBytes(16))
+  const proof = await buildActionProof(
+    { baseUrl: getBrokerBaseUrl(), fetchFn: fetch },
+    (i) => signChallenge('anonymous', i),
+    { identityPub, action: 'resolve', jti },
+  )
+  try {
+    const response = await requestJson<{ identity: AnonymousVoiceCard }>(
+      '/anonymous/identities/resolve',
+      { method: 'POST', body: JSON.stringify({ proof }) },
+    )
+    return response.identity
+  } catch (error) {
+    // 404 = no identity anchored to this key yet; anything else propagates.
+    if (error instanceof Error && /No identity for this key|404/.test(error.message)) {
+      return null
+    }
+    throw error
+  }
+}
+
+export type LinkAnonymousPostInput = {
+  identityId?: string
+  postUri: string
+  communityUri?: string | null
+  postType?: string
+}
+
+/**
+ * Link a post to an anonymous identity, proving possession of its key
+ * (F2b / CD-10). The proof is bound to `link-post:<postUri>`, so it authorizes
+ * only this post, and the server checks the target identity's key matches.
+ */
+export async function linkAnonymousPost(
+  input: LinkAnonymousPostInput,
+): Promise<unknown> {
+  const identityPub = (await getIdentityPublicKeys()).anonymous
+  const jti = bytesToHex(getRandomBytes(16))
+  const proof = await buildActionProof(
+    { baseUrl: getBrokerBaseUrl(), fetchFn: fetch },
+    (i) => signChallenge('anonymous', i),
+    { identityPub, action: `link-post:${input.postUri}`, jti },
+  )
+  const response = await requestJson<{ post: unknown }>('/anonymous/posts', {
+    method: 'POST',
+    body: JSON.stringify({ ...input, proof }),
+  })
+  return response.post
+}
+
+/** Build an anon-action proof of possession for `action`, signing with the
+ * anonymous key. The seed stays in seedVault. */
+async function anonymousActionProofFor(action: string) {
+  const identityPub = (await getIdentityPublicKeys()).anonymous
+  const jti = bytesToHex(getRandomBytes(16))
+  return buildActionProof(
+    { baseUrl: getBrokerBaseUrl(), fetchFn: fetch },
+    (i) => signChallenge('anonymous', i),
+    { identityPub, action, jti },
+  )
+}
+
+export type LinkGermContactInput = {
+  contactUrl: string
+  providerRef?: string
+  mode?: 'germ-card-link' | 'm8-relay-pending-germ'
+}
+
+/**
+ * Link a Germ contact to an anonymous identity, proving possession of its key
+ * (F2b / CD-10). Bound to `germ-link:<id>`.
+ */
+export async function linkGermContact(
+  identityId: string,
+  input: LinkGermContactInput,
+): Promise<unknown> {
+  const proof = await anonymousActionProofFor(`germ-link:${identityId}`)
+  const response = await requestJson<{ germ: unknown }>(
+    `/anonymous/identities/${encodeURIComponent(identityId)}/germ/link`,
+    { method: 'POST', body: JSON.stringify({ ...input, proof }) },
+  )
+  return response.germ
+}
+
+/**
+ * Unlink an identity's Germ contact, proving possession of its key
+ * (F2b / CD-10). Bound to `germ-unlink:<id>`.
+ */
+export async function unlinkGermContact(identityId: string): Promise<unknown> {
+  const proof = await anonymousActionProofFor(`germ-unlink:${identityId}`)
+  const response = await requestJson<{ germ: unknown }>(
+    `/anonymous/identities/${encodeURIComponent(identityId)}/germ/unlink`,
+    { method: 'POST', body: JSON.stringify({ proof }) },
+  )
+  return response.germ
+}
+
+export type UpdateAnonymousIdentityInput = {
+  displayName?: string
+  status?: 'active' | 'archived'
+  burnAfter?: 'none' | 'post'
+}
+
+/**
+ * Update an anonymous identity, proving possession of its key (F2b / CD-10).
+ * The proof is bound to `update:<id>`, so it authorizes only this identity, and
+ * the server checks the target row's key matches the proven one.
+ */
+export async function updateAnonymousIdentity(
+  identityId: string,
+  input: UpdateAnonymousIdentityInput = {},
+): Promise<AnonymousVoiceCard> {
+  const identityPub = (await getIdentityPublicKeys()).anonymous
+  const jti = bytesToHex(getRandomBytes(16))
+  const proof = await buildActionProof(
+    { baseUrl: getBrokerBaseUrl(), fetchFn: fetch },
+    (i) => signChallenge('anonymous', i),
+    { identityPub, action: `update:${identityId}`, jti },
+  )
+  const response = await requestJson<{ identity: AnonymousVoiceCard }>(
+    `/anonymous/identities/${encodeURIComponent(identityId)}`,
+    { method: 'PATCH', body: JSON.stringify({ ...input, proof }) },
+  )
+  return response.identity
+}
+
+/*
+ * Identity registration (mubEZ CD-9). The pure flow lives in
+ * `identityRegistration.ts` (no react-native imports, so it is testable); here
+ * we wire it to the real broker URL, a session-unbound fetch, and the seedVault
+ * signer. The registration calls deliberately do NOT attach the bearer token:
+ * correlating registration with a session would recreate the linkage the
+ * identity scheme removes. The proof of possession is the authorization.
+ */
+
+/** Register one identity, signing with the identity key. Seed stays in vault. */
+export async function registerIdentity(
+  label: RegistrableLabel,
+): Promise<{ registered: boolean; alreadyRegistered: boolean }> {
+  return registerIdentityWith(
+    { baseUrl: getBrokerBaseUrl(), fetchFn: fetch },
+    (input) => signChallenge(label, input),
+  )
+}
+
+/**
+ * Register every signable identity. Best-effort per identity: one failing does
+ * not abort the others, and the caller gets the per-label outcome.
+ */
+export async function registerSignableIdentities(): Promise<
+  Record<RegistrableLabel, { ok: true; alreadyRegistered: boolean } | { ok: false; error: string }>
+> {
+  const out = {} as Record<
+    RegistrableLabel,
+    { ok: true; alreadyRegistered: boolean } | { ok: false; error: string }
+  >
+  for (const label of REGISTRABLE_LABELS) {
+    try {
+      const result = await registerIdentity(label)
+      out[label] = { ok: true, alreadyRegistered: result.alreadyRegistered }
+    } catch (error) {
+      out[label] = {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      }
+    }
+  }
+  return out
 }
