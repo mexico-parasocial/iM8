@@ -20,6 +20,7 @@ import {
   buildSafetySnapshot,
 } from './trustPolicy'
 import { buildParaProviderStatus } from './paraAdapter'
+import { migrateLegacyIdentityDid } from './identityDid'
 import type { IdentitySession } from '../types'
 
 const LOCAL_SESSION_KEY = 'm8_local_session_v2'
@@ -96,12 +97,36 @@ export async function saveLocalSession(session: IdentitySession): Promise<void> 
 export async function loadLocalSession(): Promise<IdentitySession | null> {
   const raw = await secureGet(LOCAL_SESSION_KEY)
   if (!raw) return null
+  let stored: IdentitySession
   try {
-    const session = JSON.parse(raw) as IdentitySession
-    return ensureLocalGovernanceState(session)
+    stored = JSON.parse(raw) as IdentitySession
   } catch {
     return null
   }
+  const session = ensureLocalGovernanceState(migrateLocalSession(stored))
+  if (session.did !== stored.did) {
+    // Write the repaired DID back so the malformed one does not stay on disk.
+    // If that fails, the session is still usable: this load already returned
+    // the repaired DID, and the next load tries the write again.
+    try {
+      await saveLocalSession(session)
+    } catch {
+      // Ignored on purpose; see above.
+    }
+  }
+  return session
+}
+
+/**
+ * Repairs snapshots written by earlier builds.
+ *
+ * Builds before the did:key fix stored `did:key:z<hex>`, which no did:key
+ * parser accepts. The hex is the whole public key, so the correct DID can be
+ * rebuilt without touching the seed.
+ */
+export function migrateLocalSession(session: IdentitySession): IdentitySession {
+  const did = typeof session.did === 'string' ? migrateLegacyIdentityDid(session.did) : null
+  return did ? { ...session, did } : session
 }
 
 export async function clearLocalSession(): Promise<void> {

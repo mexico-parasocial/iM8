@@ -12,6 +12,7 @@ import {
   type BackupState,
 } from './seedVault'
 import { personaKeyRef } from './personaIdentity'
+import { didKeyForSr25519PublicKeyHex } from './identityDid'
 import type { PersonaKind } from '../types'
 
 /**
@@ -43,9 +44,13 @@ export type EnrollmentState =
  * The identity is its own public key, so whoever receives it can verify a
  * signature without asking a server who this is. A handle-derived DID can only
  * ever be looked up; this one can be checked.
+ *
+ * Encoded as a standard did:key using the sr25519-pub multicodec, since
+ * identity_pub_i is an sr25519 public key (see identityDid.ts). Verifying
+ * against it needs an sr25519 verifier, not Ed25519.
  */
 export function didForPublicKey(pubHex: string): string {
-  return `did:key:z${pubHex}`
+  return didKeyForSr25519PublicKeyHex(pubHex)
 }
 
 export interface EnrolledIdentity {
