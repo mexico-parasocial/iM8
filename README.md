@@ -1,6 +1,6 @@
 # im8
 
-im8 is the mobile and web frontend for Mexico Parasocial's scoped identity and proof-sharing experience.
+im8 is the mobile and web frontend for Mexico Parasocial's civic identity wallet and credential-sharing flows.
 
 The app is built with Expo and React Native. It keeps the user-facing identity wallet, grant review, verification, and console flows in the client while talking to an external proof broker through `EXPO_PUBLIC_M8_BROKER_URL`.
 
@@ -15,23 +15,29 @@ The proof broker and backend services are intentionally not included here. They 
 
 ## Requirements
 
-- Node.js 24 or newer.
-- npm 11 or newer.
-- Expo CLI through `npx expo`.
+- Node.js 24.18 or newer within 24.x (`engines: >=24.18.0`, `devEngines.runtime: ^24.18.0`; other versions warn).
+- pnpm 11.11.0 exactly. `package.json` pins it through `packageManager` and `devEngines.packageManager` with `onFail: "error"`, so npm, Yarn, or a different pnpm version is refused.
+- Expo CLI through `pnpm exec expo` (installed as a dependency).
+
+With Node 24, Corepack can supply the pinned pnpm:
+
+```bash
+corepack enable
+```
 
 ## Setup
 
 ```bash
-npm install
+pnpm install
 ```
 
 ## Development
 
 ```bash
-npm run start
-npm run ios
-npm run android
-npm run web
+pnpm start
+pnpm ios
+pnpm android
+pnpm web
 ```
 
 To connect the app to a proof broker, set:
@@ -45,8 +51,10 @@ On Android emulator, the default local broker URL resolves to `http://10.0.2.2:8
 ## Quality Checks
 
 ```bash
-npm run typecheck
+pnpm check
 ```
+
+This runs `pnpm typecheck` (`tsc --noEmit`), `pnpm test` (`tsx --test` over `src/**/__tests__`), and `pnpm lint` (`oxlint`). Each can also be run on its own.
 
 ## Repository Boundary
 

@@ -456,7 +456,9 @@ export type IneVerificationRecord = {
   photoUri?: string
   verifiedAt?: string
   expiresAt?: string
-  // Only proofs are shared, never raw data
+  // Derived claims shown in the UI. This is not what an app receives: a v2
+  // presentation carries the full credential and the account DID, and apps can
+  // link repeated shares (mubEZ CD-13, docs/WALLET_PRIVACY.md).
   proofs: {
     isMexicanCitizen: boolean
     isAgeEligible: boolean
